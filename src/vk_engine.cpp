@@ -208,10 +208,11 @@ void VulkanEngine::run()
 	float delta_time = 0;
 	auto last_frame = 0.0f;
 
-	// SDL_SetRelativeMouseMode(SDL_TRUE);
+	SDL_SetRelativeMouseMode(SDL_TRUE);
+	SDL_bool mouse_inside_window = SDL_TRUE;
 
 	int relX, relY;
-
+	bool move_keys[] = {0, 0, 0, 0};
 	// main loop
 	while (!bQuit)
 	{
@@ -222,15 +223,22 @@ void VulkanEngine::run()
 		last_frame = current_frame;
 
 		SDL_GetRelativeMouseState(&relX, &relY);
-
+		const Uint8 *keystate = SDL_GetKeyboardState(NULL);
+		_cam.process_input(nullptr, delta_time, relX, relY, keystate);
 		while (SDL_PollEvent(&e) != 0)
 		{
 			ImGui_ImplSDL2_ProcessEvent(&e);
-			_cam.process_input(&e, delta_time, relX, relY);
-			// close the window when user alt-f4s or clicks the X button
 			if (e.type == SDL_QUIT)
 			{
 				bQuit = true;
+			}
+			if (e.type == SDL_KEYDOWN)
+			{
+				if (e.key.keysym.sym == SDLK_ESCAPE)
+				{
+					mouse_inside_window = (SDL_bool)!mouse_inside_window;
+					SDL_SetRelativeMouseMode(mouse_inside_window);
+				}
 			}
 		}
 		ImGui_ImplVulkan_NewFrame();
@@ -1026,8 +1034,9 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject *first, int co
 
 	float framed = (_frameNumber / 120.f);
 
-	//_sceneParameters.ambientColor = {sin(framed), 0, cos(framed), 1};
-	_sceneParameters.ambientColor = {0, 0, 0, 1};
+	_sceneParameters.ambientColor = {sin(framed), 0, cos(framed), 1};
+	_sceneParameters.fogColor = {0.5, 0.5, 0.5, 1};
+	_sceneParameters.fogDistances = {0, 1, 0, 0};
 
 	char *sceneData;
 	vmaMapMemory(_allocator, _sceneParameterBuffer._allocation, (void **)&sceneData);

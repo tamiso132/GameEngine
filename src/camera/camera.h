@@ -7,7 +7,7 @@ class Camera
 public:
     glm::mat4x4 get_projection();
     glm::mat4x4 get_view();
-    void process_input(SDL_Event *event, float deltaTime, int mouse_delta_x, int mouse_delta_y);
+    void process_input(SDL_Event *event, float deltaTime, int mouse_delta_x, int mouse_delta_y, const uint8_t *keycode);
 
 private:
     glm::vec3 _camPos = glm::vec3(0.0f, 0.0f, 3.0f);

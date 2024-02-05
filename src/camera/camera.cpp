@@ -13,59 +13,55 @@ glm::mat4x4 Camera::get_view()
     return view;
 }
 
-void Camera::process_input(SDL_Event *event, float deltaTime, int mouse_delta_x, int mouse_delta_y)
+void Camera::process_input(SDL_Event *event, float deltaTime, int mouse_delta_x, int mouse_delta_y, const uint8_t *keystate)
 {
 
-    if (event->type == SDL_MOUSEMOTION)
+    //   if (event->type == SDL_MOUSEMOTION)
+    glm::vec3 direction;
+
+    float sensitivity = 0.1f;
+
+    mouse_delta_x *= sensitivity;
+    mouse_delta_y *= sensitivity;
+
+    _yaw += mouse_delta_x;
+    _pitch += mouse_delta_y * -1;
+
+    if (_pitch > 89.0f)
+        _pitch = 89.0f;
+    if (_pitch < -89.0f)
+        _pitch = -89.0f;
+
+    direction.x = cos(glm::radians(_yaw)) * cos(glm::radians(_pitch));
+    direction.y = sin(glm::radians(_pitch));
+    direction.z = sin(glm::radians(_yaw)) * cos(glm::radians(_pitch));
+
+    _camFront = glm::normalize(direction);
+    //  }
+
+    //   if (event->type == SDL_KEYDOWN)
+    const float camera_speed = 2.5f * deltaTime;
+    // Handle key events
+    SDL_KeyboardEvent keyEvent = event->key;
+    if (keystate[SDL_SCANCODE_W])
     {
-        glm::vec3 direction;
-
-        float sensitivity = 0.1f;
-
-        mouse_delta_x *= sensitivity;
-        mouse_delta_y *= sensitivity;
-
-        _yaw += mouse_delta_x;
-        _pitch += mouse_delta_y * -1;
-
-        if (_pitch > 89.0f)
-            _pitch = 89.0f;
-        if (_pitch < -89.0f)
-            _pitch = -89.0f;
-
-        direction.x = cos(glm::radians(_yaw)) * cos(glm::radians(_pitch));
-        direction.y = sin(glm::radians(_pitch));
-        direction.z = sin(glm::radians(_yaw)) * cos(glm::radians(_pitch));
-
-        _camFront = glm::normalize(direction);
+        auto d = camera_speed * _camFront;
+        // printf("speed x: %f\n", d.x);
+        // printf("speed y: %f\n", d.y);
+        // printf("speed z: %f\n", d.z);
+        // printf("\n\n");
+        _camPos += camera_speed * _camFront;
     }
-
-    if (event->type == SDL_KEYDOWN)
+    if (keystate[SDL_SCANCODE_S])
     {
-        const float camera_speed = 2.5f * deltaTime;
-        // Handle key events
-        SDL_KeyboardEvent keyEvent = event->key;
-        if (keyEvent.keysym.sym == SDLK_w)
-        {
-            auto d = camera_speed * _camFront;
-            printf("speed x: %f\n", d.x);
-            printf("speed y: %f\n", d.y);
-            printf("speed z: %f\n", d.z);
-            printf("\n\n");
-            _camPos += camera_speed * _camFront;
-        }
-        if (keyEvent.keysym.sym == SDLK_s)
-        {
-            _camPos -= camera_speed * _camFront;
-        }
-        if (keyEvent.keysym.sym == SDLK_a)
-        {
-            _camPos -= glm::normalize(glm::cross(_camFront, _camUp)) * camera_speed;
-        }
-        else if (keyEvent.keysym.sym == SDLK_d)
-        {
-            _camPos += glm::normalize(glm::cross(_camFront, _camUp)) * camera_speed;
-        }
-        printf("\n\n");
+        _camPos -= camera_speed * _camFront;
+    }
+    if (keystate[SDL_SCANCODE_A])
+    {
+        _camPos -= glm::normalize(glm::cross(_camFront, _camUp)) * camera_speed;
+    }
+    if (keystate[SDL_SCANCODE_D])
+    {
+        _camPos += glm::normalize(glm::cross(_camFront, _camUp)) * camera_speed;
     }
 }
