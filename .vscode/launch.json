@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+      {
+          "name": "Your Vulkan App",
+          "type": "cppdbg",
+          "request": "launch",
+          "program": "${workspaceFolder}/build/src/VulkanGuide",
+          "args": [],
+          "stopAtEntry": false,
+          "cwd": "${workspaceFolder}",
+          "environment": [],
+          "externalConsole": false,
+          "MIMode": "gdb",
+          "preLaunchTask": "Build Vulkan App",  // Specify the name of your build task
+          "setupCommands": [
+              {
+                  "description": "Enable pretty-printing for gdb",
+                  "text": "-enable-pretty-printing",
+                  "ignoreFailures": true
+              }
+          ],
+          "includePath": [
+            "${workspaceFolder}/src",
+            "${workspaceFolder}/path/to/other/includes"
+          ]
+      }
+  ]
+}
