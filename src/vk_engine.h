@@ -1,8 +1,8 @@
 ﻿// vulkan_guide.h : Include file for standard system include files,
 // or project specific include files.
-#define GLM_ENABLE_EXPERIMENTAL
 
 #pragma once
+#define GLM_ENABLE_EXPERIMENTAL
 
 #include <vk_types.h>
 #include <vector>
@@ -14,6 +14,11 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
+
+#include "camera/camera.h"
+
+#include <SDL2/SDL_vulkan.h>
+#include <SDL2/SDL.h>
 
 class PipelineBuilder
 {
@@ -184,7 +189,9 @@ public:
 
 	VkDescriptorPool _imgui_pool;
 
-	glm::vec3 _camPos = {-10.f, -6.f, -10.f};
+	Camera _cam;
+
+	
 	void init();
 
 	// shuts down the engine

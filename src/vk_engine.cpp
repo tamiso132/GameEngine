@@ -1,9 +1,6 @@
 ﻿
 #include "vk_engine.h"
 
-#include <SDL.h>
-#include <SDL_vulkan.h>
-
 #include <vk_types.h>
 #include <vk_initializers.h>
 
@@ -74,6 +71,10 @@ void VulkanEngine::init()
 	load_meshes();
 
 	init_scene();
+
+	SDL_Rect rect;
+	SDL_GetDisplayBounds(1, &rect);
+	SDL_SetWindowPosition(_window, rect.x, rect.y);
 	// everything went fine
 	_isInitialized = true;
 }
@@ -199,65 +200,39 @@ void VulkanEngine::run()
 	bool bQuit = false;
 
 	// Initialize time variables
-	auto start_time = std::chrono::high_resolution_clock::now();
-	auto last_frame_time = start_time;
 
 	// Define frame rate and calculate frame duration
 	const double target_fps = 60.0;
 	const double target_frame_duration = 1.0 / target_fps;
 
+	float delta_time = 0;
+	auto last_frame = 0.0f;
+
+	// SDL_SetRelativeMouseMode(SDL_TRUE);
+
+	int relX, relY;
+
 	// main loop
 	while (!bQuit)
 	{
-		auto current_time = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> elapsed_seconds = current_time - last_frame_time;
-		last_frame_time = current_time;
-		double delta_time = elapsed_seconds.count();
-		// Handle events on queue
-		glm::vec3 velocity = {0, 0, 0};
+
+		float current_frame = (float)SDL_GetTicks64() / 1000;
+
+		delta_time = current_frame - last_frame;
+		last_frame = current_frame;
+
+		SDL_GetRelativeMouseState(&relX, &relY);
+
 		while (SDL_PollEvent(&e) != 0)
 		{
 			ImGui_ImplSDL2_ProcessEvent(&e);
+			_cam.process_input(&e, delta_time, relX, relY);
 			// close the window when user alt-f4s or clicks the X button
 			if (e.type == SDL_QUIT)
 			{
 				bQuit = true;
 			}
-			else if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP)
-			{
-				// Handle key events
-				SDL_KeyboardEvent keyEvent = e.key;
-				if (keyEvent.keysym.sym == SDLK_w)
-				{
-					if (keyEvent.type == SDL_KEYDOWN)
-					{
-						velocity.z = 10;
-					}
-					else if (keyEvent.type == SDL_KEYUP)
-					{
-						velocity.z = 0;
-					}
-				}
-				else if (keyEvent.keysym.sym == SDLK_a)
-				{
-					// Handle 'A' key
-				}
-				else if (keyEvent.keysym.sym == SDLK_d)
-				{
-					// Handle 'D' key
-				}
-			}
 		}
-		auto frame_duration = std::chrono::duration_cast<std::chrono::microseconds>(current_time - start_time);
-		// std::cout << "Frame took: " << frame_duration.count() << " microseconds." << std::endl;
-
-		// Delay to achieve target frame rate
-		double sleep_time = target_frame_duration - delta_time;
-		// if (sleep_time > 0)
-		// {
-		// 	std::this_thread::sleep_for(std::chrono::duration<double>(sleep_time));
-		// }
-		_camPos.z += velocity.z * delta_time;
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplSDL2_NewFrame(_window);
 
@@ -1032,15 +1007,15 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject *first, int co
 	// make a model view matrix for rendering the object
 	// camera view
 
-	glm::mat4 view = glm::translate(glm::mat4(1.f), _camPos);
-	// camera projection
+	auto view = _cam.get_view();
+	//  camera projection
 	glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
 	projection[1][1] *= -1;
 
 	GPUCameraData camData;
 	camData.proj = projection;
 	camData.view = view;
-	camData.viewproj = projection * view;
+	camData.viewproj = projection * camData.view;
 
 	void *data;
 	vmaMapMemory(_allocator, get_current_frame().cameraBuffer._allocation, &data);
@@ -1135,7 +1110,7 @@ void VulkanEngine::init_scene()
 	monkey.material = get_material("defaultmesh");
 	monkey.transformMatrix = glm::mat4{1.0f};
 
-	_renderables.push_back(monkey);
+	//_renderables.push_back(monkey);
 
 	RenderObject map;
 	map.mesh = get_mesh("empire");

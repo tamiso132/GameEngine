@@ -21,6 +21,8 @@ vk_textures.cpp
 vk_textures.h
 vk_initializers.cpp
 vk_initializers.h
+camera/camera.cpp
+camera/camera.h
 )
 
 target_include_directories(VulkanGuide PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS})
