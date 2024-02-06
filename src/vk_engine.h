@@ -102,7 +102,7 @@ struct FrameData
 	AllocatedBuffer objectBuffer;
 	VkDescriptorSet objectDescriptor;
 
-	DescriptorAllocator dynamicDescriptorAllocator;
+	//DescriptorAllocator dynamicDescriptorAllocator;
 };
 
 struct UploadContext

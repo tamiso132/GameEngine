@@ -1314,6 +1314,7 @@ void VulkanEngine::init_descriptors()
 		objectSetAlloc.descriptorSetCount = 1;
 		objectSetAlloc.pSetLayouts = &_objectSetLayout;
 
+		vkAllocateDescriptorSets(_device, &allocInfo, &_frames[i].globalDescriptor);
 		vkAllocateDescriptorSets(_device, &objectSetAlloc, &_frames[i].objectDescriptor);
 
 		VkDescriptorBufferInfo cameraInfo;
