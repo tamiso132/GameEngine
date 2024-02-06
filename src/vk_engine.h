@@ -19,6 +19,7 @@
 
 #include <SDL2/SDL_vulkan.h>
 #include <SDL2/SDL.h>
+#include "vk_descriptors.h"
 
 class PipelineBuilder
 {
@@ -100,6 +101,8 @@ struct FrameData
 
 	AllocatedBuffer objectBuffer;
 	VkDescriptorSet objectDescriptor;
+
+	DescriptorAllocator dynamicDescriptorAllocator;
 };
 
 struct UploadContext
@@ -191,7 +194,6 @@ public:
 
 	Camera _cam;
 
-	
 	void init();
 
 	// shuts down the engine

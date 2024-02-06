@@ -23,6 +23,8 @@ vk_initializers.cpp
 vk_initializers.h
 camera/camera.cpp
 camera/camera.h
+vk_descriptors.cpp
+vk_descriptors.h
 )
 
 target_include_directories(VulkanGuide PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS})

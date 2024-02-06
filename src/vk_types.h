@@ -6,12 +6,28 @@
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 
-struct AllocatedBuffer {
+#include <iostream>
+#include <fstream>
+
+struct AllocatedBuffer
+{
 	VkBuffer _buffer;
 	VmaAllocation _allocation;
 };
 
-struct AllocatedImage {
+struct AllocatedImage
+{
 	VkImage _image;
 	VmaAllocation _allocation;
 };
+
+#define VK_CHECK(x)                                                     \
+	do                                                                  \
+	{                                                                   \
+		VkResult err = x;                                               \
+		if (err)                                                        \
+		{                                                               \
+			std::cout << "Detected Vulkan error: " << err << std::endl; \
+			abort();                                                    \
+		}                                                               \
+	} while (0)

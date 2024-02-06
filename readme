@@ -1,8 +1,74 @@
-Stuff that need to get done
 
-- Collision detection (AABB)
-- Fix the moving delay
-- implement quateriation instead of euler
-- asset loading into  
 
-- different lightings
+
+```diff
+# - text in red
+# + text in green
+# ! text in orange
+# # text in gray
+
+-   Todo stuff
+
+!   Collision detection (AABB)
+
+!   Fix the moving delay
+
+!   implement quateriation instead of euler
+
+!   asset loading into
+
+
+!   different lightings
+
+
+- Collsion stuff info
+!Broad-Phase:
+        Objective: Quickly identify potential collision pairs.
+        Techniques:
+            Bounding Volume Hierarchy (BVH)
+            Sweep and Prune
+            Uniform Grid
+            Octrees
+            Axis-Aligned Bounding Boxes (AABB) checks
+
+!Narrow-Phase:
+        Objective: Determine if collisions actually occur between detailed representations of objects.
+        Techniques:
+!           Geometric Algorithms:
+                Ray-Casting
+                Point-in-Polygon
+                Separating Axis Theorem (SAT)
+!            Bounding Volume Tests:
+                AABB vs. AABB
+                OBB vs. OBB (Oriented Bounding Boxes)
+!            Mesh-Based Collision Detection:
+                Triangle-Triangle Intersection
+                Continuous Collision Detection
+!            Distance Queries:
+                Closest Point Queries
+                Ray-Casting for Intersections
+
+!   Response:
+        Objective: Handle the consequences of a collision.
+        Techniques:
+!            Impulse Resolution:
+                Apply forces or impulses to objects.
+                Adjust velocities based on the collision.
+!            Physics-Based Simulation:
+                Update positions and velocities according to physical laws.
+!            Constraint Solving:
+                Resolve interpenetrations and constraints in a physically plausible way.
+
+!   Continuous Collision Detection (CCD):
+        Objective: Detect collisions during motion to prevent objects from passing through each other.
+        Techniques:
+            Predict the motion of objects and check for collisions along the trajectory.
+            Time-stepping methods.
+
+!   Sweep and Prune (Dynamic Broad-Phase):
+        Objective: Efficiently handle moving objects in broad-phase collision detection.
+        Techniques:
+            Sort and sweep objects along a specific axis.
+            Update the sorted order as objects move.
+
+```

@@ -18,20 +18,12 @@
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
 
+#include "vk_descriptors.h"
+
 constexpr bool bUseValidationLayers = true;
 
 // we want to immediately abort when there is an error. In normal engines this would give an error message to the user, or perform a dump of state.
 using namespace std;
-#define VK_CHECK(x)                                                     \
-	do                                                                  \
-	{                                                                   \
-		VkResult err = x;                                               \
-		if (err)                                                        \
-		{                                                               \
-			std::cout << "Detected Vulkan error: " << err << std::endl; \
-			abort();                                                    \
-		}                                                               \
-	} while (0)
 
 void VulkanEngine::init()
 {
@@ -214,6 +206,7 @@ void VulkanEngine::run()
 	int relX, relY;
 	bool move_keys[] = {0, 0, 0, 0};
 	// main loop
+	const Uint8 *keystate = SDL_GetKeyboardState(NULL);
 	while (!bQuit)
 	{
 
@@ -223,7 +216,6 @@ void VulkanEngine::run()
 		last_frame = current_frame;
 
 		SDL_GetRelativeMouseState(&relX, &relY);
-		const Uint8 *keystate = SDL_GetKeyboardState(NULL);
 		_cam.process_input(nullptr, delta_time, relX, relY, keystate);
 		while (SDL_PollEvent(&e) != 0)
 		{
@@ -270,7 +262,7 @@ void VulkanEngine::init_vulkan()
 	auto inst_ret = builder.set_app_name("Example Vulkan Application")
 						.request_validation_layers(bUseValidationLayers)
 						.use_default_debug_messenger()
-						.require_api_version(1, 2, 0)
+						.require_api_version(1, 3, 0)
 						.build();
 
 	vkb::Instance vkb_inst = inst_ret.value();
@@ -287,7 +279,7 @@ void VulkanEngine::init_vulkan()
 
 	vkb::PhysicalDeviceSelector selector{vkb_inst};
 	vkb::PhysicalDevice physicalDevice = selector
-											 .set_minimum_version(1, 1)
+											 .set_minimum_version(1, 3)
 											 .set_required_features_11(features_11)
 											 .set_surface(_surface)
 											 .select()
@@ -563,19 +555,19 @@ void VulkanEngine::init_sync_structures()
 void VulkanEngine::init_pipelines()
 {
 	VkShaderModule colorMeshShader;
-	if (!load_shader_module("shaders/default_lit.frag.spv", &colorMeshShader))
+	if (!load_shader_module("shaders/spiv/default_lit.frag.spv", &colorMeshShader))
 	{
 		std::cout << "Error when building the colored mesh shader" << std::endl;
 	}
 
 	VkShaderModule texturedMeshShader;
-	if (!load_shader_module("shaders/textured_lit.frag.spv", &texturedMeshShader))
+	if (!load_shader_module("shaders/spiv/textured_lit.frag.spv", &texturedMeshShader))
 	{
 		std::cout << "Error when building the colored mesh shader" << std::endl;
 	}
 
 	VkShaderModule meshVertShader;
-	if (!load_shader_module("shaders/tri_mesh_ssbo.vert.spv", &meshVertShader))
+	if (!load_shader_module("shaders/spiv/tri_mesh_ssbo.vert.spv", &meshVertShader))
 	{
 		std::cout << "Error when building the mesh vertex shader module" << std::endl;
 	}
@@ -1162,7 +1154,6 @@ void VulkanEngine::init_scene()
 
 	_mainDeletionQueue.push_function([=]()
 									 { vkDestroySampler(_device, blockySampler, nullptr); });
-
 	VkDescriptorImageInfo imageBufferInfo;
 	imageBufferInfo.sampler = blockySampler;
 	imageBufferInfo.imageView = _loadedTextures["empire_diffuse"].imageView;
@@ -1171,6 +1162,11 @@ void VulkanEngine::init_scene()
 	VkWriteDescriptorSet texture1 = vkinit::write_descriptor_image(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texturedMat->textureSet, &imageBufferInfo, 0);
 
 	vkUpdateDescriptorSets(_device, 1, &texture1, 0, nullptr);
+
+	// DescriptorWriter writer;
+	// writer.write_image(0, _loadedTextures["empire_diffuse"].imageView, blockySampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+	// writer.update_set(_device, texturedMat->textureSet);
 }
 
 AllocatedBuffer VulkanEngine::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
@@ -1245,6 +1241,8 @@ void VulkanEngine::init_descriptors()
 			{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10},
 			{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10}};
 
+	VkDescriptorSet GlobalSet;
+
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	pool_info.flags = 0;
@@ -1296,6 +1294,7 @@ void VulkanEngine::init_descriptors()
 
 	for (int i = 0; i < FRAME_OVERLAP; i++)
 	{
+
 		_frames[i].cameraBuffer = create_buffer(sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 		const int MAX_OBJECTS = 10000;
@@ -1307,8 +1306,6 @@ void VulkanEngine::init_descriptors()
 		allocInfo.descriptorPool = _descriptorPool;
 		allocInfo.descriptorSetCount = 1;
 		allocInfo.pSetLayouts = &_globalSetLayout;
-
-		vkAllocateDescriptorSets(_device, &allocInfo, &_frames[i].globalDescriptor);
 
 		VkDescriptorSetAllocateInfo objectSetAlloc = {};
 		objectSetAlloc.pNext = nullptr;
