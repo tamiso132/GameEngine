@@ -25,6 +25,8 @@ constexpr bool bUseValidationLayers = true;
 // would give an error message to the user, or perform a dump of state.
 using namespace std;
 
+std::vector<const char *> device_extensions = {"VK_KHR_dynamic_rendering"};
+
 void VulkanEngine::init() {
   // We initialize SDL and create a window with it.
   SDL_Init(SDL_INIT_VIDEO);
@@ -148,6 +150,30 @@ void VulkanEngine::draw() {
   vkCmdEndRenderPass(cmd);
   // finalize the command buffer (we can no longer add commands, but it can now
   // be executed)
+
+  const VkRenderingAttachmentInfoKHR color_attachment_info{
+      .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+      .imageView = _swapchainImageViews[swapchainImageIndex],
+      .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+      .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+      .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+      .clearValue = clear_value,
+  };
+
+  const VkRenderingInfoKHR render_info{
+      .sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
+      .renderArea = _meshpip,
+      .layerCount = 1,
+      .colorAttachmentCount = 1,
+      .pColorAttachments = &color_attachment_info,
+  };
+
+  vkCmdBeginRenderingKHR(command_buffer, &render_info);
+
+  // Draw calls here
+
+  vkCmdEndRenderingKHR(command_buffer);
+
   VK_CHECK(vkEndCommandBuffer(cmd));
 
   // prepare the submission to the queue.
@@ -275,10 +301,15 @@ void VulkanEngine::init_vulkan() {
   VkPhysicalDeviceVulkan11Features features_11;
   features_11.shaderDrawParameters = true;
 
+  VkPhysicalDeviceVulkan13Features features_13;
+  features_13.dynamicRendering = true;
+
   vkb::PhysicalDeviceSelector selector{vkb_inst};
   vkb::PhysicalDevice physicalDevice =
       selector.set_minimum_version(1, 3)
           .set_required_features_11(features_11)
+          .set_required_features_13(features_13)
+          .add_required_extension(device_extensions[0])
           .set_surface(_surface)
           .select()
           .value();
@@ -737,6 +768,10 @@ void VulkanEngine::init_pipelines() {
   update_material_pipeline(texPipeline, texturedPipeLayout, "texturedmesh");
 
   pipelineBuilder._shaderStages.clear();
+
+  VertexInputDescription opengl_vertex_desc =
+      VertexOpengl::get_vertex_description();
+
   pipelineBuilder._shaderStages.push_back(
       vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT,
                                                 triangle_shader_vert));
@@ -749,11 +784,15 @@ void VulkanEngine::init_pipelines() {
       vkinit::depth_stencil_create_info(false, false, VK_COMPARE_OP_ALWAYS);
   pipelineBuilder._pipelineLayout = _opengl_layout;
 
-  pipelineBuilder._vertexInputInfo.pVertexAttributeDescriptions = nullptr;
-  pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount = 0;
+  pipelineBuilder._vertexInputInfo.pVertexAttributeDescriptions =
+      opengl_vertex_desc.attributes.data();
+  pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount =
+      opengl_vertex_desc.attributes.size();
 
-  pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions = nullptr;
-  pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount = 0;
+  pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions =
+      opengl_vertex_desc.bindings.data();
+  pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount =
+      opengl_vertex_desc.bindings.size();
 
   _opengl_pipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
 
@@ -1245,32 +1284,6 @@ void VulkanEngine::init_scene() {
       _renderables.push_back(tri);
     }
   }
-
-  // Material *texturedMat = get_material("texturedmesh");
-  // // _descriptorAllocator->allocate(&texturedMat->textureSet,
-  // //                                _singleTextureSetLayout);
-  // VkSamplerCreateInfo samplerInfo =
-  //     vkinit::sampler_create_info(VK_FILTER_NEAREST);
-
-  // VkSampler blockySampler;
-  // vkCreateSampler(_device, &samplerInfo, nullptr, &blockySampler);
-
-  // VkDescriptorImageInfo imageBufferInfo;
-  // imageBufferInfo.sampler = blockySampler;
-  // imageBufferInfo.imageView = _loadedTextures["empire_diffuse"].imageView;
-  // imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-  // vkutil::DescriptorBuilder::begin(_descriptorLayoutCache,
-  // _descriptorAllocator)
-  //     .bind_image(0, &imageBufferInfo,
-  //                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-  //                 VK_SHADER_STAGE_FRAGMENT_BIT)
-  //     .build(texturedMat->textureSet, _singleTextureSetLayout);
-
-  _mainDeletionQueue.push_function([=]() {
-    // vkDestroyDescriptorSetLayout(_device, _singleTextureSetLayout, nullptr);
-    // vkDestroySampler(_device, blockySampler, nullptr);
-  });
 }
 
 AllocatedBuffer VulkanEngine::create_buffer(size_t allocSize,
@@ -1424,7 +1437,6 @@ void VulkanEngine::init_descriptors() {
   }
 
   _mainDeletionQueue.push_function([&]() {
-    // THERE IS A PROBLEM HERE
     vmaDestroyBuffer(_allocator, _sceneParameterBuffer._buffer,
                      _sceneParameterBuffer._allocation);
 
@@ -1440,9 +1452,6 @@ void VulkanEngine::init_descriptors() {
       _frames[i].layoutCacheAllocator->cleanup();
       _frames[i].dynamicDescriptorAllocator->cleanup();
     }
-    // vkDestroyDescriptorSetLayout(_device, _objectSetLayout, nullptr);
-    // vkDestroyDescriptorSetLayout(_device, _globalSetLayout, nullptr);
-
     _descriptorAllocator->cleanup();
     _descriptorLayoutCache->cleanup();
   });
