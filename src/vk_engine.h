@@ -21,7 +21,8 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 
-class PipelineBuilder {
+class PipelineBuilder
+{
 public:
   std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
   VkPipelineVertexInputStateCreateInfo _vertexInputInfo;
@@ -36,16 +37,20 @@ public:
   VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
 };
 
-struct DeletionQueue {
+struct DeletionQueue
+{
   std::deque<std::function<void()>> deletors;
 
-  void push_function(std::function<void()> &&function) {
+  void push_function(std::function<void()> &&function)
+  {
     deletors.push_back(function);
   }
 
-  void flush() {
+  void flush()
+  {
     // reverse iterate the deletion queue to execute all the functions
-    for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+    for (auto it = deletors.rbegin(); it != deletors.rend(); it++)
+    {
       (*it)(); // call functors
     }
 
@@ -53,23 +58,27 @@ struct DeletionQueue {
   }
 };
 
-struct MeshPushConstants {
+struct MeshPushConstants
+{
   glm::vec4 data;
   glm::mat4 render_matrix;
 };
 
-struct Material {
+struct Material
+{
   VkDescriptorSet textureSet{VK_NULL_HANDLE};
   VkPipeline pipeline;
   VkPipelineLayout pipelineLayout;
 };
 
-struct Texture {
+struct Texture
+{
   AllocatedImage image;
   VkImageView imageView;
 };
 
-struct RenderObject {
+struct RenderObject
+{
   Mesh *mesh;
 
   Material *material;
@@ -77,7 +86,8 @@ struct RenderObject {
   glm::mat4 transformMatrix;
 };
 
-struct FrameData {
+struct FrameData
+{
   VkSemaphore _presentSemaphore, _renderSemaphore;
   VkFence _renderFence;
 
@@ -98,18 +108,27 @@ struct FrameData {
   // DescriptorAllocator dynamicDescriptorAllocator;
 };
 
-struct UploadContext {
+struct FrameDataOpengl
+{
+  AllocatedBuffer objectBuffer;
+  VkDescriptorSet objectDescriptor;
+};
+
+struct UploadContext
+{
   VkFence _uploadFence;
   VkCommandPool _commandPool;
   VkCommandBuffer _commandBuffer;
 };
-struct GPUCameraData {
+struct GPUCameraData
+{
   glm::mat4 view;
   glm::mat4 proj;
   glm::mat4 viewproj;
 };
 
-struct GPUSceneData {
+struct GPUSceneData
+{
   glm::vec4 fogColor;     // w is for exponent
   glm::vec4 fogDistances; // x for min, y for max, zw unused.
   glm::vec4 ambientColor;
@@ -117,13 +136,15 @@ struct GPUSceneData {
   glm::vec4 sunlightColor;
 };
 
-struct GPUObjectData {
+struct GPUObjectData
+{
   glm::mat4 modelMatrix;
 };
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 
-class VulkanEngine {
+class VulkanEngine
+{
 public:
   bool _isInitialized{false};
   int _frameNumber{0};
@@ -141,6 +162,8 @@ public:
   VkPhysicalDeviceProperties _gpuProperties;
 
   FrameData _frames[FRAME_OVERLAP];
+
+  FrameDataOpengl _openglFrames[FRAME_OVERLAP];
 
   VkQueue _graphicsQueue;
   uint32_t _graphicsQueueFamily;
@@ -170,6 +193,8 @@ public:
   VkDescriptorSetLayout _objectSetLayout;
   VkDescriptorSetLayout _singleTextureSetLayout;
 
+  VkDescriptorSetLayout _objectOpenglLayout;
+
   GPUSceneData _sceneParameters;
   AllocatedBuffer _sceneParameterBuffer;
 
@@ -187,6 +212,8 @@ public:
   VkPipelineLayout _opengl_layout;
 
   VkSampler _blockySampler;
+
+  std::vector<VertexOpengl> _openglVertices;
 
   void init();
 

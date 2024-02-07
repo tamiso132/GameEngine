@@ -1,0 +1,55 @@
+"filename", "language", "Ini", "C++", "Shell Script", "JSON", "comment", "blank", "total"
+"/home/tom/projects/GameEngine/build.sh", "Shell Script", 0, 0, 4, 0, 0, 0, 4
+"/home/tom/projects/GameEngine/imgui.ini", "Ini", 6, 0, 0, 0, 0, 3, 9
+"/home/tom/projects/GameEngine/release.sh", "Shell Script", 0, 0, 2, 0, 0, 0, 2
+"/home/tom/projects/GameEngine/run.sh", "Shell Script", 0, 0, 2, 0, 1, 0, 3
+"/home/tom/projects/GameEngine/shaderbuild.sh", "Shell Script", 0, 0, 5, 0, 4, 4, 13
+"/home/tom/projects/GameEngine/src/camera/camera.cpp", "C++", 0, 48, 0, 0, 8, 12, 68
+"/home/tom/projects/GameEngine/src/camera/camera.h", "C++", 0, 16, 0, 0, 0, 4, 20
+"/home/tom/projects/GameEngine/src/input/input_manager.cpp", "C++", 0, 0, 0, 0, 0, 1, 1
+"/home/tom/projects/GameEngine/src/input/input_manager.h", "C++", 0, 40, 0, 0, 0, 11, 51
+"/home/tom/projects/GameEngine/src/main.cpp", "C++", 0, 9, 0, 0, 0, 5, 14
+"/home/tom/projects/GameEngine/src/vk_descriptors.cpp", "C++", 0, 226, 0, 0, 17, 57, 300
+"/home/tom/projects/GameEngine/src/vk_descriptors.h", "C++", 0, 76, 0, 0, 3, 24, 103
+"/home/tom/projects/GameEngine/src/vk_engine.cpp", "C++", 0, 800, 0, 0, 224, 326, 1350
+"/home/tom/projects/GameEngine/src/vk_engine.h", "C++", 0, 194, 0, 0, 17, 83, 294
+"/home/tom/projects/GameEngine/src/vk_initializers.cpp", "C++", 0, 261, 0, 0, 11, 54, 326
+"/home/tom/projects/GameEngine/src/vk_initializers.h", "C++", 0, 28, 0, 0, 2, 26, 56
+"/home/tom/projects/GameEngine/src/vk_mesh.cpp", "C++", 0, 99, 0, 0, 27, 27, 153
+"/home/tom/projects/GameEngine/src/vk_mesh.h", "C++", 0, 26, 0, 0, 0, 8, 34
+"/home/tom/projects/GameEngine/src/vk_textures.cpp", "C++", 0, 73, 0, 0, 5, 35, 113
+"/home/tom/projects/GameEngine/src/vk_textures.h", "C++", 0, 6, 0, 0, 2, 5, 13
+"/home/tom/projects/GameEngine/src/vk_types.h", "C++", 0, 25, 0, 0, 2, 6, 33
+"/home/tom/projects/GameEngine/thirdparty/fastgltf/base64.cpp", "C++", 0, 298, 0, 0, 74, 81, 453
+"/home/tom/projects/GameEngine/thirdparty/fastgltf/fastgltf.cpp", "C++", 0, 4076, 0, 0, 149, 667, 4892
+"/home/tom/projects/GameEngine/thirdparty/fastgltf/fastgltf/base64.hpp", "C++", 0, 45, 0, 0, 36, 12, 93
+"/home/tom/projects/GameEngine/thirdparty/fastgltf/fastgltf/core.hpp", "C++", 0, 465, 0, 0, 310, 134, 909
+"/home/tom/projects/GameEngine/thirdparty/fastgltf/fastgltf/glm_element_traits.hpp", "C++", 0, 49, 0, 0, 2, 26, 77
+"/home/tom/projects/GameEngine/thirdparty/fastgltf/fastgltf/tools.hpp", "C++", 0, 538, 0, 0, 66, 109, 713
+"/home/tom/projects/GameEngine/thirdparty/fastgltf/fastgltf/types.hpp", "C++", 0, 1413, 0, 0, 325, 325, 2063
+"/home/tom/projects/GameEngine/thirdparty/fastgltf/fastgltf/util.hpp", "C++", 0, 254, 0, 0, 75, 36, 365
+"/home/tom/projects/GameEngine/thirdparty/imgui/imconfig.h", "C++", 0, 1, 0, 0, 110, 21, 132
+"/home/tom/projects/GameEngine/thirdparty/imgui/imgui.cpp", "C++", 0, 11260, 0, 0, 2841, 1584, 15685
+"/home/tom/projects/GameEngine/thirdparty/imgui/imgui.h", "C++", 0, 2062, 0, 0, 937, 305, 3304
+"/home/tom/projects/GameEngine/thirdparty/imgui/imgui_demo.cpp", "C++", 0, 6809, 0, 0, 935, 779, 8523
+"/home/tom/projects/GameEngine/thirdparty/imgui/imgui_draw.cpp", "C++", 0, 3344, 0, 0, 523, 442, 4309
+"/home/tom/projects/GameEngine/thirdparty/imgui/imgui_impl_sdl2.cpp", "C++", 0, 498, 0, 0, 122, 55, 675
+"/home/tom/projects/GameEngine/thirdparty/imgui/imgui_impl_sdl2.h", "C++", 0, 19, 0, 0, 17, 8, 44
+"/home/tom/projects/GameEngine/thirdparty/imgui/imgui_impl_vulkan.cpp", "C++", 0, 1219, 0, 0, 222, 150, 1591
+"/home/tom/projects/GameEngine/thirdparty/imgui/imgui_impl_vulkan.h", "C++", 0, 89, 0, 0, 65, 23, 177
+"/home/tom/projects/GameEngine/thirdparty/imgui/imgui_internal.h", "C++", 0, 2680, 0, 0, 516, 373, 3569
+"/home/tom/projects/GameEngine/thirdparty/imgui/imgui_tables.cpp", "C++", 0, 2929, 0, 0, 948, 477, 4354
+"/home/tom/projects/GameEngine/thirdparty/imgui/imgui_widgets.cpp", "C++", 0, 6745, 0, 0, 1163, 1036, 8944
+"/home/tom/projects/GameEngine/thirdparty/imgui/imstb_rectpack.h", "C++", 0, 324, 0, 0, 229, 75, 628
+"/home/tom/projects/GameEngine/thirdparty/imgui/imstb_textedit.h", "C++", 0, 811, 0, 0, 464, 167, 1442
+"/home/tom/projects/GameEngine/thirdparty/imgui/imstb_truetype.h", "C++", 0, 3485, 0, 0, 1010, 591, 5086
+"/home/tom/projects/GameEngine/thirdparty/simdjson/simdjson.cpp", "C++", 0, 24683, 0, 0, 13495, 5205, 43383
+"/home/tom/projects/GameEngine/thirdparty/simdjson/simdjson.h", "C++", 0, 46753, 0, 0, 31776, 9362, 87891
+"/home/tom/projects/GameEngine/thirdparty/simdjson/twitter.json", "JSON", 0, 0, 0, 15482, 0, 1, 15483
+"/home/tom/projects/GameEngine/thirdparty/stb_image/stb_image.h", "C++", 0, 5831, 0, 0, 1293, 862, 7986
+"/home/tom/projects/GameEngine/thirdparty/tiny_obj/tiny_obj_loader.cc", "C++", 0, 2, 0, 0, 0, 1, 3
+"/home/tom/projects/GameEngine/thirdparty/tiny_obj/tiny_obj_loader.h", "C++", 0, 2423, 0, 0, 543, 534, 3500
+"/home/tom/projects/GameEngine/thirdparty/vk-bootstrap/VkBootstrap.cpp", "C++", 0, 1775, 0, 0, 56, 210, 2041
+"/home/tom/projects/GameEngine/thirdparty/vk-bootstrap/VkBootstrap.h", "C++", 0, 576, 0, 0, 227, 163, 966
+"/home/tom/projects/GameEngine/thirdparty/vk-bootstrap/VkBootstrapDispatch.h", "C++", 0, 7853, 0, 0, 19, 7, 7879
+"Total", "-", 6, 141236, 13, 15482, 58871, 24512, 240120

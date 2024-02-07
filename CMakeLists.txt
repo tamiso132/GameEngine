@@ -20,6 +20,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 
 add_subdirectory(thirdparty/imgui)
+add_subdirectory(thirdparty/simdjson)
 add_subdirectory(thirdparty/fastgltf)
 add_subdirectory(thirdparty/vk-bootstrap)
 add_subdirectory(thirdparty/tiny_obj)

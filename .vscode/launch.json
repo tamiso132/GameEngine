@@ -22,7 +22,6 @@
           ],
           "includePath": [
             "${workspaceFolder}/src",
-            "${workspaceFolder}/path/to/other/includes"
           ]
       }
   ]

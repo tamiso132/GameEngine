@@ -72,5 +72,25 @@
         "typeinfo": "cpp",
         "valarray": "cpp",
         "variant": "cpp"
+    },
+    "C_Cpp.clang_format_style": "{ BasedOnStyle: Google, ColumnLimit: 120 }",
+    "editor.tokenColorCustomizations": {
+        "textMateRules": [
+            {
+                "scope": [
+                    "comment",
+                    "comment.block.documentation"
+                ],
+                "settings": {
+                    "foreground": "#008000" // Regular comments and documentation comments will be green
+                }
+            },
+            {
+                "scope": "comment.block",
+                "settings": {
+                    "foreground": "#FF0000" // Block comments will be blue
+                }
+            }
+        ]
     }
 }
