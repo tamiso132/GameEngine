@@ -973,6 +973,8 @@ void VulkanEngine::upload_mesh(Mesh &mesh) {
 
   AllocatedBuffer stagingBuffer;
 
+  create_buffer()
+
   // allocate the buffer@
   VK_CHECK(vmaCreateBuffer(_allocator, &stagingBufferInfo, &vmaallocInfo, &stagingBuffer._buffer,
                            &stagingBuffer._allocation, nullptr));
