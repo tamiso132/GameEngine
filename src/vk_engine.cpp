@@ -1104,7 +1104,6 @@ void VulkanEngine::init_descriptors() {
 
   // _sceneParameterBuffer =
   //     create_buffer(sceneParamBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
   // for (int i = 0; i < FRAME_OVERLAP; i++) {
   //   /*Initilization of allocators*/
   //   _frames[i].dynamicDescriptorAllocator = new vkutil::DescriptorAllocator{};

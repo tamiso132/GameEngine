@@ -1,11 +1,11 @@
-#include <algorithm>
 #include <vk_descriptors.h>
+
+#include <algorithm>
 
 namespace vkutil {
 
-VkDescriptorPool createPool(VkDevice device,
-                            const DescriptorAllocator::PoolSizes &poolSizes,
-                            int count, VkDescriptorPoolCreateFlags flags) {
+VkDescriptorPool createPool(VkDevice device, const DescriptorAllocator::PoolSizes &poolSizes, int count,
+                            VkDescriptorPoolCreateFlags flags) {
   std::vector<VkDescriptorPoolSize> sizes;
   sizes.reserve(poolSizes.sizes.size());
   for (auto sz : poolSizes.sizes) {
@@ -35,8 +35,7 @@ void DescriptorAllocator::reset_pools() {
   currentPool = VK_NULL_HANDLE;
 }
 
-bool DescriptorAllocator::allocate(VkDescriptorSet *set,
-                                   VkDescriptorSetLayout layout) {
+bool DescriptorAllocator::allocate(VkDescriptorSet *set, VkDescriptorSetLayout layout) {
   if (currentPool == VK_NULL_HANDLE) {
     currentPool = grab_pool();
     usedPools.push_back(currentPool);
@@ -54,19 +53,19 @@ bool DescriptorAllocator::allocate(VkDescriptorSet *set,
   bool needReallocate = false;
 
   switch (allocResult) {
-  case VK_SUCCESS:
-    // all good, return
-    return true;
+    case VK_SUCCESS:
+      // all good, return
+      return true;
 
-    break;
-  case VK_ERROR_FRAGMENTED_POOL:
-  case VK_ERROR_OUT_OF_POOL_MEMORY:
-    // reallocate pool
-    needReallocate = true;
-    break;
-  default:
-    // unrecoverable error
-    return false;
+      break;
+    case VK_ERROR_FRAGMENTED_POOL:
+    case VK_ERROR_OUT_OF_POOL_MEMORY:
+      // reallocate pool
+      needReallocate = true;
+      break;
+    default:
+      // unrecoverable error
+      return false;
   }
 
   if (needReallocate) {
@@ -109,8 +108,7 @@ VkDescriptorPool DescriptorAllocator::grab_pool() {
 
 void DescriptorLayoutCache::init(VkDevice newDevice) { device = newDevice; }
 
-VkDescriptorSetLayout DescriptorLayoutCache::create_descriptor_layout(
-    VkDescriptorSetLayoutCreateInfo *info) {
+VkDescriptorSetLayout DescriptorLayoutCache::create_descriptor_layout(VkDescriptorSetLayoutCreateInfo *info) {
   DescriptorLayoutInfo layoutinfo;
   layoutinfo.bindings.reserve(info->bindingCount);
   bool isSorted = true;
@@ -126,11 +124,8 @@ VkDescriptorSetLayout DescriptorLayoutCache::create_descriptor_layout(
     }
   }
   if (!isSorted) {
-    std::sort(
-        layoutinfo.bindings.begin(), layoutinfo.bindings.end(),
-        [](VkDescriptorSetLayoutBinding &a, VkDescriptorSetLayoutBinding &b) {
-          return a.binding < b.binding;
-        });
+    std::sort(layoutinfo.bindings.begin(), layoutinfo.bindings.end(),
+              [](VkDescriptorSetLayoutBinding &a, VkDescriptorSetLayoutBinding &b) { return a.binding < b.binding; });
   }
 
   auto it = layoutCache.find(layoutinfo);
@@ -154,9 +149,7 @@ void DescriptorLayoutCache::cleanup() {
   }
 }
 
-vkutil::DescriptorBuilder
-DescriptorBuilder::begin(DescriptorLayoutCache *layoutCache,
-                         DescriptorAllocator *allocator) {
+vkutil::DescriptorBuilder DescriptorBuilder::begin(DescriptorLayoutCache *layoutCache, DescriptorAllocator *allocator) {
   DescriptorBuilder builder;
 
   builder.cache = layoutCache;
@@ -164,9 +157,8 @@ DescriptorBuilder::begin(DescriptorLayoutCache *layoutCache,
   return builder;
 }
 
-vkutil::DescriptorBuilder &DescriptorBuilder::bind_buffer(
-    uint32_t binding, VkDescriptorBufferInfo *bufferInfo, VkDescriptorType type,
-    VkShaderStageFlags stageFlags) {
+vkutil::DescriptorBuilder &DescriptorBuilder::bind_buffer(uint32_t binding, VkDescriptorBufferInfo *bufferInfo,
+                                                          VkDescriptorType type, VkShaderStageFlags stageFlags) {
   VkDescriptorSetLayoutBinding newBinding{};
 
   newBinding.descriptorCount = 1;
@@ -190,9 +182,8 @@ vkutil::DescriptorBuilder &DescriptorBuilder::bind_buffer(
   return *this;
 }
 
-vkutil::DescriptorBuilder &DescriptorBuilder::bind_image(
-    uint32_t binding, VkDescriptorImageInfo *imageInfo, VkDescriptorType type,
-    VkShaderStageFlags stageFlags) {
+vkutil::DescriptorBuilder &DescriptorBuilder::bind_image(uint32_t binding, VkDescriptorImageInfo *imageInfo,
+                                                         VkDescriptorType type, VkShaderStageFlags stageFlags) {
   VkDescriptorSetLayoutBinding newBinding{};
 
   newBinding.descriptorCount = 1;
@@ -216,8 +207,7 @@ vkutil::DescriptorBuilder &DescriptorBuilder::bind_image(
   return *this;
 }
 
-bool DescriptorBuilder::build(VkDescriptorSet &set,
-                              VkDescriptorSetLayout &layout) {
+bool DescriptorBuilder::build(VkDescriptorSet &set, VkDescriptorSetLayout &layout) {
   // build layout first
   VkDescriptorSetLayoutCreateInfo layoutInfo{};
   layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -240,12 +230,11 @@ bool DescriptorBuilder::build(VkDescriptorSet &set,
     w.dstSet = set;
   }
 
-  vkUpdateDescriptorSets(alloc->device, static_cast<uint32_t>(writes.size()),
-                         writes.data(), 0, nullptr);
+  vkUpdateDescriptorSets(alloc->device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 
   writes.clear();
   bindings.clear();
-  
+
   return true;
 }
 
@@ -254,8 +243,7 @@ bool DescriptorBuilder::build(VkDescriptorSet &set) {
   return build(set, layout);
 }
 
-bool DescriptorLayoutCache::DescriptorLayoutInfo::operator==(
-    const DescriptorLayoutInfo &other) const {
+bool DescriptorLayoutCache::DescriptorLayoutInfo::operator==(const DescriptorLayoutInfo &other) const {
   if (other.bindings.size() != bindings.size()) {
     return false;
   } else {
@@ -287,8 +275,7 @@ size_t DescriptorLayoutCache::DescriptorLayoutInfo::hash() const {
 
   for (const VkDescriptorSetLayoutBinding &b : bindings) {
     // pack the binding data into a single int64. Not fully correct but its ok
-    size_t binding_hash = b.binding | b.descriptorType << 8 |
-                          b.descriptorCount << 16 | b.stageFlags << 24;
+    size_t binding_hash = b.binding | b.descriptorType << 8 | b.descriptorCount << 16 | b.stageFlags << 24;
 
     // shuffle the packed binding data and xor it with the main hash
     result ^= hash<size_t>()(binding_hash);
@@ -297,4 +284,4 @@ size_t DescriptorLayoutCache::DescriptorLayoutInfo::hash() const {
   return result;
 }
 
-} // namespace vkutil
+}  // namespace vkutil

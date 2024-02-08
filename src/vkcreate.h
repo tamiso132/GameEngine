@@ -30,6 +30,7 @@ struct DescriptorSetImage {
 // make a builder for this one
 struct DescriptorSets {
   std::vector<VkDescriptorSet> sets;
+  std::vector<AllocatedBuffer> allocation;
 };
 
 struct PipelineInfo {
@@ -37,21 +38,21 @@ struct PipelineInfo {
   std::vector<VkDescriptorSetLayout &> desc_layouts;
 };
 
-class GlobalInformation {
-
-
+class GlobalState {
  public:
-  void add_layout(vkutil::DescriptorBuilder builder);
-   
-  std::vector<VkDescriptorSetLayout> desc_layouts;
+  void add_descriptor_layout(vkutil::DescriptorBuilder builder, const char *key);
+  void add_descriptor_set(VkDescriptorSetLayout layout);
 
-  vkutil::DescriptorAllocator *_globalAllocator;
-  vkutil::DescriptorLayoutCache *_globalLayoutCache;
+  void write_descriptor_set(VkDescriptorSetLayout layout, int index);
+
+  std::unordered_map<const char *, VkDescriptorSetLayout> desc_layouts;
 
   /// @brief
   std::unordered_map<VkDescriptorSetLayout, DescriptorSets> descriptors;
 
   /// @brief layouts for the pipeline
   std::unordered_map<VkPipeline, PipelineInfo> pipeline_info;
-};
 
+  vkutil::DescriptorAllocator *_globalAllocator;
+  vkutil::DescriptorLayoutCache *_globalLayoutCache;
+};

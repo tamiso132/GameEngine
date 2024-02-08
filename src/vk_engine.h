@@ -60,7 +60,6 @@ class VulkanEngine {
   };
 
   struct DescriptorSetImage {
-    AllocatedBuffer buffer;
     VkDescriptorSet set;
   };
   // make a builder for this one
@@ -71,7 +70,7 @@ class VulkanEngine {
 
   struct PipelineInfo {
     VkPipelineLayout pipeline_layout;
-    std::vector<VkDescriptorSetLayout&> desc_layouts;
+    std::vector<VkDescriptorSetLayout &> desc_layouts;
   };
 
   struct GlobalInformation {
@@ -80,14 +79,12 @@ class VulkanEngine {
     vkutil::DescriptorAllocator *_globalAllocator;
     vkutil::DescriptorLayoutCache *_globalLayoutCache;
 
-    /// @brief 
+    /// @brief
     std::unordered_map<VkDescriptorSetLayout, DescriptorSets> descriptors;
 
     /// @brief layouts for the pipeline
     std::unordered_map<VkPipeline, PipelineInfo> pipeline_info;
   };
-
-  
 
  public:
   bool _isInitialized{false};

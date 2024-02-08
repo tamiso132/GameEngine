@@ -2,16 +2,15 @@
 
 #include "helper.h"
 
-void GlobalInformation::add_layout(vkutil::DescriptorBuilder builder) {
+void GlobalState::add_descriptor_layout(vkutil::DescriptorBuilder builder, const char* key) {
   VkDescriptorSet set;
   VkDescriptorSetLayout layout;
   builder.build(set, layout);
+  assert(!this->descriptors.contains(layout));
+  this->descriptors[layout].sets.push_back(set);
+}
+void GlobalState::add_descriptor_set(VkDescriptorSetLayout layout) { vkutil::DescriptorBuilder builder; };
 
-  if (!this->descriptors.contains(layout)) {
-    DescriptorSets sets;
-    sets.sets.push_back(set);
-    this->descriptors.insert({layout, sets});
-  } else {
-    this->descriptors[layout].sets.push_back(set);
-  }
-};
+void GlobalState::write_descriptor_set(VkDescriptorSetLayout layout, int index) {
+  VkDescriptorSet set_to_write = this->descriptors[layout].sets[index];
+}

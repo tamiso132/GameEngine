@@ -3,101 +3,91 @@
 
 #pragma once
 
-#include "vk_types.h"
-#include <vector>
 #include <array>
 #include <unordered_map>
+#include <vector>
 
-namespace vkutil
-{
+#include "vk_types.h"
 
-    class DescriptorAllocator
-    {
-    public:
-        struct PoolSizes
-        {
-            std::vector<std::pair<VkDescriptorType, float>> sizes =
-                {
-                    {VK_DESCRIPTOR_TYPE_SAMPLER, 0.5f},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4.f},
-                    {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4.f},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.f},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1.f},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1.f},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2.f},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2.f},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1.f},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1.f},
-                    {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0.5f}};
-        };
+namespace vkutil {
 
-        void reset_pools();
-        bool allocate(VkDescriptorSet *set, VkDescriptorSetLayout layout);
+class DescriptorAllocator {
+ public:
+  struct PoolSizes {
+    std::vector<std::pair<VkDescriptorType, float>> sizes = {{VK_DESCRIPTOR_TYPE_SAMPLER, 0.5f},
+                                                             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4.f},
+                                                             {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4.f},
+                                                             {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.f},
+                                                             {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1.f},
+                                                             {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1.f},
+                                                             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2.f},
+                                                             {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2.f},
+                                                             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1.f},
+                                                             {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1.f},
+                                                             {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0.5f}};
+  };
 
-        void init(VkDevice newDevice);
+  void reset_pools();
+  bool allocate(VkDescriptorSet *set, VkDescriptorSetLayout layout);
 
-        void cleanup();
+  void init(VkDevice newDevice);
 
-        VkDevice device;
+  void cleanup();
 
-    private:
-        VkDescriptorPool grab_pool();
+  VkDevice device;
 
-        VkDescriptorPool currentPool{VK_NULL_HANDLE};
-        PoolSizes descriptorSizes;
-        std::vector<VkDescriptorPool> usedPools;
-        std::vector<VkDescriptorPool> freePools;
-    };
+ private:
+  VkDescriptorPool grab_pool();
 
-    class DescriptorLayoutCache
-    {
-    public:
-        void init(VkDevice newDevice);
-        void cleanup();
+  VkDescriptorPool currentPool{VK_NULL_HANDLE};
+  PoolSizes descriptorSizes;
+  std::vector<VkDescriptorPool> usedPools;
+  std::vector<VkDescriptorPool> freePools;
+};
 
-        VkDescriptorSetLayout create_descriptor_layout(VkDescriptorSetLayoutCreateInfo *info);
+class DescriptorLayoutCache {
+ public:
+  void init(VkDevice newDevice);
+  void cleanup();
 
-        struct DescriptorLayoutInfo
-        {
-            // good idea to turn this into a inlined array
-            std::vector<VkDescriptorSetLayoutBinding> bindings;
+  VkDescriptorSetLayout create_descriptor_layout(VkDescriptorSetLayoutCreateInfo *info);
 
-            bool operator==(const DescriptorLayoutInfo &other) const;
+  struct DescriptorLayoutInfo {
+    // good idea to turn this into a inlined array
+    std::vector<VkDescriptorSetLayoutBinding> bindings;
 
-            size_t hash() const;
-        };
+    bool operator==(const DescriptorLayoutInfo &other) const;
 
-    private:
-        struct DescriptorLayoutHash
-        {
+    size_t hash() const;
+  };
 
-            std::size_t operator()(const DescriptorLayoutInfo &k) const
-            {
-                return k.hash();
-            }
-        };
+ private:
+  struct DescriptorLayoutHash {
+    std::size_t operator()(const DescriptorLayoutInfo &k) const { return k.hash(); }
+  };
 
-        std::unordered_map<DescriptorLayoutInfo, VkDescriptorSetLayout, DescriptorLayoutHash> layoutCache;
-        VkDevice device;
-    };
+  std::unordered_map<DescriptorLayoutInfo, VkDescriptorSetLayout, DescriptorLayoutHash> layoutCache;
+  VkDevice device;
+};
 
-    class DescriptorBuilder
-    {
-    public:
-        static DescriptorBuilder begin(DescriptorLayoutCache *layoutCache, DescriptorAllocator *allocator);
+class DescriptorBuilder {
+ public:
+  static DescriptorBuilder begin(DescriptorLayoutCache *layoutCache, DescriptorAllocator *allocator);
 
-        DescriptorBuilder &bind_buffer(uint32_t binding, VkDescriptorBufferInfo *bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlags);
+  DescriptorBuilder &bind_buffer(uint32_t binding, VkDescriptorBufferInfo *bufferInfo, VkDescriptorType type,
+                                 VkShaderStageFlags stageFlags);
 
-        DescriptorBuilder &bind_image(uint32_t binding, VkDescriptorImageInfo *imageInfo, VkDescriptorType type, VkShaderStageFlags stageFlags);
+  DescriptorBuilder &bind_image(uint32_t binding, VkDescriptorImageInfo *imageInfo, VkDescriptorType type,
+                                VkShaderStageFlags stageFlags);
 
-        bool build(VkDescriptorSet &set, VkDescriptorSetLayout &layout);
-        bool build(VkDescriptorSet &set);
+  bool build(VkDescriptorSet &set, VkDescriptorSetLayout &layout);
+  bool build(VkDescriptorSet &set);
 
-    private:
-        std::vector<VkWriteDescriptorSet> writes;
-        std::vector<VkDescriptorSetLayoutBinding> bindings;
+ private:
+  std::vector<VkWriteDescriptorSet> writes;
+  std::vector<VkDescriptorSetLayoutBinding> bindings;
 
-        DescriptorLayoutCache *cache;
-        DescriptorAllocator *alloc;
-    };
-}
+  DescriptorLayoutCache *cache;
+  DescriptorAllocator *alloc;
+};
+}  // namespace vkutil
