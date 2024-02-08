@@ -955,6 +955,8 @@ void VulkanEngine::load_images() {
   _loadedTextures["empire_diffuse"] = lostEmpire;
 }
 
+void openGl(VertexOpengl opengl) {}
+
 void VulkanEngine::upload_mesh(Mesh &mesh) {
   const size_t bufferSize = mesh._vertices.size() * sizeof(Vertex);
   // allocate vertex buffer
@@ -972,8 +974,6 @@ void VulkanEngine::upload_mesh(Mesh &mesh) {
   vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
 
   AllocatedBuffer stagingBuffer;
-
-  create_buffer()
 
   // allocate the buffer@
   VK_CHECK(vmaCreateBuffer(_allocator, &stagingBufferInfo, &vmaallocInfo, &stagingBuffer._buffer,
