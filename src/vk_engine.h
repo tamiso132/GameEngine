@@ -2,6 +2,8 @@
 // or project specific include files.
 
 #pragma once
+#include <glm/fwd.hpp>
+#include <vulkan/vulkan_core.h>
 #define GLM_ENABLE_EXPERIMENTAL
 
 #include <SDL2/SDL.h>
@@ -20,6 +22,8 @@
 #include "vk_mesh.h"
 #include "vk_types.h"
 
+#include "vk_create.h"
+
 struct VertexTemp {
   // probably want texture
   // positions
@@ -30,6 +34,15 @@ struct VertexTemp {
 struct MyObject {
   glm::mat4 transform_matrix;
   std::vector<VertexTemp> vertices;
+};
+
+struct GPUObject {
+  glm::mat4 transformMatrix;
+};
+struct GPUCamera {
+  glm::mat4 view;
+  glm::mat4 proj;
+  glm::mat4 viewproj;
 };
 
 struct ShaderLayout {
@@ -124,6 +137,11 @@ public:
 
   std::vector<VertexOpengl> _openglVertices;
 
+  GlobalState global;
+
+  VkCommandBuffer cmd;
+  VkCommandPool pool;
+
   void init();
 
   // shuts down the engine
@@ -155,7 +173,7 @@ private:
 
   void init_sync_structures();
 
-  void init_pipelines();
+  void init_pipelines(std::unordered_map<const char *, VkShaderModule> shaders);
 
   void init_imgui();
 

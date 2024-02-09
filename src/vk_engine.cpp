@@ -1,12 +1,15 @@
 ﻿#include "vk_engine.h"
 
+#include <cstdint>
 #include <imgui.h>
 
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <vulkan/vulkan_core.h>
 
 #include "VkBootstrap.h"
+#include "vk_create.h"
 #include "vk_initializers.h"
 #include "vk_textures.h"
 #include "vk_types.h"
@@ -56,11 +59,11 @@ void VulkanEngine::init() {
     }
   }
 
-  // init_default_renderpass();
+  init_default_renderpass();
 
-  // init_framebuffers();
+  init_framebuffers();
 
-  // init_commands();
+  init_commands();
 
   // init_sync_structures();
 
@@ -68,9 +71,9 @@ void VulkanEngine::init() {
 
   // load_meshes();
 
-  // init_descriptors();
+  init_descriptors();
 
-  // init_pipelines();
+  init_pipelines(shaderModules);
 
   // init_imgui();
 
@@ -547,40 +550,16 @@ void VulkanEngine::init_framebuffers() {
 void VulkanEngine::init_commands() {
   // // create a command pool for commands submitted to the graphics queue.
   // // we also want the pool to allow for resetting of individual command
-  // buffers VkCommandPoolCreateInfo commandPoolInfo =
-  //     vkinit::command_pool_create_info(_graphicsQueueFamily,
-  //     VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+  // buffers
+  VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(
+      _graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
-  // for (int i = 0; i < FRAME_OVERLAP; i++) {
-  //   VK_CHECK(vkCreateCommandPool(_device, &commandPoolInfo, nullptr,
-  //   &_frames[i]._commandPool));
+  VK_CHECK(vkCreateCommandPool(this->_device, &commandPoolInfo, nullptr,
+                               &this->pool));
+  VkCommandBufferAllocateInfo bufferInfo =
+      vkinit::command_buffer_allocate_info(this->pool, 1);
 
-  //   // allocate the default command buffer that we will use for rendering
-  //   VkCommandBufferAllocateInfo cmdAllocInfo =
-  //   vkinit::command_buffer_allocate_info(_frames[i]._commandPool, 1);
-
-  //   VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo,
-  //   &_frames[i]._mainCommandBuffer));
-
-  //   _mainDeletionQueue.push_function([=]() { vkDestroyCommandPool(_device,
-  //   _frames[i]._commandPool, nullptr); });
-  // }
-
-  // VkCommandPoolCreateInfo uploadCommandPoolInfo =
-  // vkinit::command_pool_create_info(_graphicsQueueFamily);
-  // // create pool for upload context
-  // VK_CHECK(vkCreateCommandPool(_device, &uploadCommandPoolInfo, nullptr,
-  // &_uploadContext._commandPool));
-
-  // _mainDeletionQueue.push_function([=]() { vkDestroyCommandPool(_device,
-  // _uploadContext._commandPool, nullptr); });
-
-  // // allocate the default command buffer that we will use for rendering
-  // VkCommandBufferAllocateInfo cmdAllocInfo =
-  // vkinit::command_buffer_allocate_info(_uploadContext._commandPool, 1);
-
-  // VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo,
-  // &_uploadContext._commandBuffer));
+  VK_CHECK(vkAllocateCommandBuffers(this->_device, nullptr, &this->cmd));
 }
 
 void VulkanEngine::init_sync_structures() {
@@ -621,129 +600,49 @@ void VulkanEngine::init_sync_structures() {
   // vkDestroyFence(_device, _uploadContext._uploadFence, nullptr); });
 }
 
-void VulkanEngine::init_pipelines() {
-  // /*SHADER MODULE*/
-
-  // VkShaderModule colorMeshShader;
-  // if (!load_shader_module("shaders/spiv/default_lit.frag.spv",
-  // &colorMeshShader)) {
-  //   std::cout << "Error when building the colored mesh shader" << std::endl;
-  // }
-
-  // VkShaderModule texturedMeshShader;
-  // if (!load_shader_module("shaders/spiv/textured_lit.frag.spv",
-  // &texturedMeshShader)) {
-  //   std::cout << "Error when building the colored mesh shader" << std::endl;
-  // }
-
-  // VkShaderModule meshVertShader;
-  // if (!load_shader_module("shaders/spiv/tri_mesh_ssbo.vert.spv",
-  // &meshVertShader)) {
-  //   std::cout << "Error when building the mesh vertex shader module" <<
-  //   std::endl;
-  // }
-
-  // VkShaderModule triangle_shader_frag;
-  // VkShaderModule triangle_shader_vert;
-
-  // if (!load_shader_module("shaders/spiv/funky_triangle.frag.spv",
-  // &triangle_shader_frag)) {
-  //   std::cout << "Error when building the mesh vertex shader module" <<
-  //   std::endl;
-  // }
-  // if (!load_shader_module("shaders/spiv/colored_triangle.vert.spv",
-  // &triangle_shader_vert)) {
-  //   std::cout << "Error when building the mesh vertex shader module" <<
-  //   std::endl;
-  // }
+void VulkanEngine::init_pipelines(
+    std::unordered_map<const char *, VkShaderModule> shaders) {
 
   // // build the stage-create-info for both vertex and fragment stages. This
   // lets
   // // the pipeline know the shader modules per stage
-  // PipelineBuilder pipelineBuilder;
+  PipelineBuilder pipelineBuilder;
+  /*SHADERS PUSH*/
+  pipelineBuilder._shaderStages.push_back(
+      vkinit::pipeline_shader_stage_create_info(
+          VK_SHADER_STAGE_VERTEX_BIT, shaders["colored_triangle.vert.spv"]));
+  pipelineBuilder._shaderStages.push_back(
+      vkinit::pipeline_shader_stage_create_info(
+          VK_SHADER_STAGE_FRAGMENT_BIT, shaders["colored_triangle.frag.spv"]));
 
-  // pipelineBuilder._shaderStages.push_back(
-  //     vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT,
-  //     meshVertShader));
+  /*Layout PUSH*/
+  VkPipelineLayoutCreateInfo triangleLayoutInfo =
+      vkinit::pipeline_layout_create_info();
 
-  // pipelineBuilder._shaderStages.push_back(
-  //     vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT,
-  //     colorMeshShader));
+  VkDescriptorSetLayout layouts[] = {
+      this->global.get_descriptor_layout("camera"),
+      this->global.get_descriptor_layout("object")};
 
-  // /*PIPELINE LAYOUT*/
-  // // we start from just the default empty pipeline layout info
-  // VkPipelineLayoutCreateInfo mesh_pipeline_layout_info =
-  // vkinit::pipeline_layout_create_info();
+  triangleLayoutInfo.pSetLayouts = layouts;
+  triangleLayoutInfo.setLayoutCount = 2;
 
-  // VkPipelineLayoutCreateInfo test_pipeline_layout_info =
-  // vkinit::pipeline_layout_create_info();
+  VkPipelineLayout pipelineLayout;
+  VK_CHECK(vkCreatePipelineLayout(this->_device, &triangleLayoutInfo, nullptr,
+                                  &pipelineLayout));
 
-  // // setup push constants
-  // VkPushConstantRange push_constant;
-  // // offset 0
-  // push_constant.offset = 0;
-  // // size of a MeshPushConstant struct
-  // push_constant.size = sizeof(MeshPushConstants);
-  // // for the vertex shader
-  // push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  pipelineBuilder._vertexInputInfo = vkinit::vertex_input_state_create_info();
 
-  // mesh_pipeline_layout_info.pPushConstantRanges = &push_constant;
-  // mesh_pipeline_layout_info.pushConstantRangeCount = 1;
-
-  // VkDescriptorSetLayout setLayouts[] = {_globalSetLayout, _objectSetLayout};
-  // VkDescriptorSetLayout setLayoutsOpenGl[] = {_globalSetLayout,
-  // _objectOpenglLayout};
-
-  // mesh_pipeline_layout_info.setLayoutCount = 2;
-  // mesh_pipeline_layout_info.pSetLayouts = setLayouts;
-
-  // test_pipeline_layout_info.setLayoutCount = 2;
-  // test_pipeline_layout_info.pSetLayouts = setLayoutsOpenGl;
-
-  // VkPipelineLayout meshPipLayout;
-  // VK_CHECK(vkCreatePipelineLayout(_device, &mesh_pipeline_layout_info,
-  // nullptr, &meshPipLayout));
-
-  // VK_CHECK(vkCreatePipelineLayout(_device, &test_pipeline_layout_info,
-  // nullptr, &_opengl_layout));
-
-  // // we start from  the normal mesh layout
-  // VkPipelineLayoutCreateInfo textured_pipeline_layout_info =
-  // mesh_pipeline_layout_info;
-
-  // VkDescriptorSetLayout texturedSetLayouts[] = {_globalSetLayout,
-  // _objectSetLayout, _singleTextureSetLayout};
-
-  // textured_pipeline_layout_info.setLayoutCount = 3;
-  // textured_pipeline_layout_info.pSetLayouts = texturedSetLayouts;
-
-  // VkPipelineLayout texturedPipeLayout;
-  // VK_CHECK(vkCreatePipelineLayout(_device, &textured_pipeline_layout_info,
-  // nullptr, &texturedPipeLayout));
-
-  // /*VERTEX*/
-  // // hook the push constants layout
-  // pipelineBuilder._pipelineLayout = meshPipLayout;
-
-  // // vertex input controls how to read vertices from vertex buffers. We arent
-  // // using it yet
-  // pipelineBuilder._vertexInputInfo =
-  // vkinit::vertex_input_state_create_info();
-
-  // // input assembly is the configuration for drawing triangle lists, strips,
-  // or
-  // // individual points. we are just going to draw triangle list
-  // pipelineBuilder._inputAssembly =
-  // vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+  pipelineBuilder._inputAssembly =
+      vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
   // /*VIEWPORT*/
   // // build viewport and scissor from the swapchain extents
-  // pipelineBuilder._viewport.x = 0.0f;
-  // pipelineBuilder._viewport.y = 0.0f;
-  // pipelineBuilder._viewport.width = (float)_windowExtent.width;
-  // pipelineBuilder._viewport.height = (float)_windowExtent.height;
-  // pipelineBuilder._viewport.minDepth = 0.0f;
-  // pipelineBuilder._viewport.maxDepth = 1.0f;
+  pipelineBuilder._viewport.x = 0.0f;
+  pipelineBuilder._viewport.y = 0.0f;
+  pipelineBuilder._viewport.width = (float)_windowExtent.width;
+  pipelineBuilder._viewport.height = (float)_windowExtent.height;
+  pipelineBuilder._viewport.minDepth = 0.0f;
+  pipelineBuilder._viewport.maxDepth = 1.0f;
 
   // pipelineBuilder._scissor.offset = {0, 0};
   // pipelineBuilder._scissor.extent = _windowExtent;
@@ -894,8 +793,8 @@ void VulkanEngine::init_imgui() {
   ImGui_ImplVulkan_Init(&init_info, _renderPass);
 
   // execute a gpu command to upload imgui font textures
-  immediate_submit(
-      [&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(); });
+  // immediate_submit(
+  //     [&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(); });
 
   // clear font textures from cpu data
   ImGui_ImplVulkan_DestroyFontsTexture();
@@ -905,54 +804,6 @@ void VulkanEngine::init_imgui() {
   //   ImGui_ImplVulkan_Shutdown();
   //   vkDestroyDescriptorPool(_device, _imgui_pool, nullptr);
   // });
-}
-
-bool VulkanEngine::load_shader_module(const char *filePath,
-                                      VkShaderModule *outShaderModule) {
-  std::string full_path = string(PROJECT_ROOT_PATH) + "/" + filePath;
-
-  // open the file. With cursor at the end
-  std::ifstream file(full_path, std::ios::ate | std::ios::binary);
-
-  if (!file.is_open()) {
-    return false;
-  }
-
-  // find what the size of the file is by looking up the location of the cursor
-  // because the cursor is at the end, it gives the size directly in bytes
-  size_t fileSize = (size_t)file.tellg();
-
-  // spirv expects the buffer to be on uint32, so make sure to reserve a int
-  // vector big enough for the entire file
-  std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
-
-  // put file cursor at beggining
-  file.seekg(0);
-
-  // load the entire file into the buffer
-  file.read((char *)buffer.data(), fileSize);
-
-  // now that the file is loaded into the buffer, we can close it
-  file.close();
-
-  // create a new shader module, using the buffer we loaded
-  VkShaderModuleCreateInfo createInfo = {};
-  createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  createInfo.pNext = nullptr;
-
-  // codeSize has to be in bytes, so multply the ints in the buffer by size of
-  // int to know the real size of the buffer
-  createInfo.codeSize = buffer.size() * sizeof(uint32_t);
-  createInfo.pCode = buffer.data();
-
-  // check that the creation goes well.
-  VkShaderModule shaderModule;
-  if (vkCreateShaderModule(_device, &createInfo, nullptr, &shaderModule) !=
-      VK_SUCCESS) {
-    return false;
-  }
-  *outShaderModule = shaderModule;
-  return true;
 }
 
 VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
@@ -1145,36 +996,51 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
 
 void VulkanEngine::init_scene() {}
 
-void VulkanEngine::immediate_submit(
-    std::function<void(VkCommandBuffer cmd)> &&function) {
-  // VkCommandBuffer cmd = _uploadContext._commandBuffer;
-  // // begin the command buffer recording. We will use this command buffer
-  // exactly
-  // // once, so we want to let vulkan know that
-  // VkCommandBufferBeginInfo cmdBeginInfo =
-  //     vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+// void VulkanEngine::immediate_submit(
+//     std::function<void(VkCommandBuffer cmd)> &&function) {
+//   VkCommandBuffer cmd = _uploadContext._commandBuffer;
+//   // begin the command buffer recording. We will use this command buffer
+//   // exactly
+//   // once, so we want to let vulkan know that
+//   VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(
+//       VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-  // VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+//   VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-  // function(cmd);
+//   function(cmd);
 
-  // VK_CHECK(vkEndCommandBuffer(cmd));
+//   VK_CHECK(vkEndCommandBuffer(cmd));
 
-  // VkSubmitInfo submit = vkinit::submit_info(&cmd);
+//   VkSubmitInfo submit = vkinit::submit_info(&cmd);
 
-  // // submit command buffer to the queue and execute it.
-  // //  _renderFence will now block until the graphic commands finish execution
-  // VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit,
-  // _uploadContext._uploadFence));
+//   submit command buffer to the queue and execute it._renderFence will now
+//   block
+//       until the graphic commands finish execution VK_CHECK(vkQueueSubmit(
+//           _graphicsQueue, 1, &submit, _uploadContext._uploadFence));
 
-  // vkWaitForFences(_device, 1, &_uploadContext._uploadFence, true,
-  // 9999999999); vkResetFences(_device, 1, &_uploadContext._uploadFence);
+//   vkWaitForFences(_device, 1, &_uploadContext._uploadFence, true,
+//   9999999999); vkResetFences(_device, 1, &_uploadContext._uploadFence);
 
-  // vkResetCommandPool(_device, _uploadContext._commandPool, 0);
-}
+//   vkResetCommandPool(_device, _uploadContext._commandPool, 0);
+// }
 
 void VulkanEngine::init_descriptors() {
   // // new code abstract
+  const uint32_t MAX_OBJECTS = 10000;
+
+  this->global.begin_build_descriptor()
+      .bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS,
+                          BufferType::DYNAMIC_UNIFORM,
+                          VK_SHADER_STAGE_VERTEX_BIT)
+      .build("object");
+
+  this->global.begin_build_descriptor()
+      .bind_create_buffer(sizeof(GPUCamera), BufferType::DYNAMIC_STORAGE,
+                          VK_SHADER_STAGE_VERTEX_BIT)
+      .build("camera");
+
+  // this->global.begin_build_descriptor().bind_create_buffer(sizeof(GPUCamera),
+  // BufferType::, VkShaderStageFlags stageFlags)
 
   // _descriptorAllocator = new vkutil::DescriptorAllocator{};
   // _descriptorAllocator->init(_device);

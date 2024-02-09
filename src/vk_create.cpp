@@ -4,7 +4,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "tamhelper.h"
+#include "helper.h"
 #include "vk_create.h"
 
 /*Global State*/
@@ -13,9 +13,16 @@ GlobalBuilder GlobalState::begin_build_descriptor() {
   return GlobalBuilder(*this);
 }
 
+VkDescriptorSetLayout GlobalState::get_descriptor_layout(const char *key) {
+  assert(!this->descLayout.contains(key));
+
+  return this->descLayout[key];
+}
+
 void GlobalState::add_descriptor_set(
     VkDescriptorSetLayout layout, VkDescriptorSet set, const char *key,
     std::vector<std::optional<AllocatedBuffer>> buffers) {
+
   std::unordered_map<std::string, int> test;
   assert(this->descLayout.find(key) == this->descLayout.end());
   assert(this->descSet.find(layout) == this->descSet.end());

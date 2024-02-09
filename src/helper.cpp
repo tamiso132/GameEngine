@@ -1,32 +1,13 @@
 
-#include "tamhelper.h"
+#include "helper.h"
 
+#include <cstdint>
+#include <vector>
 #include <vk_mem_alloc.h>
 
 VkDevice Helper::device;
 VkPhysicalDeviceProperties Helper::gpuProperties;
 VmaAllocator Helper::allocator;
-
-// AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage,
-//                               VmaMemoryUsage memoryUsage) {
-//   VkBufferCreateInfo bufferInfo = {};
-//   bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-//   bufferInfo.pNext = nullptr;
-//   bufferInfo.size = allocSize;
-
-//   bufferInfo.usage = usage;
-
-//   VmaAllocationCreateInfo vmaallocInfo = {};
-//   vmaallocInfo.usage = memoryUsage;
-
-//   AllocatedBuffer newBuffer;
-
-//   VK_CHECK(vmaCreateBuffer(Helper::allocator, &bufferInfo, &vmaallocInfo,
-//                            &newBuffer._buffer, &newBuffer._allocation,
-//                            nullptr));
-
-//   return newBuffer;
-// }
 
 // void VulkanEngine::upload_mesh(Mesh &mesh) {
 //   const size_t bufferSize = mesh._vertices.size() * sizeof(Vertex);
@@ -125,4 +106,52 @@ AllocatedBuffer Helper::create_buffer(size_t allocSize,
   return newBuffer;
   AllocatedBuffer b;
   return b;
+}
+
+bool Helper::load_shader_module(const char *filePath,
+                                VkShaderModule *outShaderModule) {
+  std::string full_path = std::string(PROJECT_ROOT_PATH) + "/" + filePath;
+
+  // open the file. With cursor at the end
+  std::ifstream file(full_path, std::ios::ate | std::ios::binary);
+
+  if (!file.is_open()) {
+    return false;
+  }
+
+  // find what the size of the file is by looking up the location of the cursor
+  // because the cursor is at the end, it gives the size directly in bytes
+  size_t fileSize = (size_t)file.tellg();
+
+  // spirv expects the buffer to be on uint32, so make sure to reserve a int
+  // vector big enough for the entire file
+  std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
+
+  // put file cursor at beggining
+  file.seekg(0);
+
+  // load the entire file into the buffer
+  file.read((char *)buffer.data(), fileSize);
+
+  // now that the file is loaded into the buffer, we can close it
+  file.close();
+
+  // create a new shader module, using the buffer we loaded
+  VkShaderModuleCreateInfo createInfo = {};
+  createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+  createInfo.pNext = nullptr;
+
+  // codeSize has to be in bytes, so multply the ints in the buffer by size of
+  // int to know the real size of the buffer
+  createInfo.codeSize = buffer.size() * sizeof(uint32_t);
+  createInfo.pCode = buffer.data();
+
+  // check that the creation goes well.
+  VkShaderModule shaderModule;
+  if (vkCreateShaderModule(Helper::device, &createInfo, nullptr,
+                           &shaderModule) != VK_SUCCESS) {
+    return false;
+  }
+  *outShaderModule = shaderModule;
+  return true;
 }

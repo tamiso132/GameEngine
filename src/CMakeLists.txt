@@ -25,8 +25,8 @@ camera/camera.cpp
 camera/camera.h
 vk_descriptors.cpp
 vk_descriptors.h
-tamhelper.h
-tamhelper.cpp
+helper.h
+helper.cpp
 vk_create.h
 vk_create.cpp
 )

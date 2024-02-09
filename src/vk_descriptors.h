@@ -12,19 +12,20 @@
 namespace vkutil {
 
 class DescriptorAllocator {
- public:
+public:
   struct PoolSizes {
-    std::vector<std::pair<VkDescriptorType, float>> sizes = {{VK_DESCRIPTOR_TYPE_SAMPLER, 0.5f},
-                                                             {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4.f},
-                                                             {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4.f},
-                                                             {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.f},
-                                                             {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1.f},
-                                                             {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1.f},
-                                                             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2.f},
-                                                             {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2.f},
-                                                             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1.f},
-                                                             {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1.f},
-                                                             {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0.5f}};
+    std::vector<std::pair<VkDescriptorType, float>> sizes = {
+        {VK_DESCRIPTOR_TYPE_SAMPLER, 0.5f},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4.f},
+        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4.f},
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.f},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1.f},
+        {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1.f},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2.f},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2.f},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1.f},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1.f},
+        {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0.5f}};
   };
 
   void reset_pools();
@@ -36,7 +37,7 @@ class DescriptorAllocator {
 
   VkDevice device;
 
- private:
+private:
   VkDescriptorPool grab_pool();
 
   VkDescriptorPool currentPool{VK_NULL_HANDLE};
@@ -46,11 +47,12 @@ class DescriptorAllocator {
 };
 
 class DescriptorLayoutCache {
- public:
+public:
   void init(VkDevice newDevice);
   void cleanup();
 
-  VkDescriptorSetLayout create_descriptor_layout(VkDescriptorSetLayoutCreateInfo *info);
+  VkDescriptorSetLayout
+  create_descriptor_layout(VkDescriptorSetLayoutCreateInfo *info);
 
   struct DescriptorLayoutInfo {
     // good idea to turn this into a inlined array
@@ -61,33 +63,42 @@ class DescriptorLayoutCache {
     size_t hash() const;
   };
 
- private:
+private:
   struct DescriptorLayoutHash {
-    std::size_t operator()(const DescriptorLayoutInfo &k) const { return k.hash(); }
+    std::size_t operator()(const DescriptorLayoutInfo &k) const {
+      return k.hash();
+    }
   };
 
-  std::unordered_map<DescriptorLayoutInfo, VkDescriptorSetLayout, DescriptorLayoutHash> layoutCache;
+  std::unordered_map<DescriptorLayoutInfo, VkDescriptorSetLayout,
+                     DescriptorLayoutHash>
+      layoutCache;
   VkDevice device;
 };
 
 class DescriptorBuilder {
- public:
-  static DescriptorBuilder begin(DescriptorLayoutCache *layoutCache, DescriptorAllocator *allocator);
+public:
+  static DescriptorBuilder begin(DescriptorLayoutCache *layoutCache,
+                                 DescriptorAllocator *allocator);
 
-  DescriptorBuilder &bind_buffer(uint32_t binding, VkDescriptorBufferInfo *bufferInfo, VkDescriptorType type,
+  DescriptorBuilder &bind_buffer(uint32_t binding,
+                                 VkDescriptorBufferInfo *bufferInfo,
+                                 VkDescriptorType type,
                                  VkShaderStageFlags stageFlags);
 
-  DescriptorBuilder &bind_image(uint32_t binding, VkDescriptorImageInfo *imageInfo, VkDescriptorType type,
+  DescriptorBuilder &bind_image(uint32_t binding,
+                                VkDescriptorImageInfo *imageInfo,
+                                VkDescriptorType type,
                                 VkShaderStageFlags stageFlags);
 
   bool build(VkDescriptorSet &set, VkDescriptorSetLayout &layout);
   bool build(VkDescriptorSet &set);
 
- private:
+private:
   std::vector<VkWriteDescriptorSet> writes;
   std::vector<VkDescriptorSetLayoutBinding> bindings;
 
   DescriptorLayoutCache *cache;
   DescriptorAllocator *alloc;
 };
-}  // namespace vkutil
+} // namespace vkutil
