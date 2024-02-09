@@ -223,7 +223,6 @@ bool DescriptorBuilder::build(VkDescriptorSet &set, VkDescriptorSetLayout &layou
   if (!success) {
     return false;
   };
-
   // write descriptor
 
   for (VkWriteDescriptorSet &w : writes) {

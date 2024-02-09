@@ -1,4 +1,4 @@
-#include <vk_engine.h>
+#include "vk_engine.h"
 
 int main(int argc, char *argv[]) {
   VulkanEngine engine;
@@ -8,6 +8,6 @@ int main(int argc, char *argv[]) {
   engine.run();
 
   engine.cleanup();
-  sizeof(glm::mat4);
+
   return 0;
 }

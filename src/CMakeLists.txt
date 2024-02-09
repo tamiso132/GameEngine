@@ -25,6 +25,10 @@ camera/camera.cpp
 camera/camera.h
 vk_descriptors.cpp
 vk_descriptors.h
+tamhelper.h
+tamhelper.cpp
+vk_create.h
+vk_create.cpp
 )
 
 target_include_directories(VulkanGuide PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS})

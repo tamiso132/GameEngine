@@ -37,7 +37,7 @@ struct ShaderLayout {
 };
 
 class PipelineBuilder {
- public:
+public:
   std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
   VkPipelineVertexInputStateCreateInfo _vertexInputInfo;
   VkPipelineInputAssemblyStateCreateInfo _inputAssembly;
@@ -54,39 +54,7 @@ class PipelineBuilder {
 constexpr unsigned int FRAME_OVERLAP = 2;
 
 class VulkanEngine {
-  struct DescriptorSetBuffer {
-    AllocatedBuffer buffer;
-    VkDescriptorSet set;
-  };
-
-  struct DescriptorSetImage {
-    VkDescriptorSet set;
-  };
-  // make a builder for this one
-  struct DescriptorSets {
-    std::vector<DescriptorSetBuffer> set_buffers;
-    std::vector<DescriptorSetImage> set_images;
-  };
-
-  struct PipelineInfo {
-    VkPipelineLayout pipeline_layout;
-    std::vector<VkDescriptorSetLayout &> desc_layouts;
-  };
-
-  struct GlobalInformation {
-    std::vector<VkDescriptorSetLayout> desc_layouts;
-
-    vkutil::DescriptorAllocator *_globalAllocator;
-    vkutil::DescriptorLayoutCache *_globalLayoutCache;
-
-    /// @brief
-    std::unordered_map<VkDescriptorSetLayout, DescriptorSets> descriptors;
-
-    /// @brief layouts for the pipeline
-    std::unordered_map<VkPipeline, PipelineInfo> pipeline_info;
-  };
-
- public:
+public:
   bool _isInitialized{false};
   int _frameNumber{0};
   int _selectedShader{0};
@@ -121,7 +89,7 @@ class VulkanEngine {
 
   // DeletionQueue _mainDeletionQueue;
 
-  VmaAllocator _allocator;  // vma lib allocator
+  VmaAllocator _allocator; // vma lib allocator
 
   // depth resources
   VkImageView _depthImageView;
@@ -156,8 +124,6 @@ class VulkanEngine {
 
   std::vector<VertexOpengl> _openglVertices;
 
-  GlobalInformation global;
-
   void init();
 
   // shuts down the engine
@@ -169,13 +135,14 @@ class VulkanEngine {
   // run main loop
   void run();
 
-  AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+  AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage,
+                                VmaMemoryUsage memoryUsage);
 
   size_t pad_uniform_buffer_size(size_t originalSize);
 
   void immediate_submit(std::function<void(VkCommandBuffer cmd)> &&function);
 
- private:
+private:
   void init_vulkan();
 
   void init_swapchain();
@@ -196,7 +163,8 @@ class VulkanEngine {
 
   void init_descriptors();
 
-  bool load_shader_module(const char *filePath, VkShaderModule *outShaderModule);
+  bool load_shader_module(const char *filePath,
+                          VkShaderModule *outShaderModule);
 
   void load_meshes();
 
@@ -204,5 +172,6 @@ class VulkanEngine {
 
   void upload_mesh(Mesh &mesh);
 
-  void update_material_pipeline(VkPipeline pipeline, VkPipelineLayout layout, const std::string &name);
+  void update_material_pipeline(VkPipeline pipeline, VkPipelineLayout layout,
+                                const std::string &name);
 };
