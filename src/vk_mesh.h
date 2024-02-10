@@ -32,3 +32,6 @@ struct Mesh {
 
   bool load_from_obj(const char *filename);
 };
+
+void vertex_input_description(
+    VkPipelineVertexInputStateCreateInfo &vertexInputState);

@@ -11,6 +11,7 @@
 #include "VkBootstrap.h"
 #include "vk_create.h"
 #include "vk_initializers.h"
+#include "vk_mesh.h"
 #include "vk_textures.h"
 #include "vk_types.h"
 
@@ -65,7 +66,7 @@ void VulkanEngine::init() {
 
   init_commands();
 
-  // init_sync_structures();
+  init_sync_structures();
 
   // load_images();
 
@@ -104,10 +105,11 @@ void VulkanEngine::cleanup() {
 
 void VulkanEngine::draw() {
   // // check if window is minimized and skip drawing
-  // if (SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED) return;
-  // /*SYNC FRAME*/
-  // // wait until the gpu has finished rendering the last frame. Timeout of 1
-  // // second
+  if (SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED)
+    return;
+  /*SYNC FRAME*/
+  // wait until the gpu has finished rendering the last frame. Timeout of 1
+  // second
   // VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence,
   // true, 1000000000)); VK_CHECK(vkResetFences(_device, 1,
   // &get_current_frame()._renderFence));
@@ -563,6 +565,11 @@ void VulkanEngine::init_commands() {
 }
 
 void VulkanEngine::init_sync_structures() {
+
+  VkFenceCreateInfo fenceCreateInfo =
+      vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
+  VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &this->fence));
+
   // // create syncronization structures
   // // one fence to control when the gpu has finished rendering the frame,
   // // and 2 semaphores to syncronize rendering with swapchain
@@ -630,6 +637,7 @@ void VulkanEngine::init_pipelines(
   VK_CHECK(vkCreatePipelineLayout(this->_device, &triangleLayoutInfo, nullptr,
                                   &pipelineLayout));
 
+  /*Pipeline Settings*/
   pipelineBuilder._vertexInputInfo = vkinit::vertex_input_state_create_info();
 
   pipelineBuilder._inputAssembly =
@@ -644,89 +652,30 @@ void VulkanEngine::init_pipelines(
   pipelineBuilder._viewport.minDepth = 0.0f;
   pipelineBuilder._viewport.maxDepth = 1.0f;
 
-  // pipelineBuilder._scissor.offset = {0, 0};
-  // pipelineBuilder._scissor.extent = _windowExtent;
+  pipelineBuilder._scissor.offset = {0, 0};
+  pipelineBuilder._scissor.extent = _windowExtent;
 
   // /*Extra*/
   // // configure the rasterizer to draw filled triangles
-  // pipelineBuilder._rasterizer =
-  // vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
+  pipelineBuilder._rasterizer =
+      vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
 
   // // we dont use multisampling, so just run the default one
-  // pipelineBuilder._multisampling = vkinit::multisampling_state_create_info();
+  pipelineBuilder._multisampling = vkinit::multisampling_state_create_info();
 
   // // a single blend attachment with no blending and writing to RGBA
-  // pipelineBuilder._colorBlendAttachment =
-  // vkinit::color_blend_attachment_state();
+  pipelineBuilder._colorBlendAttachment =
+      vkinit::color_blend_attachment_state();
 
   // // default depthtesting
-  // pipelineBuilder._depthStencil = vkinit::depth_stencil_create_info(true,
-  // true, VK_COMPARE_OP_LESS_OR_EQUAL);
+  pipelineBuilder._depthStencil = vkinit::depth_stencil_create_info(
+      false, false, VK_COMPARE_OP_LESS_OR_EQUAL);
 
   // /*Vertex Bindings*/
 
-  // VertexInputDescription vertexDescription =
-  // Vertex::get_vertex_description();
+  vertex_input_description(pipelineBuilder._vertexInputInfo);
 
-  // pipelineBuilder._vertexInputInfo.pVertexAttributeDescriptions =
-  // vertexDescription.attributes.data();
-  // pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount =
-  // vertexDescription.attributes.size();
-
-  // pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions =
-  // vertexDescription.bindings.data();
-  // pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount =
-  // vertexDescription.bindings.size();
-
-  // VkPipeline meshPipeline = pipelineBuilder.build_pipeline(_device,
-  // _renderPass);
-
-  // create_material(meshPipeline, meshPipLayout, "defaultmesh");
-
-  // pipelineBuilder._shaderStages.clear();
-  // pipelineBuilder._shaderStages.push_back(
-  //     vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT,
-  //     meshVertShader));
-
-  // pipelineBuilder._shaderStages.push_back(
-  //     vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT,
-  //     texturedMeshShader));
-
-  // pipelineBuilder._pipelineLayout = texturedPipeLayout;
-  // VkPipeline texPipeline = pipelineBuilder.build_pipeline(_device,
-  // _renderPass); update_material_pipeline(texPipeline, texturedPipeLayout,
-  // "texturedmesh");
-
-  // pipelineBuilder._shaderStages.clear();
-
-  // /*OPENGL PIPELINE*/
-  // VertexInputDescription opengl_vertex_desc =
-  // VertexOpengl::get_vertex_description();
-
-  // pipelineBuilder._shaderStages.push_back(
-  //     vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT,
-  //     triangle_shader_vert));
-  // pipelineBuilder._shaderStages.push_back(
-  //     vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT,
-  //     triangle_shader_frag));
-  // //////////////// TRIANGLE
-  // ////////////////
-  // pipelineBuilder._depthStencil = vkinit::depth_stencil_create_info(false,
-  // false, VK_COMPARE_OP_ALWAYS); pipelineBuilder._pipelineLayout =
-  // _opengl_layout;
-
-  // /*VERTEX BINDINGS*/
-  // pipelineBuilder._vertexInputInfo.pVertexAttributeDescriptions =
-  // opengl_vertex_desc.attributes.data();
-  // pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount =
-  // opengl_vertex_desc.attributes.size();
-
-  // pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions =
-  // opengl_vertex_desc.bindings.data();
-  // pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount =
-  // opengl_vertex_desc.bindings.size();
-
-  // _opengl_pipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
+  this->pipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
 
   // vkDestroyShaderModule(_device, meshVertShader, nullptr);
   // vkDestroyShaderModule(_device, colorMeshShader, nullptr);
@@ -793,8 +742,8 @@ void VulkanEngine::init_imgui() {
   ImGui_ImplVulkan_Init(&init_info, _renderPass);
 
   // execute a gpu command to upload imgui font textures
-  // immediate_submit(
-  //     [&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(); });
+  immediate_submit(
+      [&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(); });
 
   // clear font textures from cpu data
   ImGui_ImplVulkan_DestroyFontsTexture();
@@ -1076,8 +1025,8 @@ void VulkanEngine::init_descriptors() {
   // pad_uniform_buffer_size(sizeof(GPUSceneData));
 
   // _sceneParameterBuffer =
-  //     create_buffer(sceneParamBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-  //     VMA_MEMORY_USAGE_CPU_TO_GPU);
+  //     create_buffer(sceneParamBufferSize,
+  //     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
   // for (int i = 0; i < FRAME_OVERLAP; i++) {
   //   /*Initilization of allocators*/
   //   _frames[i].dynamicDescriptorAllocator = new
@@ -1134,17 +1083,17 @@ void VulkanEngine::init_descriptors() {
 
   //   vkutil::DescriptorBuilder::begin(_frames[i].layoutCacheAllocator,
   //   _frames[i].dynamicDescriptorAllocator)
-  //       .bind_buffer(0, &objectBufferInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-  //       VK_SHADER_STAGE_VERTEX_BIT) .build(_frames[i].objectDescriptor,
-  //       _objectSetLayout);
+  //       .bind_buffer(0, &objectBufferInfo,
+  //       VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+  //       .build(_frames[i].objectDescriptor, _objectSetLayout);
 
   //   /*Opengl Descriptors*/
 
   //   vkutil::DescriptorBuilder::begin(_frames[i].layoutCacheAllocator,
   //   _frames[i].dynamicDescriptorAllocator)
-  //       .bind_buffer(0, &objectBufferInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-  //       VK_SHADER_STAGE_VERTEX_BIT) .build(_openglFrames[i].objectDescriptor,
-  //       _objectOpenglLayout);
+  //       .bind_buffer(0, &objectBufferInfo,
+  //       VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+  //       .build(_openglFrames[i].objectDescriptor, _objectOpenglLayout);
   // }
 
   // _mainDeletionQueue.push_function([&]() {

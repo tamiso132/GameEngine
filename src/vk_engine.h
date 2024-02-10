@@ -25,10 +25,8 @@
 #include "vk_create.h"
 
 struct VertexTemp {
-  // probably want texture
-  // positions
-  // normal
-  // uv
+  glm::vec3 positions;
+  glm::vec3 colors;
 };
 
 struct MyObject {
@@ -141,6 +139,10 @@ public:
 
   VkCommandBuffer cmd;
   VkCommandPool pool;
+
+  VkPipeline pipeline;
+
+  VkFence fence;
 
   void init();
 
