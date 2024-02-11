@@ -10,13 +10,20 @@
 /*Global State*/
 
 GlobalBuilder GlobalState::begin_build_descriptor() {
-  return GlobalBuilder(*this);
+  auto global_builder = GlobalBuilder(*this);
+  global_builder.builder.begin(this->_globalLayoutCache,
+                               this->_globalAllocator);
+  return global_builder;
 }
 
 VkDescriptorSetLayout GlobalState::get_descriptor_layout(const char *key) {
   assert(!this->descLayout.contains(key));
 
   return this->descLayout[key];
+}
+
+DescriptorSet GlobalState::get_descriptor_set(const char *key) {
+  return this->descSet[this->descLayout[key]];
 }
 
 void GlobalState::add_descriptor_set(
@@ -35,9 +42,20 @@ void GlobalState::add_descriptor_set(
   this->descSet.insert({layout, desc_set});
 }
 
-void GlobalState::write_descriptor_set(VkDescriptorSetLayout layout,
-                                       int descriptor_index,
-                                       int binding_index) {}
+void GlobalState::write_descriptor_set(const char *layerName, int bindingIndex,
+                                       VmaAllocator allocator, void *srcData,
+                                       size_t srcSize) {
+  DescriptorSet set = this->descSet[this->descLayout[layerName]];
+  void *dstData;
+  vmaMapMemory(allocator,
+               set.bindingsPointers[bindingIndex].value()._allocation,
+               &srcData);
+
+  memcpy(dstData, srcData, srcSize);
+
+  vmaUnmapMemory(allocator,
+                 set.bindingsPointers[bindingIndex].value()._allocation);
+}
 
 /*Global Builder*/
 GlobalBuilder &

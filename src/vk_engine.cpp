@@ -103,6 +103,95 @@ void VulkanEngine::cleanup() {
   // }
 }
 
+void VulkanEngine::draw_test() {
+  /*Camera*/
+  auto view = _cam.get_view();
+  //  camera projection
+  glm::mat4 projection =
+      glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+  projection[1][1] *= -1;
+
+  GPUCamera camData;
+  camData.proj = projection;
+  camData.view = view;
+  camData.viewproj = projection * camData.view;
+
+  void *data;
+  this->global.write_descriptor_set("camera", 0, this->_allocator, &camData,
+                                    sizeof(GPUCamera));
+
+  GPUObject object;
+  object.transformMatrix = glm::mat4(1.0f);
+
+  this->global.write_descriptor_set("object", 0, this->_allocator, &object,
+                                    sizeof(GPUObject));
+
+  DescriptorSet cameraSet = global.get_descriptor_set("camera");
+  DescriptorSet objectSet = global.get_descriptor_set("object");
+
+  vkCmdBindPipeline(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipeline);
+
+  vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          this->pipelineLayout, 0, 1, &cameraSet.descriptorSet,
+                          0, nullptr);
+  vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          this->pipelineLayout, 0, 1, &objectSet.descriptorSet,
+                          0, nullptr);
+
+  VertexTemp temp;
+  temp.positions = glm::vec3(1, 1, 1);
+  temp.colors = glm::vec3(1, 1, 1);
+  auto b = create_buffer(sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                         VMA_MEMORY_USAGE_CPU_TO_GPU);
+  vkCmdBindVertexBuffers(this->cmd, 0, 2, temp, nullptr);
+
+  // only bind the pipeline if it doesnt match with the already bound one
+  //     if (object.material != lastMaterial) {
+  //       vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+  //       object.material->pipeline); lastMaterial = object.material;
+
+  //       uint32_t uniform_offset =
+  //       pad_uniform_buffer_size(sizeof(GPUSceneData))
+  //       * frameIndex; vkCmdBindDescriptorSets(cmd,
+  //       VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipelineLayout, 0,
+  //       1,
+  //                               &get_current_frame().globalDescriptor, 1,
+  //                               &uniform_offset);
+
+  //       // object data descriptor
+  //       vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+  //       object.material->pipelineLayout, 1, 1,
+  //                               &get_current_frame().objectDescriptor, 0,
+  //                               nullptr);
+
+  //       if (object.material->textureSet != VK_NULL_HANDLE) {
+  //         // texture descriptor
+  //         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+  //         object.material->pipelineLayout, 2, 1,
+  //                                 &object.material->textureSet, 0, nullptr);
+  //       }
+  //     }
+
+  //     glm::mat4 model = object.transformMatrix;
+  //     // final render matrix, that we are calculating on the cpu
+  //     glm::mat4 mesh_matrix = model;
+
+  //     MeshPushConstants constants;
+  //     constants.render_matrix = mesh_matrix;
+
+  //     // upload the mesh to the gpu via pushconstants
+  //     vkCmdPushConstants(cmd, object.material->pipelineLayout,
+  //     VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants),
+  //                        &constants);
+  //     // only bind the mesh if its a different one from last bind
+  //     if (object.mesh != lastMesh) {
+  //       // bind the mesh vertex buffer with offset 0
+  //       VkDeviceSize offset = 0;
+  //       vkCmdBindVertexBuffers(cmd, 0, 1,
+  //       &object.mesh->_vertexBuffer._buffer, &offset); lastMesh =
+  //       object.mesh;
+}
+
 void VulkanEngine::draw() {
   // // check if window is minimized and skip drawing
   if (SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED)
@@ -110,19 +199,25 @@ void VulkanEngine::draw() {
   /*SYNC FRAME*/
   // wait until the gpu has finished rendering the last frame. Timeout of 1
   // second
+
+  VK_CHECK(vkWaitForFences(_device, 1, &this->fence_wait, true, 1000000000));
+  VK_CHECK(vkResetFences(_device, 1, &this->fence_wait));
+
   // VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence,
   // true, 1000000000)); VK_CHECK(vkResetFences(_device, 1,
   // &get_current_frame()._renderFence));
 
-  // // now that we are sure that the commands finished executing, we can safely
+  // // now that we are sure that the commands finished executing, we can
+  // safely
   // // reset the command buffer to begin recording again.
-  // VK_CHECK(vkResetCommandBuffer(get_current_frame()._mainCommandBuffer, 0));
+  // VK_CHECK(vkResetCommandBuffer(get_current_frame()._mainCommandBuffer,
+  // 0));
 
   // // request image from the swapchain
-  // uint32_t swapchainImageIndex;
-  // VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, 1000000000,
-  // get_current_frame()._presentSemaphore, nullptr,
-  //                                &swapchainImageIndex));
+  uint32_t swapchainImageIndex;
+  VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, 1000000000,
+                                 this->present_semp, nullptr,
+                                 &swapchainImageIndex));
 
   // /*RENDERING*/
   // ImGui::Render();
@@ -132,14 +227,16 @@ void VulkanEngine::draw() {
   // // begin the command buffer recording.We will use this command buffer
   // exactly
   // // once, so we want to let vulkan know that
-  // VkCommandBufferBeginInfo cmdBeginInfo =
-  //     vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+  VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(
+      VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+  VK_CHECK(vkResetCommandBuffer(this->cmd, 0));
+  VK_CHECK(vkBeginCommandBuffer(this->cmd, &cmdBeginInfo));
 
-  // VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
-
-  // // make a clear-color from frame number. This will flash with a 120 frame
+  // // make a clear-color from frame number. This will flash with a 120
+  // frame
   // // period.
-  // VkClearValue clearValue;
+  VkClearValue clearValue;
+  clearValue.color = {0.0f, 0.0f, 0.0f, 1.0f};
   // float flash = abs(sin(_frameNumber / 120.f));
   // clearValue.color = {{0.0f, 0.0f, flash, 1.0f}};
 
@@ -148,102 +245,76 @@ void VulkanEngine::draw() {
   // depthClear.depthStencil.depth = 1.f;
 
   // // start the main renderpass.
-  // // We will use the clear color from above, and the framebuffer of the index
+  // // We will use the clear color from above, and the framebuffer of the
+  // index
   // // the swapchain gave us
-  // VkRenderPassBeginInfo rpInfo =
-  //     vkinit::renderpass_begin_info(_renderPass, _windowExtent,
-  //     _framebuffers[swapchainImageIndex]);
+  VkRenderPassBeginInfo rpInfo = vkinit::renderpass_begin_info(
+      _renderPass, _windowExtent, this->_framebuffers[swapchainImageIndex]);
 
   // // connect clear values
-  // rpInfo.clearValueCount = 2;
+  rpInfo.clearValueCount = 1;
+  rpInfo.pClearValues = &clearValue;
 
   // VkClearValue clearValues[] = {clearValue, depthClear};
 
-  // rpInfo.pClearValues = &clearValues[0];
-
-  // vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
   // draw_objects(cmd, _renderables.data(), _renderables.size());
-
+  draw_test();
   // // draw imgui
   // ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
   // // finalize the render pass
-  // vkCmdEndRenderPass(cmd);
-  // // finalize the command buffer (we can no longer add commands, but it can
-  // now
+  vkCmdEndRenderPass(cmd);
+  // // finalize the command buffer (we can no longer add commands, but it
+  // can now
   // // be executed)
 
-  // /*DYNAMIC RENDERING*/
-  // /////
-
-  // // const VkRenderingAttachmentInfoKHR color_attachment_info{
-  // //     .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-  // //     .imageView = _swapchainImageViews[swapchainImageIndex],
-  // //     .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
-  // //     .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-  // //     .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-  // //     .clearValue = clear_value,
-  // // };
-
-  // // const VkRenderingInfoKHR render_info{
-  // //     .sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
-  // //     .renderArea = _meshpip,
-  // //     .layerCount = 1,
-  // //     .colorAttachmentCount = 1,
-  // //     .pColorAttachments = &color_attachment_info,
-  // // };
-
-  // // vkCmdBeginRenderingKHR(command_buffer, &render_info);
-
-  // // // Draw calls here
-
-  // // vkCmdEndRenderingKHR(command_buffer);
-
-  // VK_CHECK(vkEndCommandBuffer(cmd));
+  VK_CHECK(vkEndCommandBuffer(cmd));
 
   // // prepare the submission to the queue.
-  // // we want to wait on the _presentSemaphore, as that semaphore is signaled
+  // // we want to wait on the _presentSemaphore, as that semaphore is
+  // signaled
   // // when the swapchain is ready we will signal the _renderSemaphore, to
   // signal
   // // that rendering has finished
 
-  // VkSubmitInfo submit = vkinit::submit_info(&cmd);
-  // VkPipelineStageFlags waitStage =
-  // VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  VkSubmitInfo submit = vkinit::submit_info(&cmd);
+  VkPipelineStageFlags waitStage =
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-  // submit.pWaitDstStageMask = &waitStage;
+  submit.pWaitDstStageMask = &waitStage;
 
-  // submit.waitSemaphoreCount = 1;
-  // submit.pWaitSemaphores = &get_current_frame()._presentSemaphore;
+  submit.waitSemaphoreCount = 1;
+  submit.pWaitSemaphores = &this->present_semp;
 
-  // submit.signalSemaphoreCount = 1;
-  // submit.pSignalSemaphores = &get_current_frame()._renderSemaphore;
+  submit.signalSemaphoreCount = 1;
+  submit.pSignalSemaphores = &this->render_semp;
 
   // // submit command buffer to the queue and execute it.
-  // //  _renderFence will now block until the graphic commands finish execution
-  // VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit,
-  // get_current_frame()._renderFence));
+  // //  _renderFence will now block until the graphic commands finish
+  // execution
+  VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, this->fence_wait));
 
   // // prepare present
   // //  this will put the image we just rendered to into the visible window.
   // //  we want to wait on the _renderSemaphore for that,
-  // //  as its necessary that drawing commands have finished before the image
-  // is
+  // //  as its necessary that drawing commands have finished before the
+  // image is
   // //  displayed to the user
-  // VkPresentInfoKHR presentInfo = vkinit::present_info();
+  VkPresentInfoKHR presentInfo = vkinit::present_info();
 
-  // presentInfo.pSwapchains = &_swapchain;
-  // presentInfo.swapchainCount = 1;
+  presentInfo.pSwapchains = &_swapchain;
+  presentInfo.swapchainCount = 1;
 
-  // presentInfo.pWaitSemaphores = &get_current_frame()._renderSemaphore;
-  // presentInfo.waitSemaphoreCount = 1;
+  presentInfo.pWaitSemaphores = &this->render_semp;
+  presentInfo.waitSemaphoreCount = 1;
 
-  // presentInfo.pImageIndices = &swapchainImageIndex;
+  presentInfo.pImageIndices = &swapchainImageIndex;
 
-  // VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
+  VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
 
   // // increase the number of frames drawn
-  // _frameNumber++;
+  _frameNumber++;
 }
 
 void VulkanEngine::run() {
@@ -296,12 +367,6 @@ void VulkanEngine::run() {
     draw();
   }
 }
-
-// FrameData &VulkanEngine::get_current_frame() { return _frames[_frameNumber %
-// FRAME_OVERLAP]; }
-
-// FrameData &VulkanEngine::get_last_frame() { return _frames[(_frameNumber - 1)
-// % 2]; }
 
 void VulkanEngine::init_vulkan() {
   vkb::InstanceBuilder builder;
@@ -425,7 +490,8 @@ void VulkanEngine::init_swapchain() {
   // add to deletion queues
   // _mainDeletionQueue.push_function([=]() {
   //   vkDestroyImageView(_device, _depthImageView, nullptr);
-  //   vmaDestroyImage(_allocator, _depthImage._image, _depthImage._allocation);
+  //   vmaDestroyImage(_allocator, _depthImage._image,
+  //   _depthImage._allocation);
   // });
 }
 
@@ -433,9 +499,9 @@ void VulkanEngine::init_default_renderpass() {
   // we define an attachment description for our main color image
   // the attachment is loaded as "clear" when renderpass start
   // the attachment is stored when renderpass ends
-  // the attachment layout starts as "undefined", and transitions to "Present"
-  // so its possible to display it we dont care about stencil, and dont use
-  // multisampling
+  // the attachment layout starts as "undefined", and transitions to
+  // "Present" so its possible to display it we dont care about stencil, and
+  // dont use multisampling
 
   VkAttachmentDescription color_attachment = {};
   color_attachment.format = _swachainImageFormat;
@@ -477,8 +543,8 @@ void VulkanEngine::init_default_renderpass() {
   // hook the depth attachment into the subpass
   subpass.pDepthStencilAttachment = &depth_attachment_ref;
 
-  // 1 dependency, which is from "outside" into the subpass. And we can read or
-  // write color
+  // 1 dependency, which is from "outside" into the subpass. And we can read
+  // or write color
   VkSubpassDependency dependency = {};
   dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
   dependency.dstSubpass = 0;
@@ -568,12 +634,21 @@ void VulkanEngine::init_sync_structures() {
 
   VkFenceCreateInfo fenceCreateInfo =
       vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
-  VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &this->fence));
+  VkSemaphoreCreateInfo sempahoreInfo = vkinit::semaphore_create_info();
+
+  VK_CHECK(
+      vkCreateFence(_device, &fenceCreateInfo, nullptr, &this->fence_wait));
+
+  VK_CHECK(vkCreateSemaphore(this->_device, &sempahoreInfo, nullptr,
+                             &this->present_semp));
+  VK_CHECK(vkCreateSemaphore(this->_device, &sempahoreInfo, nullptr,
+                             &this->render_semp));
 
   // // create syncronization structures
   // // one fence to control when the gpu has finished rendering the frame,
   // // and 2 semaphores to syncronize rendering with swapchain
-  // // we want the fence to start signalled so we can wait on it on the first
+  // // we want the fence to start signalled so we can wait on it on the
+  // first
   // // frame
   // VkFenceCreateInfo fenceCreateInfo =
   // vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
@@ -780,8 +855,8 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
   colorBlending.pAttachments = &_colorBlendAttachment;
 
   // build the actual pipeline
-  // we now use all of the info structs we have been writing into into this one
-  // to create the pipeline
+  // we now use all of the info structs we have been writing into into this
+  // one to create the pipeline
   VkGraphicsPipelineCreateInfo pipelineInfo = {};
   pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   pipelineInfo.pNext = nullptr;

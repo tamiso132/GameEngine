@@ -24,6 +24,11 @@ enum ImageType {
   STORAGE_IMAGE = 3,
 };
 
+struct DescriptorSet {
+  std::vector<std::optional<AllocatedBuffer>> bindingsPointers;
+  VkDescriptorSet descriptorSet;
+};
+
 enum LayoutPhase { PerFrame, PerRenderPass, PerMaterial, PerObject };
 
 struct PipelineInfo {
@@ -40,14 +45,16 @@ class GlobalState {
 
 public:
   GlobalBuilder begin_build_descriptor();
-  void write_descriptor_set(VkDescriptorSetLayout layout, int descriptor_index,
-                            int binding_index);
+  void write_descriptor_set(const char *layerName, int bindingIndex,
+                            VmaAllocator allocator, void *data,
+                            size_t dataSize);
 
   VkDescriptorSetLayout get_descriptor_layout(const char *key);
 
+  DescriptorSet get_descriptor_set(const char *key);
+
 private:
   // Forward declaration
-  struct DescriptorSet;
 
   // Private member functions
   void add_descriptor_set(VkDescriptorSetLayout layout, VkDescriptorSet set,
@@ -63,10 +70,6 @@ private:
   vkutil::DescriptorLayoutCache *_globalLayoutCache;
 
   // Nested struct
-  struct DescriptorSet {
-    std::vector<std::optional<AllocatedBuffer>> bindingsPointers;
-    VkDescriptorSet descriptorSet;
-  };
 };
 
 class GlobalBuilder {

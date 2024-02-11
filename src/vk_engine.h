@@ -141,13 +141,19 @@ public:
   VkCommandPool pool;
 
   VkPipeline pipeline;
+  VkPipelineLayout pipelineLayout;
 
-  VkFence fence;
+  VkFence fence_wait;
+
+  VkSemaphore present_semp;
+  VkSemaphore render_semp;
 
   void init();
 
   // shuts down the engine
   void cleanup();
+
+  void draw_test();
 
   // draw loop
   void draw();
