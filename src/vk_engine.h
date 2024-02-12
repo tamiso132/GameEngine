@@ -148,10 +148,15 @@ public:
   VkSemaphore present_semp;
   VkSemaphore render_semp;
 
+  VkBuffer vertexBuffer;
+  VmaAllocation vertexAllocation;
+
   void init();
 
   // shuts down the engine
   void cleanup();
+
+  void create_vertex_buffer();
 
   void draw_test();
 
@@ -188,9 +193,6 @@ private:
   void init_scene();
 
   void init_descriptors();
-
-  bool load_shader_module(const char *filePath,
-                          VkShaderModule *outShaderModule);
 
   void load_meshes();
 

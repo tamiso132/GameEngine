@@ -44,14 +44,14 @@ class GlobalState {
   friend GlobalBuilder;
 
 public:
-  GlobalBuilder begin_build_descriptor();
-  void write_descriptor_set(const char *layerName, int bindingIndex,
-                            VmaAllocator allocator, void *data,
-                            size_t dataSize);
+ void init(VkDevice device);
+ GlobalBuilder begin_build_descriptor();
+ void write_descriptor_set(const char *layerName, int bindingIndex, VmaAllocator allocator, void *data,
+                           size_t dataSize);
 
-  VkDescriptorSetLayout get_descriptor_layout(const char *key);
+ VkDescriptorSetLayout get_descriptor_layout(const char *key);
 
-  DescriptorSet get_descriptor_set(const char *key);
+ DescriptorSet get_descriptor_set(const char *key);
 
 private:
   // Forward declaration

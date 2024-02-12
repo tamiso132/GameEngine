@@ -21,6 +21,8 @@
 #include "vk_descriptors.h"
 #include "vk_mem_alloc.h"
 
+#include "helper.h"
+
 constexpr bool bUseValidationLayers = true;
 
 const char *directoryPath = "shaders/spiv/";
@@ -50,12 +52,13 @@ void VulkanEngine::init() {
   init_swapchain();
 
   /*LOAD SHADERS*/
+  Helper::init(this->_device, this->_gpuProperties, this->_allocator);
   for (const auto &entry : fs::directory_iterator(directoryPath)) {
     if (fs::is_regular_file(entry.path())) {
       VkShaderModule shader;
-      load_shader_module(entry.path().c_str(), &shader);
+      Helper::load_shader_module(entry.path().c_str(), &shader);
       auto c = entry.path().filename().c_str();
-      printf("%s\n", entry.path().filename().c_str());
+      //  printf("%s\n", entry.path().filename().c_str());
       shaderModules.insert({c, shader});
     }
   }
@@ -103,6 +106,61 @@ void VulkanEngine::cleanup() {
   // }
 }
 
+const std::vector<VertexTemp> vertices = {
+    {{0.0f, -0.5f, 1.0f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, 0.5f, 1.0f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f, 1.0f}, {0.0f, 0.0f, 1.0f}}};
+void VulkanEngine::create_vertex_buffer() {
+
+  const size_t bufferSize = vertices.size() * sizeof(VertexTemp);
+  // allocate vertex buffer
+  VkBufferCreateInfo stagingBufferInfo = {};
+  stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  stagingBufferInfo.pNext = nullptr;
+  // this is the total size, in bytes, of the buffer we are allocating
+  stagingBufferInfo.size = bufferSize;
+  // this buffer is going to be used as a Vertex Buffer
+  stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+  // let the VMA library know that this data should be writeable by CPU, but
+  // also readable by GPU
+  VmaAllocationCreateInfo vmaallocInfo = {};
+  vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+  AllocatedBuffer stagingBuffer;
+
+  // allocate the buffer@
+  VK_CHECK(vmaCreateBuffer(_allocator, &stagingBufferInfo, &vmaallocInfo,
+                           &stagingBuffer._buffer, &stagingBuffer._allocation,
+                           nullptr));
+
+  // copy vertex data
+  void *data;
+  vmaMapMemory(_allocator, stagingBuffer._allocation, &data);
+
+  memcpy(data, vertices.data(), vertices.size() * sizeof(VertexTemp));
+
+  vmaUnmapMemory(_allocator, stagingBuffer._allocation);
+
+  // allocate vertex buffer
+  VkBufferCreateInfo vertexBufferInfo = {};
+  vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  vertexBufferInfo.pNext = nullptr;
+  // this is the total size, in bytes, of the buffer we are allocating
+  vertexBufferInfo.size = bufferSize;
+  // this buffer is going to be used as a Vertex Buffer
+  vertexBufferInfo.usage =
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+  // let the VMA library know that this data should be gpu native
+  vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+  // allocate the buffer
+  VK_CHECK(vmaCreateBuffer(_allocator, &vertexBufferInfo, &vmaallocInfo,
+                           &this->vertexBuffer, &this->vertexAllocation,
+                           nullptr));
+}
+
 void VulkanEngine::draw_test() {
   /*Camera*/
   auto view = _cam.get_view();
@@ -138,58 +196,9 @@ void VulkanEngine::draw_test() {
                           this->pipelineLayout, 0, 1, &objectSet.descriptorSet,
                           0, nullptr);
 
-  VertexTemp temp;
-  temp.positions = glm::vec3(1, 1, 1);
-  temp.colors = glm::vec3(1, 1, 1);
-  auto b = create_buffer(sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                         VMA_MEMORY_USAGE_CPU_TO_GPU);
-  vkCmdBindVertexBuffers(this->cmd, 0, 2, temp, nullptr);
+  vkCmdBindVertexBuffers(this->cmd, 0, 1, &this->vertexBuffer, 0);
 
-  // only bind the pipeline if it doesnt match with the already bound one
-  //     if (object.material != lastMaterial) {
-  //       vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-  //       object.material->pipeline); lastMaterial = object.material;
-
-  //       uint32_t uniform_offset =
-  //       pad_uniform_buffer_size(sizeof(GPUSceneData))
-  //       * frameIndex; vkCmdBindDescriptorSets(cmd,
-  //       VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipelineLayout, 0,
-  //       1,
-  //                               &get_current_frame().globalDescriptor, 1,
-  //                               &uniform_offset);
-
-  //       // object data descriptor
-  //       vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-  //       object.material->pipelineLayout, 1, 1,
-  //                               &get_current_frame().objectDescriptor, 0,
-  //                               nullptr);
-
-  //       if (object.material->textureSet != VK_NULL_HANDLE) {
-  //         // texture descriptor
-  //         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-  //         object.material->pipelineLayout, 2, 1,
-  //                                 &object.material->textureSet, 0, nullptr);
-  //       }
-  //     }
-
-  //     glm::mat4 model = object.transformMatrix;
-  //     // final render matrix, that we are calculating on the cpu
-  //     glm::mat4 mesh_matrix = model;
-
-  //     MeshPushConstants constants;
-  //     constants.render_matrix = mesh_matrix;
-
-  //     // upload the mesh to the gpu via pushconstants
-  //     vkCmdPushConstants(cmd, object.material->pipelineLayout,
-  //     VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants),
-  //                        &constants);
-  //     // only bind the mesh if its a different one from last bind
-  //     if (object.mesh != lastMesh) {
-  //       // bind the mesh vertex buffer with offset 0
-  //       VkDeviceSize offset = 0;
-  //       vkCmdBindVertexBuffers(cmd, 0, 1,
-  //       &object.mesh->_vertexBuffer._buffer, &offset); lastMesh =
-  //       object.mesh;
+  vkCmdDraw(cmd, vertices.size(), 1, 0, 0);
 }
 
 void VulkanEngine::draw() {
@@ -627,7 +636,7 @@ void VulkanEngine::init_commands() {
   VkCommandBufferAllocateInfo bufferInfo =
       vkinit::command_buffer_allocate_info(this->pool, 1);
 
-  VK_CHECK(vkAllocateCommandBuffers(this->_device, nullptr, &this->cmd));
+  VK_CHECK(vkAllocateCommandBuffers(this->_device, &bufferInfo, &this->cmd));
 }
 
 void VulkanEngine::init_sync_structures() {
@@ -817,8 +826,8 @@ void VulkanEngine::init_imgui() {
   ImGui_ImplVulkan_Init(&init_info, _renderPass);
 
   // execute a gpu command to upload imgui font textures
-  immediate_submit(
-      [&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(); });
+  // immediate_submit(
+  //     [&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(); });
 
   // clear font textures from cpu data
   ImGui_ImplVulkan_DestroyFontsTexture();
@@ -1051,7 +1060,7 @@ void VulkanEngine::init_scene() {}
 void VulkanEngine::init_descriptors() {
   // // new code abstract
   const uint32_t MAX_OBJECTS = 10000;
-
+  this->global.init(this->_device);
   this->global.begin_build_descriptor()
       .bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS,
                           BufferType::DYNAMIC_UNIFORM,

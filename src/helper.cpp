@@ -93,6 +93,7 @@ AllocatedBuffer Helper::create_buffer(size_t allocSize,
   bufferInfo.size = allocSize;
 
   bufferInfo.usage = usage;
+  bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   VmaAllocationCreateInfo vmaallocInfo = {};
   vmaallocInfo.usage = memoryUsage;

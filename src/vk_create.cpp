@@ -1,6 +1,7 @@
 #include "vk_create.h"
 
 #include <cassert>
+#include <cstring>
 #include <string>
 #include <unordered_map>
 
@@ -9,7 +10,16 @@
 
 /*Global State*/
 
+void GlobalState::init(VkDevice device) {
+  this->_globalAllocator = new vkutil::DescriptorAllocator{};
+  this->_globalLayoutCache = new vkutil::DescriptorLayoutCache{};
+  
+  this->_globalAllocator->init(device);
+  this->_globalLayoutCache->init(device);
+}
+
 GlobalBuilder GlobalState::begin_build_descriptor() {
+
   auto global_builder = GlobalBuilder(*this);
   global_builder.builder.begin(this->_globalLayoutCache,
                                this->_globalAllocator);
@@ -49,12 +59,18 @@ void GlobalState::write_descriptor_set(const char *layerName, int bindingIndex,
   void *dstData;
   vmaMapMemory(allocator,
                set.bindingsPointers[bindingIndex].value()._allocation,
-               &srcData);
+               &dstData);
 
-  memcpy(dstData, srcData, srcSize);
+  std::memcpy(dstData, srcData, srcSize);
 
   vmaUnmapMemory(allocator,
                  set.bindingsPointers[bindingIndex].value()._allocation);
+  //   vmaMapMemory(_allocator, get_current_frame().cameraBuffer._allocation,
+  //   &data);
+
+  //   memcpy(data, &camData, sizeof(GPUCameraData));
+
+  //   vmaUnmapMemory(_allocator, get_current_frame().cameraBuffer._allocation);
 }
 
 /*Global Builder*/
