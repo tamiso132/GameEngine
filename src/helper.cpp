@@ -1,5 +1,6 @@
 
 #include "helper.h"
+#include "vk_types.h"
 
 #include <cstdint>
 #include <vector>
@@ -84,29 +85,26 @@ size_t Helper::pad_uniform_buffer_size(size_t originalSize) {
   return alignedSize;
 }
 
-AllocatedBuffer Helper::create_buffer(size_t allocSize,
-                                      VkBufferUsageFlags usage,
-                                      VmaMemoryUsage memoryUsage) {
+AllocatedBuffer *Helper::create_buffer(size_t allocSize,
+                                       VkBufferUsageFlags usage,
+                                       VmaMemoryUsage memoryUsage) {
   VkBufferCreateInfo bufferInfo = {};
   bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   bufferInfo.pNext = nullptr;
   bufferInfo.size = allocSize;
 
   bufferInfo.usage = usage;
-  bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   VmaAllocationCreateInfo vmaallocInfo = {};
   vmaallocInfo.usage = memoryUsage;
 
-  AllocatedBuffer newBuffer;
+  AllocatedBuffer *newBuffer = new AllocatedBuffer{};
 
   VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vmaallocInfo,
-                           &newBuffer._buffer, &newBuffer._allocation,
+                           &newBuffer->_buffer, &newBuffer->_allocation,
                            nullptr));
 
   return newBuffer;
-  AllocatedBuffer b;
-  return b;
 }
 
 bool Helper::load_shader_module(const char *filePath,

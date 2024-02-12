@@ -1062,15 +1062,15 @@ void VulkanEngine::init_descriptors() {
   const uint32_t MAX_OBJECTS = 1;
   this->global.init(this->_device);
 
-  GlobalBuilder &builder = this->global.begin_build_descriptor();
+  GlobalBuilder *builder = this->global.begin_build_descriptor();
   builder
-      .bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::STORAGE,
-                          VK_SHADER_STAGE_VERTEX_BIT)
+      ->bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::STORAGE,
+                           VK_SHADER_STAGE_VERTEX_BIT)
       .build("object");
 
   this->global.begin_build_descriptor()
-      .bind_create_buffer(sizeof(GPUCamera), BufferType::UNIFORM,
-                          VK_SHADER_STAGE_VERTEX_BIT)
+      ->bind_create_buffer(sizeof(GPUCamera), BufferType::UNIFORM,
+                           VK_SHADER_STAGE_VERTEX_BIT)
       .build("camera");
 
   // this->global.begin_build_descriptor().bind_create_buffer(sizeof(GPUCamera),

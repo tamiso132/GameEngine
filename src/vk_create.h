@@ -45,7 +45,7 @@ class GlobalState {
 
 public:
   void init(VkDevice device);
-  GlobalBuilder &begin_build_descriptor();
+  GlobalBuilder *begin_build_descriptor();
   void write_descriptor_set(const char *layerName, int bindingIndex,
                             VmaAllocator allocator, void *data,
                             size_t dataSize);
@@ -80,23 +80,22 @@ class GlobalBuilder {
   };
 
 public:
-  friend class GlobalState; // Declare GlobalState as a friend class
-
+  GlobalBuilder(vkutil::DescriptorLayoutCache *layoutCache,
+                vkutil::DescriptorAllocator *allocator) {
+    this->builder = this->builder.begin(layoutCache, allocator);
+  }
   GlobalBuilder &bind_create_buffer(size_t buffer_max_size,
                                     BufferType usage_type,
                                     VkShaderStageFlags stageFlags);
 
-  GlobalBuilder &bind_image(VkDescriptorImageInfo *imageInfo, ImageType type,
+  GlobalBuilder *bind_image(VkDescriptorImageInfo *imageInfo, ImageType type,
                             VkShaderStageFlags stageFlags);
 
   bool build(const char *key);
 
 private:
-  GlobalBuilder(GlobalState &globalState) : global(globalState) {}
-
   vkutil::DescriptorBuilder builder;
   size_t currentBinding;
-  GlobalState &global;
-
+  AllocatedBuffer *buffer;
   std::vector<std::optional<AllocatedBuffer>> allocBuffers;
 };

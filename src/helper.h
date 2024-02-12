@@ -9,9 +9,9 @@ public:
 
   static size_t pad_uniform_buffer_size(size_t originalSize);
 
-  static AllocatedBuffer create_buffer(size_t allocSize,
-                                       VkBufferUsageFlags usage,
-                                       VmaMemoryUsage memoryUsage);
+  static AllocatedBuffer *create_buffer(size_t allocSize,
+                                        VkBufferUsageFlags usage,
+                                        VmaMemoryUsage memoryUsage);
   static bool load_shader_module(const char *filePath,
                                  VkShaderModule *outShaderModule);
   // TODO make getters

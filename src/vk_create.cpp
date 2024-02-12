@@ -8,6 +8,7 @@
 
 #include "helper.h"
 #include "vk_create.h"
+#include "vk_types.h"
 
 /*Global State*/
 
@@ -19,12 +20,11 @@ void GlobalState::init(VkDevice device) {
   this->_globalLayoutCache->init(device);
 }
 
-GlobalBuilder &GlobalState::begin_build_descriptor() {
+GlobalBuilder *GlobalState::begin_build_descriptor() {
 
-  GlobalBuilder *global_builder = new GlobalBuilder(*this);
-  global_builder->builder = global_builder->builder.begin(
-      this->_globalLayoutCache, this->_globalAllocator);
-  return *global_builder;
+  GlobalBuilder *global_builder =
+      new GlobalBuilder(this->_globalLayoutCache, this->_globalAllocator);
+  return global_builder;
 }
 
 VkDescriptorSetLayout GlobalState::get_descriptor_layout(const char *key) {
@@ -69,6 +69,7 @@ void GlobalState::write_descriptor_set(const char *layerName, int bindingIndex,
 }
 
 /*Global Builder*/
+
 GlobalBuilder &
 GlobalBuilder::bind_create_buffer(size_t buffer_max_size, BufferType usage_type,
                                   VkShaderStageFlags stageFlags) {
@@ -84,27 +85,26 @@ GlobalBuilder::bind_create_buffer(size_t buffer_max_size, BufferType usage_type,
     buffer_type = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     break;
   }
+  this->buffer = Helper::create_buffer(buffer_max_size, buffer_type,
+                                       VMA_MEMORY_USAGE_CPU_TO_GPU);
+  this->allocBuffers.push_back(*buffer);
 
-  AllocatedBuffer buffer = Helper::create_buffer(buffer_max_size, buffer_type,
-                                                 VMA_MEMORY_USAGE_CPU_TO_GPU);
   info.offset = 0;
   info.range = buffer_max_size;
-  info.buffer = buffer._buffer;
+  info.buffer = this->buffer->_buffer;
 
   this->builder = this->builder.bind_buffer(
       this->currentBinding, &info, (VkDescriptorType)usage_type, stageFlags);
-
-  this->allocBuffers.push_back(std::optional(buffer));
   return *this;
 }
 /// @brief Non dynamic image, cannot be updated
-GlobalBuilder &GlobalBuilder::bind_image(VkDescriptorImageInfo *imageInfo,
+GlobalBuilder *GlobalBuilder::bind_image(VkDescriptorImageInfo *imageInfo,
                                          ImageType type,
                                          VkShaderStageFlags stageFlags) {
   this->builder.bind_image(this->currentBinding, imageInfo,
                            (VkDescriptorType)type, stageFlags);
   this->allocBuffers.push_back(std::nullopt);
-  return *this;
+  return this;
 }
 
 bool GlobalBuilder::build(const char *key) {
@@ -112,7 +112,7 @@ bool GlobalBuilder::build(const char *key) {
   VkDescriptorSetLayout layout;
 
   this->builder.build(set, layout);
-  this->global.add_descriptor_set(layout, set, key, this->allocBuffers);
+  // this->global.add_descriptor_set(layout, set, key, this->allocBuffers);
 
   // placeholder
   return true;
