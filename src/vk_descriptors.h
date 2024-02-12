@@ -3,11 +3,10 @@
 
 #pragma once
 
+#include "vk_types.h"
 #include <array>
 #include <unordered_map>
 #include <vector>
-
-#include "vk_types.h"
 
 namespace vkutil {
 
@@ -65,6 +64,7 @@ public:
 
 private:
   struct DescriptorLayoutHash {
+
     std::size_t operator()(const DescriptorLayoutInfo &k) const {
       return k.hash();
     }

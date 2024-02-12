@@ -1,6 +1,7 @@
 #include "vk_create.h"
 
 #include <cassert>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <unordered_map>
@@ -13,17 +14,17 @@
 void GlobalState::init(VkDevice device) {
   this->_globalAllocator = new vkutil::DescriptorAllocator{};
   this->_globalLayoutCache = new vkutil::DescriptorLayoutCache{};
-  
+
   this->_globalAllocator->init(device);
   this->_globalLayoutCache->init(device);
 }
 
-GlobalBuilder GlobalState::begin_build_descriptor() {
+GlobalBuilder &GlobalState::begin_build_descriptor() {
 
-  auto global_builder = GlobalBuilder(*this);
-  global_builder.builder.begin(this->_globalLayoutCache,
-                               this->_globalAllocator);
-  return global_builder;
+  GlobalBuilder *global_builder = new GlobalBuilder(*this);
+  global_builder->builder = global_builder->builder.begin(
+      this->_globalLayoutCache, this->_globalAllocator);
+  return *global_builder;
 }
 
 VkDescriptorSetLayout GlobalState::get_descriptor_layout(const char *key) {
@@ -65,12 +66,6 @@ void GlobalState::write_descriptor_set(const char *layerName, int bindingIndex,
 
   vmaUnmapMemory(allocator,
                  set.bindingsPointers[bindingIndex].value()._allocation);
-  //   vmaMapMemory(_allocator, get_current_frame().cameraBuffer._allocation,
-  //   &data);
-
-  //   memcpy(data, &camData, sizeof(GPUCameraData));
-
-  //   vmaUnmapMemory(_allocator, get_current_frame().cameraBuffer._allocation);
 }
 
 /*Global Builder*/
@@ -96,8 +91,8 @@ GlobalBuilder::bind_create_buffer(size_t buffer_max_size, BufferType usage_type,
   info.range = buffer_max_size;
   info.buffer = buffer._buffer;
 
-  this->builder.bind_buffer(this->currentBinding, &info,
-                            (VkDescriptorType)usage_type, stageFlags);
+  this->builder = this->builder.bind_buffer(
+      this->currentBinding, &info, (VkDescriptorType)usage_type, stageFlags);
 
   this->allocBuffers.push_back(std::optional(buffer));
   return *this;

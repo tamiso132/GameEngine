@@ -1059,16 +1059,17 @@ void VulkanEngine::init_scene() {}
 
 void VulkanEngine::init_descriptors() {
   // // new code abstract
-  const uint32_t MAX_OBJECTS = 10000;
+  const uint32_t MAX_OBJECTS = 1;
   this->global.init(this->_device);
-  this->global.begin_build_descriptor()
-      .bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS,
-                          BufferType::DYNAMIC_UNIFORM,
+
+  GlobalBuilder &builder = this->global.begin_build_descriptor();
+  builder
+      .bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::STORAGE,
                           VK_SHADER_STAGE_VERTEX_BIT)
       .build("object");
 
   this->global.begin_build_descriptor()
-      .bind_create_buffer(sizeof(GPUCamera), BufferType::DYNAMIC_STORAGE,
+      .bind_create_buffer(sizeof(GPUCamera), BufferType::UNIFORM,
                           VK_SHADER_STAGE_VERTEX_BIT)
       .build("camera");
 

@@ -1,6 +1,7 @@
-#include <vk_descriptors.h>
-
+#include "vk_types.h"
 #include <algorithm>
+#include <cstdio>
+#include <vk_descriptors.h>
 
 namespace vkutil {
 
@@ -20,7 +21,8 @@ VkDescriptorPool createPool(VkDevice device,
   pool_info.pPoolSizes = sizes.data();
 
   VkDescriptorPool descriptorPool;
-  vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptorPool);
+  VK_CHECK(
+      vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptorPool));
 
   return descriptorPool;
 }
@@ -234,6 +236,7 @@ bool DescriptorBuilder::build(VkDescriptorSet &set,
   if (!success) {
     return false;
   };
+
   // write descriptor
 
   for (VkWriteDescriptorSet &w : writes) {
