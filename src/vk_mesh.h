@@ -11,6 +11,11 @@ struct VertexInputDescription {
   VkPipelineVertexInputStateCreateFlags flags = 0;
 };
 
+struct VertexTemp {
+  glm::vec3 positions;
+  glm::vec3 colors;
+};
+
 struct Vertex {
 
   glm::vec3 position;

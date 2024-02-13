@@ -24,7 +24,12 @@ layout(std140,set = 1, binding = 0) readonly buffer ObjectBuffer{
 void main() 
 {
 
-	//output the position of each vertex
-	gl_Position = vec4(vPosition, 1.0f);
-	outColor = vec3(0.0f, 1.0f, 1.0f);
+vec3 vertices[3] = vec3[3](
+        vec3(0.0f, -0.5f, 1.0f),
+        vec3(0.5f, 0.5f, 1.0f),
+        vec3(-0.5f, 0.5f, 1.0f)
+    );
+
+    gl_Position = vec4(vPosition, 1.0);
+	outColor = vec3(1.0f, 1.0f, 1.0f);
 }

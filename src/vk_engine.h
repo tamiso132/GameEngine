@@ -24,10 +24,7 @@
 
 #include "vk_create.h"
 
-struct VertexTemp {
-  glm::vec3 positions;
-  glm::vec3 colors;
-};
+
 
 struct MyObject {
   glm::mat4 transform_matrix;
@@ -186,4 +183,8 @@ private:
   void init_scene();
 
   void init_descriptors();
+
+  /*Helper functions*/
+
+  void copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 };

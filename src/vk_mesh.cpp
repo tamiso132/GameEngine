@@ -74,7 +74,7 @@ VertexInputDescription vertex_input_description() {
   // we will have just 1 vertex buffer binding, with a per-vertex rate
   VkVertexInputBindingDescription mainBinding = {};
   mainBinding.binding = 0;
-  mainBinding.stride = sizeof(Vertex);
+  mainBinding.stride = sizeof(VertexTemp);
   mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
   description.bindings.push_back(mainBinding);
@@ -90,7 +90,7 @@ VertexInputDescription vertex_input_description() {
   colorAttribute.binding = 0;
   colorAttribute.location = 1;
   colorAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-  colorAttribute.offset = offsetof(Vertex, color);
+  colorAttribute.offset = offsetof(VertexTemp, colors);
 
   description.attributes.push_back(positionAttribute);
   description.attributes.push_back(colorAttribute);

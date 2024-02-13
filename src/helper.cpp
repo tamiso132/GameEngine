@@ -166,7 +166,7 @@ std::string Helper::get_filename_from_path(const char *path) {
     }
   }
   index++;
-  
+
   std::string filename;
   for (int i = 0; i < strlen(path) - index; i++) {
     filename.push_back(path[index + i]);

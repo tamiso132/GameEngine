@@ -1,5 +1,7 @@
 ﻿#include "vk_engine.h"
 
+#include <SDL_stdinc.h>
+#include <algorithm>
 #include <cstdint>
 #include <imgui.h>
 
@@ -57,7 +59,6 @@ void VulkanEngine::init() {
     if (fs::is_regular_file(entry.path())) {
       VkShaderModule shader;
       Helper::load_shader_module(entry.path().c_str(), &shader);
-      assert(&shader != nullptr);
       auto c = entry.path().c_str();
       auto filename = Helper::get_filename_from_path(c);
       shaderModules[filename] = shader;
@@ -80,6 +81,8 @@ void VulkanEngine::init() {
   auto c = shaderModules["colored_triangle.vert.spv"];
 
   init_pipelines(shaderModules);
+
+  create_vertex_buffer();
 
   // init_imgui();
 
@@ -112,55 +115,53 @@ const std::vector<VertexTemp> vertices = {
     {{0.0f, -0.5f, 1.0f}, {1.0f, 0.0f, 0.0f}},
     {{0.5f, 0.5f, 1.0f}, {0.0f, 1.0f, 0.0f}},
     {{-0.5f, 0.5f, 1.0f}, {0.0f, 0.0f, 1.0f}}};
+
 void VulkanEngine::create_vertex_buffer() {
 
   const size_t bufferSize = vertices.size() * sizeof(VertexTemp);
-  // allocate vertex buffer
+
+  // Staging buffer for data transfer to GPU
   VkBufferCreateInfo stagingBufferInfo = {};
   stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  stagingBufferInfo.pNext = nullptr;
-  // this is the total size, in bytes, of the buffer we are allocating
   stagingBufferInfo.size = bufferSize;
-  // this buffer is going to be used as a Vertex Buffer
   stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-  // let the VMA library know that this data should be writeable by CPU, but
-  // also readable by GPU
-  VmaAllocationCreateInfo vmaallocInfo = {};
-  vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+  VmaAllocationCreateInfo stagingAllocInfo = {};
+  stagingAllocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
 
   AllocatedBuffer stagingBuffer;
-
-  // allocate the buffer@
-  VK_CHECK(vmaCreateBuffer(_allocator, &stagingBufferInfo, &vmaallocInfo,
+  VK_CHECK(vmaCreateBuffer(_allocator, &stagingBufferInfo, &stagingAllocInfo,
                            &stagingBuffer._buffer, &stagingBuffer._allocation,
                            nullptr));
 
-  // copy vertex data
-  void *data;
-  vmaMapMemory(_allocator, stagingBuffer._allocation, &data);
-
-  memcpy(data, vertices.data(), vertices.size() * sizeof(VertexTemp));
-
+  // Copy vertex data to staging buffer
+  void *stagingData;
+  vmaMapMemory(_allocator, stagingBuffer._allocation, &stagingData);
+  memcpy(stagingData, vertices.data(), bufferSize);
   vmaUnmapMemory(_allocator, stagingBuffer._allocation);
 
-  // allocate vertex buffer
+  // Vertex buffer for GPU usage
   VkBufferCreateInfo vertexBufferInfo = {};
   vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  vertexBufferInfo.pNext = nullptr;
-  // this is the total size, in bytes, of the buffer we are allocating
   vertexBufferInfo.size = bufferSize;
-  // this buffer is going to be used as a Vertex Buffer
   vertexBufferInfo.usage =
       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-  // let the VMA library know that this data should be gpu native
-  vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+  VmaAllocationCreateInfo vertexAllocInfo = {};
+  vertexAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-  // allocate the buffer
-  VK_CHECK(vmaCreateBuffer(_allocator, &vertexBufferInfo, &vmaallocInfo,
+  VK_CHECK(vmaCreateBuffer(_allocator, &vertexBufferInfo, &vertexAllocInfo,
                            &this->vertexBuffer, &this->vertexAllocation,
                            nullptr));
+
+  // Perform a copy command to transfer data from staging buffer to vertex
+  // buffer (Assuming you have a command buffer and a Vulkan queue available)
+
+  // Clean up the staging buffer once data is transferred
+  this->copy_buffer(stagingBuffer._buffer, this->vertexBuffer, bufferSize);
+
+  vmaDestroyBuffer(_allocator, stagingBuffer._buffer,
+                   stagingBuffer._allocation);
 }
 
 void VulkanEngine::draw_test() {
@@ -194,11 +195,12 @@ void VulkanEngine::draw_test() {
   vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           this->pipelineLayout, 0, 1, &cameraSet.descriptorSet,
                           0, nullptr);
-  vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          this->pipelineLayout, 0, 1, &objectSet.descriptorSet,
-                          0, nullptr);
 
-  vkCmdBindVertexBuffers(this->cmd, 0, 1, &this->vertexBuffer, 0);
+  vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          this->pipelineLayout, 1, 1, &objectSet.descriptorSet,
+                          0, nullptr);
+  VkDeviceSize offset = 0;
+  vkCmdBindVertexBuffers(this->cmd, 0, 1, &this->vertexBuffer, &offset);
 
   vkCmdDraw(cmd, vertices.size(), 1, 0, 0);
 }
@@ -247,25 +249,29 @@ void VulkanEngine::draw() {
   // frame
   // // period.
   VkClearValue clearValue;
-  clearValue.color = {0.0f, 0.0f, 0.0f, 1.0f};
-  clearValue.depthStencil = {0.0f, 0.0f, 0.0f, 1.0f} :
-      // float flash = abs(sin(_frameNumber / 120.f));
-      // clearValue.color = {{0.0f, 0.0f, flash, 1.0f}};
+  clearValue.color = {1.0f, 1.0f, 1.0f, 1.0f};
+  VkClearValue depthClear;
+  depthClear.depthStencil.depth = 1.f;
 
-      // // clear depth at 1
-      // VkClearValue depthClear;
-      // depthClear.depthStencil.depth = 1.f;
+  VkRenderPassBeginInfo rpInfo = vkinit::renderpass_begin_info(
+      _renderPass, _windowExtent, _framebuffers[swapchainImageIndex]);
 
-      // // start the main renderpass.
-      // // We will use the clear color from above, and the framebuffer of the
-      // index
-      // // the swapchain gave us
-      VkRenderPassBeginInfo rpInfo = vkinit::renderpass_begin_info(
-          _renderPass, _windowExtent, this->_framebuffers[swapchainImageIndex]);
+  // connect clear values
+  rpInfo.clearValueCount = 2;
 
-  // // connect clear values
-  rpInfo.clearValueCount = 1;
-  rpInfo.pClearValues = &clearValue;
+  VkClearValue clearValues[] = {clearValue, depthClear};
+  rpInfo.pClearValues = &clearValues[0];
+  // float flash = abs(sin(_frameNumber / 120.f));
+  // clearValue.color = {{0.0f, 0.0f, flash, 1.0f}};
+
+  // // clear depth at 1
+  // VkClearValue depthClear;
+  // depthClear.depthStencil.depth = 1.f;
+
+  // // start the main renderpass.
+  // // We will use the clear color from above, and the framebuffer of the
+  // index
+  // // the swapchain gave us
 
   // VkClearValue clearValues[] = {clearValue, depthClear};
 
@@ -342,7 +348,7 @@ void VulkanEngine::run() {
   float delta_time = 0;
   auto last_frame = 0.0f;
 
-  SDL_SetRelativeMouseMode(SDL_TRUE);
+  SDL_SetRelativeMouseMode(SDL_FALSE); // fix true later
   SDL_bool mouse_inside_window = SDL_FALSE;
 
   int relX, relY;
@@ -701,7 +707,6 @@ void VulkanEngine::init_pipelines(
   // lets
   // // the pipeline know the shader modules per stage
 
-  auto c = shaders["colored_triangle.vert.spv"];
   PipelineBuilder pipelineBuilder;
   /*SHADERS PUSH*/
   pipelineBuilder._shaderStages.push_back(
@@ -722,13 +727,12 @@ void VulkanEngine::init_pipelines(
   triangleLayoutInfo.pSetLayouts = layouts;
   triangleLayoutInfo.setLayoutCount = 2;
 
-  VkPipelineLayout pipelineLayout;
   VK_CHECK(vkCreatePipelineLayout(this->_device, &triangleLayoutInfo, nullptr,
-                                  &pipelineLayout));
+                                  &this->pipelineLayout));
 
   /*Pipeline Settings*/
   pipelineBuilder._vertexInputInfo = vkinit::vertex_input_state_create_info();
-  pipelineBuilder._pipelineLayout = pipelineLayout;
+  pipelineBuilder._pipelineLayout = this->pipelineLayout;
 
   pipelineBuilder._inputAssembly =
       vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
@@ -1224,4 +1228,32 @@ void VulkanEngine::init_descriptors() {
   //   _descriptorAllocator->cleanup();
   //   _descriptorLayoutCache->cleanup();
   // });
+}
+
+void VulkanEngine::copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
+                               VkDeviceSize size) {
+
+  VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(
+      VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+  VK_CHECK(vkResetCommandBuffer(this->cmd, 0));
+  VK_CHECK(vkBeginCommandBuffer(this->cmd, &cmdBeginInfo));
+
+  // Record the copy command
+  VkBufferCopy copyRegion = {};
+  copyRegion.srcOffset = 0;
+  copyRegion.dstOffset = 0;
+  copyRegion.size = size;
+
+  vkCmdCopyBuffer(cmd, srcBuffer, dstBuffer, 1, &copyRegion);
+
+  vkEndCommandBuffer(cmd);
+
+  // End the command buffer recording
+
+  // Submit the command buffer for execution (Assuming you have a Vulkan queue)
+  VkSubmitInfo submit = vkinit::submit_info(&cmd);
+
+  VK_CHECK(vkQueueSubmit(this->_graphicsQueue, 1, &submit, VK_NULL_HANDLE));
+  VK_CHECK(vkQueueWaitIdle(
+      this->_graphicsQueue)); // Optional: Wait for the transfer to complete
 }
