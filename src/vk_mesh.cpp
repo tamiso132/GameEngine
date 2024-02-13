@@ -68,8 +68,7 @@ VertexInputDescription VertexOpengl::get_vertex_description() {
   return description;
 }
 
-void vertex_input_description(
-    VkPipelineVertexInputStateCreateInfo &vertexInputState) {
+VertexInputDescription vertex_input_description() {
   VertexInputDescription description;
 
   // we will have just 1 vertex buffer binding, with a per-vertex rate
@@ -96,12 +95,7 @@ void vertex_input_description(
   description.attributes.push_back(positionAttribute);
   description.attributes.push_back(colorAttribute);
 
-  vertexInputState.pVertexAttributeDescriptions = description.attributes.data();
-  vertexInputState.vertexAttributeDescriptionCount =
-      description.attributes.size();
-
-  vertexInputState.pVertexBindingDescriptions = description.bindings.data();
-  vertexInputState.vertexBindingDescriptionCount = description.bindings.size();
+  return description;
 }
 
 bool Mesh::load_from_obj(const char *filename) {

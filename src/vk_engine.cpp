@@ -37,7 +37,7 @@ std::vector<const char *> device_extensions = {"VK_KHR_dynamic_rendering"};
 void VulkanEngine::init() {
   // We initialize SDL and create a window with it.
 
-  std::unordered_map<const char *, VkShaderModule> shaderModules;
+  std::unordered_map<std::string, VkShaderModule> shaderModules;
 
   SDL_Init(SDL_INIT_VIDEO);
 
@@ -57,9 +57,10 @@ void VulkanEngine::init() {
     if (fs::is_regular_file(entry.path())) {
       VkShaderModule shader;
       Helper::load_shader_module(entry.path().c_str(), &shader);
-      auto c = entry.path().filename().c_str();
-      //  printf("%s\n", entry.path().filename().c_str());
-      shaderModules.insert({c, shader});
+      assert(&shader != nullptr);
+      auto c = entry.path().c_str();
+      auto filename = Helper::get_filename_from_path(c);
+      shaderModules[filename] = shader;
     }
   }
 
@@ -76,6 +77,7 @@ void VulkanEngine::init() {
   // load_meshes();
 
   init_descriptors();
+  auto c = shaderModules["colored_triangle.vert.spv"];
 
   init_pipelines(shaderModules);
 
@@ -246,19 +248,20 @@ void VulkanEngine::draw() {
   // // period.
   VkClearValue clearValue;
   clearValue.color = {0.0f, 0.0f, 0.0f, 1.0f};
-  // float flash = abs(sin(_frameNumber / 120.f));
-  // clearValue.color = {{0.0f, 0.0f, flash, 1.0f}};
+  clearValue.depthStencil = {0.0f, 0.0f, 0.0f, 1.0f} :
+      // float flash = abs(sin(_frameNumber / 120.f));
+      // clearValue.color = {{0.0f, 0.0f, flash, 1.0f}};
 
-  // // clear depth at 1
-  // VkClearValue depthClear;
-  // depthClear.depthStencil.depth = 1.f;
+      // // clear depth at 1
+      // VkClearValue depthClear;
+      // depthClear.depthStencil.depth = 1.f;
 
-  // // start the main renderpass.
-  // // We will use the clear color from above, and the framebuffer of the
-  // index
-  // // the swapchain gave us
-  VkRenderPassBeginInfo rpInfo = vkinit::renderpass_begin_info(
-      _renderPass, _windowExtent, this->_framebuffers[swapchainImageIndex]);
+      // // start the main renderpass.
+      // // We will use the clear color from above, and the framebuffer of the
+      // index
+      // // the swapchain gave us
+      VkRenderPassBeginInfo rpInfo = vkinit::renderpass_begin_info(
+          _renderPass, _windowExtent, this->_framebuffers[swapchainImageIndex]);
 
   // // connect clear values
   rpInfo.clearValueCount = 1;
@@ -340,7 +343,7 @@ void VulkanEngine::run() {
   auto last_frame = 0.0f;
 
   SDL_SetRelativeMouseMode(SDL_TRUE);
-  SDL_bool mouse_inside_window = SDL_TRUE;
+  SDL_bool mouse_inside_window = SDL_FALSE;
 
   int relX, relY;
   bool move_keys[] = {0, 0, 0, 0};
@@ -355,7 +358,7 @@ void VulkanEngine::run() {
     SDL_GetRelativeMouseState(&relX, &relY);
     _cam.process_input(nullptr, delta_time, relX, relY, keystate);
     while (SDL_PollEvent(&e) != 0) {
-      ImGui_ImplSDL2_ProcessEvent(&e);
+      // ImGui_ImplSDL2_ProcessEvent(&e);
       if (e.type == SDL_QUIT) {
         bQuit = true;
       }
@@ -366,13 +369,13 @@ void VulkanEngine::run() {
         }
       }
     }
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplSDL2_NewFrame(_window);
+    // ImGui_ImplVulkan_NewFrame();
+    // ImGui_ImplSDL2_NewFrame(_window);
 
-    ImGui::NewFrame();
+    // ImGui::NewFrame();
 
-    // imgui commands
-    ImGui::ShowDemoWindow();
+    // // imgui commands
+    // ImGui::ShowDemoWindow();
     draw();
   }
 }
@@ -692,11 +695,13 @@ void VulkanEngine::init_sync_structures() {
 }
 
 void VulkanEngine::init_pipelines(
-    std::unordered_map<const char *, VkShaderModule> shaders) {
+    std::unordered_map<std::string, VkShaderModule> &shaders) {
 
   // // build the stage-create-info for both vertex and fragment stages. This
   // lets
   // // the pipeline know the shader modules per stage
+
+  auto c = shaders["colored_triangle.vert.spv"];
   PipelineBuilder pipelineBuilder;
   /*SHADERS PUSH*/
   pipelineBuilder._shaderStages.push_back(
@@ -723,6 +728,7 @@ void VulkanEngine::init_pipelines(
 
   /*Pipeline Settings*/
   pipelineBuilder._vertexInputInfo = vkinit::vertex_input_state_create_info();
+  pipelineBuilder._pipelineLayout = pipelineLayout;
 
   pipelineBuilder._inputAssembly =
       vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
@@ -757,9 +763,28 @@ void VulkanEngine::init_pipelines(
 
   // /*Vertex Bindings*/
 
-  vertex_input_description(pipelineBuilder._vertexInputInfo);
+  auto description = vertex_input_description();
+
+  pipelineBuilder._vertexInputInfo.pVertexAttributeDescriptions =
+      description.attributes.data();
+  pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions =
+      description.bindings.data();
+
+  pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount =
+      description.attributes.size();
+  pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount =
+      description.bindings.size();
 
   this->pipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
+
+  //   vertexInputState.pVertexAttributeDescriptions =
+  //   description.attributes.data();
+  // vertexInputState.vertexAttributeDescriptionCount =
+  //     description.attributes.size();
+
+  // vertexInputState.pVertexBindingDescriptions = description.bindings.data();
+  // vertexInputState.vertexBindingDescriptionCount =
+  // description.bindings.size();
 
   // vkDestroyShaderModule(_device, meshVertShader, nullptr);
   // vkDestroyShaderModule(_device, colorMeshShader, nullptr);
@@ -1062,15 +1087,16 @@ void VulkanEngine::init_descriptors() {
   const uint32_t MAX_OBJECTS = 1;
   this->global.init(this->_device);
 
-  GlobalBuilder *builder = this->global.begin_build_descriptor();
+  GlobalBuilder builder = this->global.begin_build_descriptor();
   builder
-      ->bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::STORAGE,
-                           VK_SHADER_STAGE_VERTEX_BIT)
+      .bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::STORAGE,
+                          VK_SHADER_STAGE_VERTEX_BIT)
       .build("object");
 
-  this->global.begin_build_descriptor()
-      ->bind_create_buffer(sizeof(GPUCamera), BufferType::UNIFORM,
-                           VK_SHADER_STAGE_VERTEX_BIT)
+  GlobalBuilder builder2 = this->global.begin_build_descriptor();
+  builder2
+      .bind_create_buffer(sizeof(GPUCamera), BufferType::UNIFORM,
+                          VK_SHADER_STAGE_VERTEX_BIT)
       .build("camera");
 
   // this->global.begin_build_descriptor().bind_create_buffer(sizeof(GPUCamera),

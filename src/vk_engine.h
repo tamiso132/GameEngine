@@ -166,13 +166,6 @@ public:
   // run main loop
   void run();
 
-  AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage,
-                                VmaMemoryUsage memoryUsage);
-
-  size_t pad_uniform_buffer_size(size_t originalSize);
-
-  void immediate_submit(std::function<void(VkCommandBuffer cmd)> &&function);
-
 private:
   void init_vulkan();
 
@@ -186,20 +179,11 @@ private:
 
   void init_sync_structures();
 
-  void init_pipelines(std::unordered_map<const char *, VkShaderModule> shaders);
+  void init_pipelines(std::unordered_map<std::string, VkShaderModule> &shaders);
 
   void init_imgui();
 
   void init_scene();
 
   void init_descriptors();
-
-  void load_meshes();
-
-  void load_images();
-
-  void upload_mesh(Mesh &mesh);
-
-  void update_material_pipeline(VkPipeline pipeline, VkPipelineLayout layout,
-                                const std::string &name);
 };

@@ -14,6 +14,8 @@ public:
                                         VmaMemoryUsage memoryUsage);
   static bool load_shader_module(const char *filePath,
                                  VkShaderModule *outShaderModule);
+
+  static std::string get_filename_from_path(const char *path);
   // TODO make getters
   static VkDevice device;
   static VkPhysicalDeviceProperties gpuProperties;

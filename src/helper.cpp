@@ -3,6 +3,7 @@
 #include "vk_types.h"
 
 #include <cstdint>
+#include <cstring>
 #include <vector>
 #include <vk_mem_alloc.h>
 
@@ -153,4 +154,23 @@ bool Helper::load_shader_module(const char *filePath,
   }
   *outShaderModule = shaderModule;
   return true;
+}
+
+std::string Helper::get_filename_from_path(const char *path) {
+
+  const char slash = '/';
+  int index = 0;
+  for (int i = 0; i < strlen(path); i++) {
+    if (path[i] == slash) {
+      index = i;
+    }
+  }
+  index++;
+  
+  std::string filename;
+  for (int i = 0; i < strlen(path) - index; i++) {
+    filename.push_back(path[index + i]);
+  }
+  printf("filename: %s\n", filename.c_str());
+  return filename;
 }
