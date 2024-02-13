@@ -2,6 +2,7 @@
 
 #include <SDL_stdinc.h>
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <imgui.h>
 
@@ -54,16 +55,6 @@ void VulkanEngine::init() {
   init_swapchain();
 
   /*LOAD SHADERS*/
-  Helper::init(this->_device, this->_gpuProperties, this->_allocator);
-  for (const auto &entry : fs::directory_iterator(directoryPath)) {
-    if (fs::is_regular_file(entry.path())) {
-      VkShaderModule shader;
-      Helper::load_shader_module(entry.path().c_str(), &shader);
-      auto c = entry.path().c_str();
-      auto filename = Helper::get_filename_from_path(c);
-      shaderModules[filename] = shader;
-    }
-  }
 
   init_default_renderpass();
 
@@ -76,6 +67,17 @@ void VulkanEngine::init() {
   // load_images();
 
   // load_meshes();
+  Helper::init(this->_device, this->_gpuProperties, this->_allocator, this->cmd,
+               this->_graphicsQueue);
+  for (const auto &entry : fs::directory_iterator(directoryPath)) {
+    if (fs::is_regular_file(entry.path())) {
+      VkShaderModule shader;
+      Helper::load_shader_module(entry.path().c_str(), &shader);
+      auto c = entry.path().c_str();
+      auto filename = Helper::get_filename_from_path(c);
+      shaderModules[filename] = shader;
+    }
+  }
 
   init_descriptors();
   auto c = shaderModules["colored_triangle.vert.spv"];
@@ -112,18 +114,23 @@ void VulkanEngine::cleanup() {
 }
 
 const std::vector<VertexTemp> vertices = {
-    {{0.0f, -0.5f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, 0.5f, 1.0f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f, 1.0f}, {0.0f, 0.0f, 1.0f}}};
+    {{-0.5f, -0.5f, 0.0f}},
+    {{0.5f, -0.5f, 0.0f}},
+    {{0.5f, 0.5f, 0.0f}},
+    {{-0.5f, 0.5f, 0.0f}},
+};
+
+const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
 void VulkanEngine::create_vertex_buffer() {
 
-  const size_t bufferSize = vertices.size() * sizeof(VertexTemp);
+  const size_t vertexBufferSize = vertices.size() * sizeof(VertexTemp);
+  const size_t indexBufferSize = indices.size() * sizeof(uint16_t);
 
   // Staging buffer for data transfer to GPU
   VkBufferCreateInfo stagingBufferInfo = {};
   stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  stagingBufferInfo.size = bufferSize;
+  stagingBufferInfo.size = vertexBufferSize;
   stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
   VmaAllocationCreateInfo stagingAllocInfo = {};
@@ -137,13 +144,13 @@ void VulkanEngine::create_vertex_buffer() {
   // Copy vertex data to staging buffer
   void *stagingData;
   vmaMapMemory(_allocator, stagingBuffer._allocation, &stagingData);
-  memcpy(stagingData, vertices.data(), bufferSize);
+  memcpy(stagingData, vertices.data(), vertexBufferSize);
   vmaUnmapMemory(_allocator, stagingBuffer._allocation);
 
   // Vertex buffer for GPU usage
   VkBufferCreateInfo vertexBufferInfo = {};
   vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  vertexBufferInfo.size = bufferSize;
+  vertexBufferInfo.size = vertexBufferSize;
   vertexBufferInfo.usage =
       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
@@ -151,14 +158,32 @@ void VulkanEngine::create_vertex_buffer() {
   vertexAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
   VK_CHECK(vmaCreateBuffer(_allocator, &vertexBufferInfo, &vertexAllocInfo,
-                           &this->vertexBuffer, &this->vertexAllocation,
-                           nullptr));
+                           &this->vertexBuffer._buffer,
+                           &this->vertexBuffer._allocation, nullptr));
 
   // Perform a copy command to transfer data from staging buffer to vertex
   // buffer (Assuming you have a command buffer and a Vulkan queue available)
 
   // Clean up the staging buffer once data is transferred
-  this->copy_buffer(stagingBuffer._buffer, this->vertexBuffer, bufferSize);
+  this->copy_buffer(stagingBuffer._buffer, this->vertexBuffer._buffer,
+                    vertexBufferSize);
+
+  /*Indices buffer creation*/
+
+  vmaMapMemory(_allocator, stagingBuffer._allocation, &stagingData);
+  memcpy(stagingData, indices.data(), indexBufferSize);
+  vmaUnmapMemory(_allocator, stagingBuffer._allocation);
+
+  vertexBufferInfo.size = indexBufferSize;
+  vertexBufferInfo.usage =
+      VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+  VK_CHECK(vmaCreateBuffer(_allocator, &vertexBufferInfo, &vertexAllocInfo,
+                           &this->indexBuffer._buffer,
+                           &this->indexBuffer._allocation, nullptr));
+
+  copy_buffer(stagingBuffer._buffer, this->indexBuffer._buffer,
+              indexBufferSize);
 
   vmaDestroyBuffer(_allocator, stagingBuffer._buffer,
                    stagingBuffer._allocation);
@@ -200,9 +225,10 @@ void VulkanEngine::draw_test() {
                           this->pipelineLayout, 1, 1, &objectSet.descriptorSet,
                           0, nullptr);
   VkDeviceSize offset = 0;
-  vkCmdBindVertexBuffers(this->cmd, 0, 1, &this->vertexBuffer, &offset);
-
-  vkCmdDraw(cmd, vertices.size(), 1, 0, 0);
+  vkCmdBindVertexBuffers(this->cmd, 0, 1, &this->vertexBuffer._buffer, &offset);
+  vkCmdBindIndexBuffer(this->cmd, this->indexBuffer._buffer, 0,
+                       VK_INDEX_TYPE_UINT16);
+  vkCmdDrawIndexed(this->cmd, indices.size(), 1, 0, 0, 0);
 }
 
 void VulkanEngine::draw() {
@@ -261,19 +287,6 @@ void VulkanEngine::draw() {
 
   VkClearValue clearValues[] = {clearValue, depthClear};
   rpInfo.pClearValues = &clearValues[0];
-  // float flash = abs(sin(_frameNumber / 120.f));
-  // clearValue.color = {{0.0f, 0.0f, flash, 1.0f}};
-
-  // // clear depth at 1
-  // VkClearValue depthClear;
-  // depthClear.depthStencil.depth = 1.f;
-
-  // // start the main renderpass.
-  // // We will use the clear color from above, and the framebuffer of the
-  // index
-  // // the swapchain gave us
-
-  // VkClearValue clearValues[] = {clearValue, depthClear};
 
   vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -281,20 +294,9 @@ void VulkanEngine::draw() {
   draw_test();
   // // draw imgui
   // ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
-  // // finalize the render pass
   vkCmdEndRenderPass(cmd);
-  // // finalize the command buffer (we can no longer add commands, but it
-  // can now
-  // // be executed)
 
   VK_CHECK(vkEndCommandBuffer(cmd));
-
-  // // prepare the submission to the queue.
-  // // we want to wait on the _presentSemaphore, as that semaphore is
-  // signaled
-  // // when the swapchain is ready we will signal the _renderSemaphore, to
-  // signal
-  // // that rendering has finished
 
   VkSubmitInfo submit = vkinit::submit_info(&cmd);
   VkPipelineStageFlags waitStage =
@@ -308,17 +310,8 @@ void VulkanEngine::draw() {
   submit.signalSemaphoreCount = 1;
   submit.pSignalSemaphores = &this->render_semp;
 
-  // // submit command buffer to the queue and execute it.
-  // //  _renderFence will now block until the graphic commands finish
-  // execution
   VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, this->fence_wait));
 
-  // // prepare present
-  // //  this will put the image we just rendered to into the visible window.
-  // //  we want to wait on the _renderSemaphore for that,
-  // //  as its necessary that drawing commands have finished before the
-  // image is
-  // //  displayed to the user
   VkPresentInfoKHR presentInfo = vkinit::present_info();
 
   presentInfo.pSwapchains = &_swapchain;
@@ -331,7 +324,6 @@ void VulkanEngine::draw() {
 
   VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
 
-  // // increase the number of frames drawn
   _frameNumber++;
 }
 
@@ -339,17 +331,14 @@ void VulkanEngine::run() {
   SDL_Event e;
   bool bQuit = false;
 
-  // Initialize time variables
-
-  // Define frame rate and calculate frame duration
   const double target_fps = 60.0;
   const double target_frame_duration = 1.0 / target_fps;
 
   float delta_time = 0;
   auto last_frame = 0.0f;
 
-  SDL_SetRelativeMouseMode(SDL_FALSE); // fix true later
-  SDL_bool mouse_inside_window = SDL_FALSE;
+  SDL_bool mouse_inside_window = SDL_TRUE;
+  SDL_SetRelativeMouseMode(mouse_inside_window); // fix true later
 
   int relX, relY;
   bool move_keys[] = {0, 0, 0, 0};
@@ -780,31 +769,6 @@ void VulkanEngine::init_pipelines(
       description.bindings.size();
 
   this->pipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
-
-  //   vertexInputState.pVertexAttributeDescriptions =
-  //   description.attributes.data();
-  // vertexInputState.vertexAttributeDescriptionCount =
-  //     description.attributes.size();
-
-  // vertexInputState.pVertexBindingDescriptions = description.bindings.data();
-  // vertexInputState.vertexBindingDescriptionCount =
-  // description.bindings.size();
-
-  // vkDestroyShaderModule(_device, meshVertShader, nullptr);
-  // vkDestroyShaderModule(_device, colorMeshShader, nullptr);
-  // vkDestroyShaderModule(_device, texturedMeshShader, nullptr);
-  // vkDestroyShaderModule(_device, triangle_shader_frag, nullptr);
-  // vkDestroyShaderModule(_device, triangle_shader_vert, nullptr);
-
-  // _mainDeletionQueue.push_function([=]() {
-  //   vkDestroyPipeline(_device, meshPipeline, nullptr);
-  //   vkDestroyPipeline(_device, texPipeline, nullptr);
-  //   vkDestroyPipeline(_device, _opengl_pipeline, nullptr);
-
-  //   vkDestroyPipelineLayout(_device, meshPipLayout, nullptr);
-  //   vkDestroyPipelineLayout(_device, texturedPipeLayout, nullptr);
-  //   vkDestroyPipelineLayout(_device, _opengl_layout, nullptr);
-  // });
 }
 
 void VulkanEngine::init_imgui() {

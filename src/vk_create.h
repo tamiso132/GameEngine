@@ -99,7 +99,7 @@ public:
 private:
   vkutil::DescriptorBuilder builder;
   size_t currentBinding;
-  AllocatedBuffer *buffer;
+  AllocatedBuffer buffer;
   std::vector<std::optional<AllocatedBuffer>> allocBuffers;
 
   std::vector<VkDescriptorBufferInfo> bufferInfos;

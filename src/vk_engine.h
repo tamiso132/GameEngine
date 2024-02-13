@@ -24,8 +24,6 @@
 
 #include "vk_create.h"
 
-
-
 struct MyObject {
   glm::mat4 transform_matrix;
   std::vector<VertexTemp> vertices;
@@ -144,9 +142,8 @@ public:
 
   VkSemaphore present_semp;
   VkSemaphore render_semp;
-
-  VkBuffer vertexBuffer;
-  VmaAllocation vertexAllocation;
+  AllocatedBuffer vertexBuffer;
+  AllocatedBuffer indexBuffer;
 
   void init();
 

@@ -13,7 +13,6 @@ struct VertexInputDescription {
 
 struct VertexTemp {
   glm::vec3 positions;
-  glm::vec3 colors;
 };
 
 struct Vertex {

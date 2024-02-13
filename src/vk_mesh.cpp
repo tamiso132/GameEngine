@@ -86,14 +86,7 @@ VertexInputDescription vertex_input_description() {
   positionAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
   positionAttribute.offset = offsetof(VertexTemp, positions);
 
-  VkVertexInputAttributeDescription colorAttribute = {};
-  colorAttribute.binding = 0;
-  colorAttribute.location = 1;
-  colorAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-  colorAttribute.offset = offsetof(VertexTemp, colors);
-
   description.attributes.push_back(positionAttribute);
-  description.attributes.push_back(colorAttribute);
 
   return description;
 }

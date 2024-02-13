@@ -87,11 +87,11 @@ GlobalBuilder::bind_create_buffer(size_t buffer_max_size, BufferType usage_type,
   }
   this->buffer = Helper::create_buffer(buffer_max_size, buffer_type,
                                        VMA_MEMORY_USAGE_CPU_TO_GPU);
-  this->allocBuffers.push_back(*buffer);
+  this->allocBuffers.push_back(buffer);
 
   info.offset = 0;
   info.range = buffer_max_size;
-  info.buffer = this->buffer->_buffer;
+  info.buffer = this->buffer._buffer;
 
   bufferInfos.push_back(info);
 

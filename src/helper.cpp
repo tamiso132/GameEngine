@@ -1,15 +1,19 @@
 
 #include "helper.h"
+#include "vk_initializers.h"
 #include "vk_types.h"
 
 #include <cstdint>
 #include <cstring>
 #include <vector>
 #include <vk_mem_alloc.h>
+#include <vulkan/vulkan_core.h>
 
 VkDevice Helper::device;
 VkPhysicalDeviceProperties Helper::gpuProperties;
 VmaAllocator Helper::allocator;
+VkCommandBuffer Helper::main_cmd;
+VkQueue Helper::graphicQueue;
 
 // void VulkanEngine::upload_mesh(Mesh &mesh) {
 //   const size_t bufferSize = mesh._vertices.size() * sizeof(Vertex);
@@ -70,10 +74,13 @@ VmaAllocator Helper::allocator;
 // }
 
 void Helper::init(VkDevice device, VkPhysicalDeviceProperties gpuProperties,
-                  VmaAllocator allocator) {
+                  VmaAllocator allocator, VkCommandBuffer cmd,
+                  VkQueue graphicQueue) {
   Helper::gpuProperties = gpuProperties;
   Helper::device = device;
   Helper::allocator = allocator;
+  Helper::main_cmd = cmd;
+  Helper::graphicQueue = graphicQueue;
 }
 
 size_t Helper::pad_uniform_buffer_size(size_t originalSize) {
@@ -86,9 +93,9 @@ size_t Helper::pad_uniform_buffer_size(size_t originalSize) {
   return alignedSize;
 }
 
-AllocatedBuffer *Helper::create_buffer(size_t allocSize,
-                                       VkBufferUsageFlags usage,
-                                       VmaMemoryUsage memoryUsage) {
+AllocatedBuffer Helper::create_buffer(size_t allocSize,
+                                      VkBufferUsageFlags usage,
+                                      VmaMemoryUsage memoryUsage) {
   VkBufferCreateInfo bufferInfo = {};
   bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   bufferInfo.pNext = nullptr;
@@ -99,10 +106,10 @@ AllocatedBuffer *Helper::create_buffer(size_t allocSize,
   VmaAllocationCreateInfo vmaallocInfo = {};
   vmaallocInfo.usage = memoryUsage;
 
-  AllocatedBuffer *newBuffer = new AllocatedBuffer{};
+  AllocatedBuffer newBuffer;
 
   VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vmaallocInfo,
-                           &newBuffer->_buffer, &newBuffer->_allocation,
+                           &newBuffer._buffer, &newBuffer._allocation,
                            nullptr));
 
   return newBuffer;
@@ -173,4 +180,28 @@ std::string Helper::get_filename_from_path(const char *path) {
   }
   printf("filename: %s\n", filename.c_str());
   return filename;
+}
+
+void Helper::immediate_submit(
+    std::function<void(VkCommandBuffer cmd)> &&function) {
+  vkinit::command_buffer_begin_info(
+      VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+  VkCommandBuffer cmd = Helper::main_cmd;
+
+  VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(
+      VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+  VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+  function(cmd);
+
+  VK_CHECK(vkEndCommandBuffer(cmd));
+
+  VkSubmitInfo submit = vkinit::submit_info(&cmd);
+
+  // submit command buffer to the queue and execute it.
+  VK_CHECK(vkQueueSubmit(Helper::graphicQueue, 1, &submit, nullptr));
+
+  vkQueueWaitIdle(Helper::graphicQueue);
 }
