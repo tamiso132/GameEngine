@@ -6,13 +6,13 @@
           "type": "cppdbg",
           "request": "launch",
           "program": "${workspaceFolder}/build/src/VulkanGuide",
+          "preLaunchTask": "build",
           "args": [],
           "stopAtEntry": false,
           "cwd": "${workspaceFolder}",
           "environment": [],
           "externalConsole": false,
           "MIMode": "gdb",
-          "preLaunchTask": "Build Vulkan App",  // Specify the name of your build task
           "setupCommands": [
               {
                   "description": "Enable pretty-printing for gdb",

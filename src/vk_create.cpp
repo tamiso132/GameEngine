@@ -24,6 +24,7 @@ GlobalBuilder GlobalState::begin_build_descriptor() {
 
   GlobalBuilder global_builder =
       GlobalBuilder(this->_globalLayoutCache, this->_globalAllocator, *this);
+  global_builder.currentBinding = 0;
   return global_builder;
 }
 
@@ -85,19 +86,18 @@ GlobalBuilder::bind_create_buffer(size_t buffer_max_size, BufferType usage_type,
     buffer_type = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     break;
   }
-  this->buffer = Helper::create_buffer(buffer_max_size, buffer_type,
-                                       VMA_MEMORY_USAGE_CPU_TO_GPU);
-  this->allocBuffers.push_back(buffer);
+  this->allocBuffers.push_back(Helper::create_buffer(
+      buffer_max_size, buffer_type, VMA_MEMORY_USAGE_CPU_TO_GPU));
 
   info.offset = 0;
   info.range = buffer_max_size;
-  info.buffer = this->buffer._buffer;
-
-  bufferInfos.push_back(info);
+  info.buffer =
+      this->allocBuffers[this->allocBuffers.size() - 1].value()._buffer;
 
   this->builder = this->builder.bind_buffer(
-      this->currentBinding, &bufferInfos[bufferInfos.size() - 1],
-      (VkDescriptorType)usage_type, stageFlags);
+      this->currentBinding, &info, (VkDescriptorType)usage_type, stageFlags);
+
+  this->currentBinding++;
   return *this;
 }
 /// @brief Non dynamic image, cannot be updated

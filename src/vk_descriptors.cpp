@@ -1,3 +1,4 @@
+#include "helper.h"
 #include "vk_types.h"
 #include <algorithm>
 #include <cstdio>
@@ -186,7 +187,7 @@ vkutil::DescriptorBuilder &DescriptorBuilder::bind_buffer(
 
   newWrite.descriptorCount = 1;
   newWrite.descriptorType = type;
-  newWrite.pBufferInfo = bufferInfo;
+  newWrite.pBufferInfo = new VkDescriptorBufferInfo(*bufferInfo);
   newWrite.dstBinding = binding;
 
   writes.push_back(newWrite);
@@ -229,7 +230,11 @@ bool DescriptorBuilder::build(VkDescriptorSet &set,
   layoutInfo.pBindings = bindings.data();
   layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 
+  auto x = bindings[0];
+
   layout = cache->create_descriptor_layout(&layoutInfo);
+  VK_CHECK(vkCreateDescriptorSetLayout(Helper::device, &layoutInfo, nullptr,
+                                       &layout));
 
   // allocate descriptor
   bool success = alloc->allocate(&set, layout);

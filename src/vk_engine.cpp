@@ -1053,6 +1053,7 @@ void VulkanEngine::init_scene() {}
 void VulkanEngine::init_descriptors() {
   // // new code abstract
   const uint32_t MAX_OBJECTS = 1;
+  
   this->global.init(this->_device);
 
   GlobalBuilder builder = this->global.begin_build_descriptor();

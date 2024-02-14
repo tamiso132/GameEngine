@@ -29,6 +29,8 @@ helper.h
 helper.cpp
 vk_create.h
 vk_create.cpp
+collision/octrees.cpp
+collision/octrees.h
 )
 
 target_include_directories(VulkanGuide PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS})

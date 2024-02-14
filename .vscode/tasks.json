@@ -2,10 +2,20 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build Vulkan App",
+            "label": "Your Vulkan App",
             "type": "shell",
             "command": "bash",
-            "args": ["build.sh"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "bash ${workspaceFolder}/build.sh",
+            "problemMatcher": [],
             "group": {
                 "kind": "build",
                 "isDefault": true
