@@ -1068,16 +1068,7 @@ void VulkanEngine::init_descriptors() {
                           VK_SHADER_STAGE_VERTEX_BIT)
       .build("camera");
 
-  // this->global.begin_build_descriptor().bind_create_buffer(sizeof(GPUCamera),
-  // BufferType::, VkShaderStageFlags stageFlags)
-
-  // _descriptorAllocator = new vkutil::DescriptorAllocator{};
-  // _descriptorAllocator->init(_device);
-
-  // _descriptorLayoutCache = new vkutil::DescriptorLayoutCache{};
-  // _descriptorLayoutCache->init(_device);
-
-  // /*Creating Layout bindings GLOBAL*/
+  
 
   // Material *texturedMat = create_material("texturedmesh");
   // VkSamplerCreateInfo samplerInfo =

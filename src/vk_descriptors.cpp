@@ -187,7 +187,7 @@ vkutil::DescriptorBuilder &DescriptorBuilder::bind_buffer(
 
   newWrite.descriptorCount = 1;
   newWrite.descriptorType = type;
-  newWrite.pBufferInfo = new VkDescriptorBufferInfo(*bufferInfo);
+  newWrite.pBufferInfo = bufferInfo;
   newWrite.dstBinding = binding;
 
   writes.push_back(newWrite);
