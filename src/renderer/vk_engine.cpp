@@ -12,19 +12,18 @@
 #include <vulkan/vulkan_core.h>
 
 #include "VkBootstrap.h"
+#include "util/vk_initializers.h"
 #include "vk_create.h"
-#include "vk_initializers.h"
 #include "vk_mesh.h"
-#include "vk_textures.h"
 #include "vk_types.h"
 
 #define VMA_IMPLEMENTATION
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
-#include "vk_descriptors.h"
+#include "util/vk_descriptors.h"
 #include "vk_mem_alloc.h"
 
-#include "helper.h"
+#include "util/helper.h"
 
 constexpr bool bUseValidationLayers = true;
 
@@ -1053,7 +1052,7 @@ void VulkanEngine::init_scene() {}
 void VulkanEngine::init_descriptors() {
   // // new code abstract
   const uint32_t MAX_OBJECTS = 1;
-  
+
   this->global.init(this->_device);
 
   GlobalBuilder builder = this->global.begin_build_descriptor();
@@ -1067,8 +1066,6 @@ void VulkanEngine::init_descriptors() {
       .bind_create_buffer(sizeof(GPUCamera), BufferType::UNIFORM,
                           VK_SHADER_STAGE_VERTEX_BIT)
       .build("camera");
-
-  
 
   // Material *texturedMat = create_material("texturedmesh");
   // VkSamplerCreateInfo samplerInfo =

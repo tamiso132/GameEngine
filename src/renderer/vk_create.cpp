@@ -116,6 +116,9 @@ bool GlobalBuilder::build(const char *key) {
 
   this->builder.build(set, layout);
   this->refState.add_descriptor_set(layout, set, key, this->allocBuffers);
+
+  // cleanup this
+
   // placeholder
   return true;
 }

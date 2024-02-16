@@ -1,9 +1,10 @@
 ﻿#pragma once
 
-#include "vk_types.h"
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <vector>
+
+#include "vk_types.h"
 struct VertexInputDescription {
   std::vector<VkVertexInputBindingDescription> bindings;
   std::vector<VkVertexInputAttributeDescription> attributes;
@@ -13,10 +14,10 @@ struct VertexInputDescription {
 
 struct VertexTemp {
   glm::vec3 positions;
+  glm::vec3 color;
 };
 
 struct Vertex {
-
   glm::vec3 position;
   glm::vec3 normal;
   glm::vec3 color;

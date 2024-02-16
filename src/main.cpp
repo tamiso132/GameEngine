@@ -1,14 +1,14 @@
-#include "collision/octrees.h"
-#include "vk_engine.h"
+// #include "collision/octrees.h"
+// #include "vk_engine.h"
 int main(int argc, char *argv[]) {
-  VulkanEngine engine;
+  // VulkanEngine engine;
 
-  init_tree(2000);
+  // init_tree(2000);
 
-  engine.init();
+  // engine.init();
 
-  engine.run();
+  // engine.run();
 
-  engine.cleanup();
+  // engine.cleanup();
   return 0;
 }

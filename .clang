@@ -1,7 +1,0 @@
-{
-    "compilationDatabase": "build/compile_commands.json",
-    "fallbackFlags": [
-        "-I",
-        "/path/to/your/include/folder"
-    ]
-}

@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "vk_descriptors.h"
+#include "util/vk_descriptors.h"
 #include "vk_types.h"
 
 enum BufferType {
@@ -75,10 +75,6 @@ private:
 
 class GlobalBuilder {
   friend GlobalState;
-  enum BufferUsage {
-    UNIFORM = 0x00000010,
-    STORAGE = 0x00000020,
-  };
 
 public:
   GlobalBuilder(vkutil::DescriptorLayoutCache *layoutCache,

@@ -1,38 +1,34 @@
-find_package(Vulkan REQUIRED)
 
-find_package(SDL2 REQUIRED)
+# Define an initial list
+macro(add_sources)
+    # Get the relative path from the project root to the current source directory
+    file(RELATIVE_PATH RELATIVE_PATH_TO_PROJECT ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+    
+    # Iterate over the source files and add them to the list
+    foreach(SOURCE_FILE ${ARGV})
+        # Append to the list of sources with the relative path
+        list(APPEND SOURCES_FILES_GAME_ENGINE ${RELATIVE_PATH_TO_PROJECT}/${SOURCE_FILE})
+    endforeach()
+    set(SOURCES_FILES_GAME_ENGINE ${SOURCES_FILES_GAME_ENGINE} PARENT_SCOPE)
+endmacro()
 
-find_package(fmt REQUIRED)
+macro(include_this)
+    file(RELATIVE_PATH RELATIVE_PATH_TO_PROJECT ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+    list(APPEND INCLUDE_DIRECTORIES_ENGINE "\n${RELATIVE_PATH_TO_PROJECT}")
+    set(INCLUDE_DIRECTORIES_ENGINE ${INCLUDE_DIRECTORIES_ENGINE} PARENT_SCOPE)
+endmacro()
 
-find_package(glm REQUIRED)
 
-# Add source to this project's executable.
 
-find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 
-add_executable(VulkanGuide
-main.cpp
-vk_engine.cpp
-vk_engine.h
-vk_types.h
-vk_mesh.cpp
-vk_mesh.h
-vk_textures.cpp
-vk_textures.h
-vk_initializers.cpp
-vk_initializers.h
-camera/camera.cpp
-camera/camera.h
-vk_descriptors.cpp
-vk_descriptors.h
-helper.h
-helper.cpp
-vk_create.h
-vk_create.cpp
-collision/octrees.cpp
-collision/octrees.h
+add_subdirectory(renderer)
+add_subdirectory(input)
+add_subdirectory(collision)
+add_subdirectory(camera)
+
+add_sources(
+    main.cpp
 )
 
-target_include_directories(VulkanGuide PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS})
+include_this()
 
-target_link_libraries(VulkanGuide PRIVATE imgui fastgltf ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES} ${CMAKE_DL_LIBS} vk-bootstrap fmt::fmt GPUOpen::VulkanMemoryAllocator tinyobj stb_image)

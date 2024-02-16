@@ -73,7 +73,10 @@
         "valarray": "cpp",
         "variant": "cpp"
     },
-    "C_Cpp.clang_format_style": "{ BasedOnStyle: Google, ColumnLimit: 120 }",
+    "clangd.arguments": [
+        "--style={ \"ColumnLimit\": 0, \"BreakBeforeBraces\": \"Attach\" }"
+    ],
+    "C_Cpp.clang_format_style": "{ BasedOnStyle: Google, ColumnLimit: 0 }",
     "editor.tokenColorCustomizations": {
         "textMateRules": [
             {
