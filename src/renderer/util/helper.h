@@ -12,27 +12,22 @@ class Helper {
 
     static size_t pad_uniform_buffer_size(size_t originalSize);
 
-    static AllocatedBuffer create_buffer(size_t allocSize,
-                                         VkBufferUsageFlags usage,
-                                         VmaMemoryUsage memoryUsage);
-    static bool load_shader_module(const char* filePath,
-                                   VkShaderModule* outShaderModule);
-    static void
-    immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+    static AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+    static bool load_shader_module(const char *filePath, VkShaderModule *outShaderModule);
+    static void immediate_submit(std::function<void(VkCommandBuffer cmd)> &&function);
 
-    void load_image_slices(const char* file,
-                           std::vector<AllocatedImage>& outImage, size_t sizeX,
-                           size_t sizeY);
+    void load_image_slices(const char *file, std::vector<AllocatedImage> &outImage, size_t sizeX, size_t sizeY);
 
-    void load_image(const char* file, AllocatedImage& outImage);
+    void static load_image(const char *file, AllocatedImage &outImage);
 
-    static std::string get_filename_from_path(const char* path);
+    static std::string get_filename_from_path(const char *path);
     // TODO make getters
     static VkDevice device;
     static VkPhysicalDeviceProperties gpuProperties;
     static VmaAllocator allocator;
     static VkCommandBuffer main_cmd;
     static VkQueue graphicQueue;
+    static void create_cube_map(const char *fileAtlas, uint32_t gridLength, std::vector<std::pair<uint32_t, uint32_t>> cubeMapping, AllocatedImage *cubeMap);
 
   private:
 };

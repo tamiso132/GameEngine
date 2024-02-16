@@ -1,5 +1,6 @@
 
 add_subdirectory(util)
+add_subdirectory(object)
 
 add_sources(
     vk_engine.h

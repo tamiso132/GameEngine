@@ -1,9 +1,6 @@
 ---
 # We'll use defaults from the LLVM style, but with 4 columns indentation.
+Language: Cpp
 BasedOnStyle: LLVM
 IndentWidth: 4
----
-Language: Cpp
-DerivePointerAlignment: false
-BreakBeforeBraces: Attach
-ColumnLimit: 0
+ColumnLimit: 100000

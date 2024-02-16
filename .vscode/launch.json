@@ -5,7 +5,7 @@
           "name": "Your Vulkan App",
           "type": "cppdbg",
           "request": "launch",
-          "program": "${workspaceFolder}/build/src/VulkanGuide",
+          "program": "${workspaceFolder}/build/VulkanGuide",
           "preLaunchTask": "build",
           "args": [],
           "stopAtEntry": false,

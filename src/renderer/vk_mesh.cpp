@@ -1,9 +1,9 @@
 ﻿#include "vk_mesh.h"
 #include "vk_engine.h"
 
+#include <glm/fwd.hpp>
 #include <iostream>
 #include <tiny_obj_loader.h>
-
 
 VertexInputDescription Vertex::get_vertex_description() {
     VertexInputDescription description;
@@ -86,9 +86,16 @@ VertexInputDescription vertex_input_description() {
     positionAttribute.binding = 0;
     positionAttribute.location = 0;
     positionAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    positionAttribute.offset = offsetof(VertexTemp, positions);
+    positionAttribute.offset = offsetof(VertexTemp, position);
+
+    VkVertexInputAttributeDescription colorAttribute = {};
+    colorAttribute.binding = 0;
+    colorAttribute.location = 1;
+    colorAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
+    colorAttribute.offset = offsetof(VertexTemp, color);
 
     description.attributes.push_back(positionAttribute);
+    description.attributes.push_back(colorAttribute);
 
     return description;
 }
@@ -109,8 +116,7 @@ bool Mesh::load_from_obj(const char *filename) {
     std::string err;
 
     // load the OBJ file
-    tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, fullpath.c_str(),
-                     asset_path.c_str());
+    tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, fullpath.c_str(), asset_path.c_str());
     // make sure to output the warnings to the console, in case there are issues
     // with the file
     if (!warn.empty()) {
@@ -175,3 +181,5 @@ bool Mesh::load_from_obj(const char *filename) {
 
     return true;
 }
+
+void load_textures() {}

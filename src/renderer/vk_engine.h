@@ -147,6 +147,11 @@ class VulkanEngine {
     AllocatedBuffer vertexBuffer;
     AllocatedBuffer indexBuffer;
 
+    VkSampler _blockSampler;
+
+    AllocatedImage _cubemap;
+    VkImageView _cubeview;
+
     void init();
 
     // shuts down the engine
