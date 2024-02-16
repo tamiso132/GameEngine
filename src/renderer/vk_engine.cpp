@@ -93,6 +93,9 @@ void VulkanEngine::init() {
     // everything went fine
     _isInitialized = true;
 }
+
+const std::vector<VertexTemp> v = {{{1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}, {{1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}};
+
 void VulkanEngine::cleanup() {
     // if (_isInitialized) {
     //   // make sure the gpu has stopped doing its things
@@ -110,17 +113,35 @@ void VulkanEngine::cleanup() {
     // }
 }
 
-const std::vector<VertexTemp> vertices = {
-    {{-0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},  // front_top_left
-    {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},   // front_top_right
-    {{-0.5f, -0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}}, // front_bottom_left
-    {{0.5f, -0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},  // front_bottom_right
+const std::vector<VertexTemp> vertices = {{{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}}, // yepp
+                                          {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},  // yepp
+                                          {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},   // yepp
+                                          {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},   // yepp
+                                          {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},  // yepp
+                                          {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}}, // yepp
 
-    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},  // back_top_left
-    {{0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},   // back_top_right
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}}, // back_bottom_left
-    {{0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},  // back_bottom_right
-};
+                                          {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}, // yepp
+                                          {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},  // yepp
+                                          {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},   // yepp
+                                          {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},   // yepp
+                                          {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},  // yepp
+                                          {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}, // yepp
+
+                                          // Left face
+                                          {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}},
+                                          {{-0.5f, 0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}},
+                                          {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}},
+                                          {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}},
+                                          {{-0.5f, -0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}},
+                                          {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}},
+
+                                          // Right face
+                                          {{{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}}},
+                                          {{0.5f, 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                                          {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                                          {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                                          {{0.5f, -0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},
+                                          {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}}};
 
 const std::vector<uint16_t> indices = {
     0, 1, 2, // front Face cube

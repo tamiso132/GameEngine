@@ -16,10 +16,10 @@
 namespace Cube {
 
 const glm::vec3 vertices[] = {
-    {-0.5f, 0.5f, 0.5f},  // front_top_left
-    {0.5f, 0.5f, 0.5f},   // front_top_right
-    {-0.5f, -0.5f, 0.5f}, // front_bottom_left
-    {0.5f, -0.5f, 0.5f},  // front_bottom_right
+    {-0.5f, -0.5f, -0.5f}, // front_top_left
+    {0.5f, 0.5f, 0.5f},    // front_top_right
+    {-0.5f, -0.5f, 0.5f},  // front_bottom_left
+    {0.5f, -0.5f, 0.5f},   // front_bottom_right
 
     {-0.5f, 0.5f, -0.5f},  // back_top_left
     {0.5f, 0.5f, -0.5f},   // back_top_right
