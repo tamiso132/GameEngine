@@ -422,7 +422,7 @@ void Helper::create_cube_map(const char *fileAtlas, uint32_t gridLength, std::ve
         uint32_t topLeftStart = (cubeMapping[i].first * gridLength * pixelSize) + cubeMapping[i].second * gridLength * texWidth * pixelSize;
 
         for (int y = 0; y < gridLength; y++) {
-            int rowStart = topLeftStart + y * texWidth;
+            int rowStart = topLeftStart + y * texWidth * pixelSize;
             int dataOffset = (gridLength * gridLength * pixelSize) * i + y * gridLength * pixelSize;
 
             memcpy(data + dataOffset, &pixels[rowStart], gridLength * pixelSize);
@@ -439,7 +439,7 @@ void Helper::create_cube_map(const char *fileAtlas, uint32_t gridLength, std::ve
 
     VkImageCreateInfo imageInfo = vkinit::image_create_info(VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, imageExtent);
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.arrayLayers = 6;
+    imageInfo.arrayLayers = cubeMapArraySize * 6;
     imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 
@@ -459,7 +459,7 @@ void Helper::create_cube_map(const char *fileAtlas, uint32_t gridLength, std::ve
         range.baseMipLevel = 0;
         range.levelCount = 1;
         range.baseArrayLayer = 0;
-        range.layerCount = 6;
+        range.layerCount = 6 * cubeMapArraySize;
 
         VkImageMemoryBarrier imageBarrier_toTransfer = {};
         imageBarrier_toTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -483,7 +483,7 @@ void Helper::create_cube_map(const char *fileAtlas, uint32_t gridLength, std::ve
         copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         copyRegion.imageSubresource.mipLevel = 0;
         copyRegion.imageSubresource.baseArrayLayer = 0;
-        copyRegion.imageSubresource.layerCount = 6;
+        copyRegion.imageSubresource.layerCount = 6 * cubeMapArraySize;
         copyRegion.imageExtent = imageExtent;
 
         // copy the buffer into the image

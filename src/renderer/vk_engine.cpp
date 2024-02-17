@@ -94,8 +94,6 @@ void VulkanEngine::init() {
     _isInitialized = true;
 }
 
-const std::vector<VertexTemp> v = {{{1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}, {{1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}};
-
 void VulkanEngine::cleanup() {
     // if (_isInitialized) {
     //   // make sure the gpu has stopped doing its things
@@ -112,36 +110,55 @@ void VulkanEngine::cleanup() {
     //   SDL_DestroyWindow(_window);
     // }
 }
+const std::vector<VertexTemp> vertices = {
 
-const std::vector<VertexTemp> vertices = {{{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}}, // yepp
-                                          {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},  // yepp
-                                          {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},   // yepp
-                                          {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},   // yepp
-                                          {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},  // yepp
-                                          {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}}, // yepp
+    // Right face
+    {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},   // yep
+    {{0.5f, 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},  // yep
+    {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}}, // yep
+    {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}}, // yep
+    {{0.5f, -0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},  // yep
+    {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},   // yep
 
-                                          {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}, // yepp
-                                          {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},  // yepp
-                                          {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},   // yepp
-                                          {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},   // yepp
-                                          {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},  // yepp
-                                          {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}, // yepp
+    // Left face
+    {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}},   // yep
+    {{-0.5f, 0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}},  // yep
+    {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}}, // yep
+    {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}}, // yep
+    {{-0.5f, -0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}},  // yep
+    {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}},   // yep
 
-                                          // Left face
-                                          {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}},
-                                          {{-0.5f, 0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}},
-                                          {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}},
-                                          {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}},
-                                          {{-0.5f, -0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}},
-                                          {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}},
+    // Top face
+    {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
 
-                                          // Right face
-                                          {{{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}}},
-                                          {{0.5f, 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                                          {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                                          {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                                          {{0.5f, -0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},
-                                          {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}}};
+    // Bottom face
+    {{-0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}},
+    {{0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}},
+    {{0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}},
+    {{0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}},
+    {{-0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}},
+    {{-0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}}, // yep
+
+    // Front face
+    {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}}, // yep
+    {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},  // yep
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},   // yep
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},   // yep
+    {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},  // yep
+    {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}}, // yep
+
+    // Back face
+    {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},  // yep
+    {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},   // yep
+    {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},    // yep
+    {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},    // yep
+    {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},   // yep
+    {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}}; // yep
 
 const std::vector<uint16_t> indices = {
     0, 1, 2, // front Face cube
@@ -233,8 +250,11 @@ void VulkanEngine::draw_test() {
     void *data;
     this->global.write_descriptor_set("camera", 0, this->_allocator, &camData, sizeof(GPUCamera));
 
+    glm::vec3 scaleVector = glm::vec3(1, 1, 1);
+    glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scaleVector);
+
     GPUObject object;
-    object.transformMatrix = glm::mat4(1.0f);
+    object.transformMatrix = scaleMatrix;
 
     this->global.write_descriptor_set("object", 0, this->_allocator, &object, sizeof(GPUObject));
 
@@ -250,8 +270,9 @@ void VulkanEngine::draw_test() {
     vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 2, 1, &cubemap.descriptorSet, 0, nullptr);
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(this->cmd, 0, 1, &this->vertexBuffer._buffer, &offset);
-    vkCmdBindIndexBuffer(this->cmd, this->indexBuffer._buffer, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(this->cmd, indices.size(), 1, 0, 0, 0);
+    //    vkCmdBindIndexBuffer(this->cmd, this->indexBuffer._buffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDraw(this->cmd, vertices.size(), 1, 0, 0);
+    // vkCmdDrawIndexed(this->cmd, indices.size(), 1, 0, 0, 0);
 }
 
 void VulkanEngine::draw() {
@@ -410,6 +431,7 @@ void VulkanEngine::init_vulkan() {
     // We want a gpu that can write to the SDL surface and supports vulkan 1.2
     VkPhysicalDeviceFeatures features;
     features.imageCubeArray = true;
+    features.samplerAnisotropy = true;
 
     VkPhysicalDeviceVulkan11Features features_11;
     features_11.shaderDrawParameters = true;
@@ -731,7 +753,7 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
     pipelineBuilder._colorBlendAttachment = vkinit::color_blend_attachment_state();
 
     // // default depthtesting
-    pipelineBuilder._depthStencil = vkinit::depth_stencil_create_info(false, false, VK_COMPARE_OP_LESS_OR_EQUAL);
+    pipelineBuilder._depthStencil = vkinit::depth_stencil_create_info(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
 
     // /*Vertex Bindings*/
 
@@ -1016,11 +1038,23 @@ void VulkanEngine::init_descriptors() {
     // // new code abstract
     const uint32_t MAX_OBJECTS = 1;
 
-    VkSamplerCreateInfo samplerInfo = vkinit::sampler_create_info(VK_FILTER_NEAREST);
+    VkSamplerCreateInfo sampler = vkinit::sampler_create_info(VK_FILTER_NEAREST);
 
     VkSampler blockySampler;
-    vkCreateSampler(_device, &samplerInfo, nullptr, &blockySampler);
+    sampler.magFilter = VK_FILTER_NEAREST;
+    sampler.minFilter = VK_FILTER_NEAREST;
+    sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler.mipLodBias = 0.0f;
+    sampler.compareOp = VK_COMPARE_OP_GREATER;
+    sampler.minLod = 0.0f;
+    sampler.maxLod = 1.0f;
+    sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    sampler.anisotropyEnable = VK_FALSE;
 
+    vkCreateSampler(_device, &sampler, nullptr, &blockySampler);
     _blockySampler = blockySampler;
 
     CubeMap::load_cube_map(&_cubemap, &_cubeview);

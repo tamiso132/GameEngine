@@ -15,37 +15,37 @@
 
 namespace Cube {
 
-const glm::vec3 vertices[] = {
-    {-0.5f, -0.5f, -0.5f}, // front_top_left
-    {0.5f, 0.5f, 0.5f},    // front_top_right
-    {-0.5f, -0.5f, 0.5f},  // front_bottom_left
-    {0.5f, -0.5f, 0.5f},   // front_bottom_right
+// const glm::vec3 vertices[] = {
+//     {-0.5f, -0.5f, -0.5f}, // front_top_left
+//     {0.5f, 0.5f, 0.5f},    // front_top_right
+//     {-0.5f, -0.5f, 0.5f},  // front_bottom_left
+//     {0.5f, -0.5f, 0.5f},   // front_bottom_right
 
-    {-0.5f, 0.5f, -0.5f},  // back_top_left
-    {0.5f, 0.5f, -0.5f},   // back_top_right
-    {-0.5f, -0.5f, -0.5f}, // back_bottom_left
-    {0.5f, -0.5f, -0.5f},  // back_bottom_right
-};
+//     {-0.5f, 0.5f, -0.5f},  // back_top_left
+//     {0.5f, 0.5f, -0.5f},   // back_top_right
+//     {-0.5f, -0.5f, -0.5f}, // back_bottom_left
+//     {0.5f, -0.5f, -0.5f},  // back_bottom_right
+// };
 
-const uint16_t indices[] = {
-    0, 1, 2, // front Face cube
-    2, 3, 1, // front Face cube
+// const uint16_t indices[] = {
+//     0, 1, 2, // front Face cube
+//     2, 3, 1, // front Face cube
 
-    1, 5, 3, // Right Face Cube
-    3, 7, 5, // Right Face Cube
+//     1, 5, 3, // Right Face Cube
+//     3, 7, 5, // Right Face Cube
 
-    0, 4, 2, // Left Face Cube
-    2, 6, 4, // Left Face Cube
+//     0, 4, 2, // Left Face Cube
+//     2, 6, 4, // Left Face Cube
 
-    4, 5, 6, // Back Face Cube,
-    6, 7, 5, // Back Face Cube
+//     4, 5, 6, // Back Face Cube,
+//     6, 7, 5, // Back Face Cube
 
-    4, 5, 0, // Top Face Cube
-    0, 1, 4, // Top Face Cube
+//     4, 5, 0, // Top Face Cube
+//     0, 1, 4, // Top Face Cube
 
-    6, 7, 2, // Bottom Face Cube
-    2, 3, 7, // Bottom Face Cube
-};
+//     6, 7, 2, // Bottom Face Cube
+//     2, 3, 7, // Bottom Face Cube
+// };
 
 const glm::vec2 uv_dirt = {
 
@@ -61,7 +61,9 @@ static void load_cube_map(AllocatedImage *cubeMapImage, VkImageView *view) {
 
     std::vector<std::pair<uint32_t, uint32_t>> gridIndex = {
         // DIRT
-        {0, 0}, {0, 0}, {5, 0}, {0, 0}, {1, 0}, {0, 0}, // DIRT
+        {1, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, // DIRT
+        {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, // DIRT
+        {1, 0}, {1, 0}, {1, 0}, {1, 0}, {1, 0}, {1, 0}, // DIRT
     };
 
     Helper::create_cube_map("assets/lost_empire-RGBA.png", 256, gridIndex, cubeMapImage);
@@ -70,7 +72,7 @@ static void load_cube_map(AllocatedImage *cubeMapImage, VkImageView *view) {
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.pNext = nullptr;
-    viewInfo.subresourceRange.layerCount = 6;
+    viewInfo.subresourceRange.layerCount = 6 * gridIndex.size() / 6;
     viewInfo.image = cubeMapImage->_image;
 
     vkCreateImageView(Helper::device, &viewInfo, nullptr, view);

@@ -23,8 +23,7 @@ layout(std140, set = 1, binding = 0) readonly buffer ObjectBuffer {
 objectBuffer;
 
 void main() {
-    direction = normalize(vPosition);
-  
+  direction = vPosition;
   gl_Position = cameraData.viewproj * objectBuffer.objects[0].model *
                 vec4(vPosition, 1.0);
   inColor = vColor;
