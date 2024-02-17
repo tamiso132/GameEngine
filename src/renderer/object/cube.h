@@ -61,12 +61,17 @@ static void load_cube_map(AllocatedImage *cubeMapImage, VkImageView *view) {
 
     std::vector<std::pair<uint32_t, uint32_t>> gridIndex = {
         // DIRT
-        {1, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, // DIRT
-        {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, // DIRT
-        {1, 0}, {1, 0}, {1, 0}, {1, 0}, {1, 0}, {1, 0}, // DIRT
+        {3, 0},  {3, 0},  {0, 0},  {2, 0},  {3, 0},  {3, 0}, // DIRT
+        {0, 1},  {0, 1},  {0, 1},  {0, 1},  {0, 1},  {0, 1}, // STONE
+
+        {3, 1},  {3, 1},  {3, 1},  {3, 1},  {3, 1},  {3, 1},  // COAL
+        {2, 1},  {2, 1},  {2, 1},  {2, 1},  {2, 1},  {2, 1},  // IRON
+        {1, 1},  {1, 1},  {1, 1},  {1, 1},  {1, 1},  {1, 1},  // GOLD
+        {20, 1}, {20, 1}, {20, 1}, {20, 1}, {20, 1}, {20, 1}, // REDSTONE
+        {19, 1}, {19, 1}, {19, 1}, {19, 1}, {19, 1}, {19, 1}, // DIAMOND
     };
 
-    Helper::create_cube_map("assets/lost_empire-RGBA.png", 256, gridIndex, cubeMapImage);
+    Helper::create_cube_map("assets/lost_empire-RGBA.png", 258, gridIndex, cubeMapImage);
 
     VkImageViewCreateInfo viewInfo = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, cubeMapImage->_image, VK_IMAGE_ASPECT_COLOR_BIT);
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;

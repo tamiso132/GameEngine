@@ -1044,11 +1044,11 @@ void VulkanEngine::init_descriptors() {
     sampler.magFilter = VK_FILTER_NEAREST;
     sampler.minFilter = VK_FILTER_NEAREST;
     sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-    sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampler.mipLodBias = 0.0f;
-    sampler.compareOp = VK_COMPARE_OP_GREATER;
+    sampler.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     sampler.minLod = 0.0f;
     sampler.maxLod = 1.0f;
     sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;

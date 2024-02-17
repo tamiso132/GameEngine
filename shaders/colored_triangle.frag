@@ -14,7 +14,7 @@ layout (location = 0) out vec4 outFragColor;
 
 void main() 
 {
-	vec4 color = texture(cubeMapArray, vec4(direction, 0.0f));
-	outFragColor = vec4(color);
+	vec4 color = texture(cubeMapArray, vec4(direction, 4.0f));
+	outFragColor = color;
 	
 }
