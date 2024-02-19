@@ -34,24 +34,9 @@ bool is_image_size_valid(const std::string &imagePath, int targetWidth, int targ
 }
 
 // Function to load an image from a file using stb_image
-std::vector<unsigned char> load_image(const std::string &filePath, int &width, int &height, int &channels) {
-    stbi_uc *data = stbi_load(filePath.c_str(), &width, &height, &channels, 0);
-    if (!data) {
-        std::cerr << "Error loading image: " << filePath << std::endl;
-        return {};
-    }
+std::vector<unsigned char> load_image(const std::string &filePath, int &width, int &height, int &channels) {}
 
-    if (channels == 4) {
-        std::cerr << "Error, This has RGBA format color format" << std::endl;
-    }
-
-    std::vector<unsigned char> imageData(data, data + width * height * channels);
-    stbi_image_free(data);
-
-    return imageData;
-}
-
-const uint32_t IMAGE_SIZE = 256;
+const uint32_t IMAGE_SIZE = 64;
 const uint32_t PIXEL_TYPE = STBI_rgb_alpha;
 
 // Function to create a texture atlas from images in a directory
@@ -73,6 +58,7 @@ void create_texture_atlas(std::string directoryPath, int atlasWidth, int atlasHe
         const std::string imagePath = entry.path().string();
 
         if (imagePath.length() >= 4 && imagePath.substr(imagePath.length() - 4) != ".png") {
+            std::remove(imagePath.c_str());
             continue; // Skip non-PNG files
         }
 
@@ -83,25 +69,24 @@ void create_texture_atlas(std::string directoryPath, int atlasWidth, int atlasHe
     for (const auto imagePath : files) {
         int width, height, channels;
 
-        bool isValid = is_image_size_valid(imagePath, 256, 256);
+        bool isValid = is_image_size_valid(imagePath, IMAGE_SIZE, IMAGE_SIZE);
         if (!isValid) {
             printf("Invalid image format: %s\n", imagePath.c_str());
+            std::remove(imagePath.c_str());
             continue;
         }
-        std::vector<unsigned char> imageData = load_image(imagePath, width, height, channels);
+        stbi_uc *imageData = stbi_load(imagePath.c_str(), &width, &height, &channels, 4);
 
-        if (imageData.empty()) {
-            continue;
-        }
-
-        int topLeftOffset = xBlock * IMAGE_SIZE * PIXEL_TYPE + yBlock * maxWidthBlocks * IMAGE_SIZE * IMAGE_SIZE * PIXEL_TYPE;
+        unsigned char *pixelData = (unsigned char *)imageData;
+        uint32_t topLeftOffset = xBlock * IMAGE_SIZE * PIXEL_TYPE + yBlock * maxWidthBlocks * PIXEL_TYPE * IMAGE_SIZE * IMAGE_SIZE;
         has_started = true;
         // copy the image to the atlas
         for (int y = 0; y < IMAGE_SIZE; y++) {
             int offsetAtlas = topLeftOffset + y * atlasWidth * PIXEL_TYPE;
             int offset = y * IMAGE_SIZE * PIXEL_TYPE;
-
-            memcpy(&atlas[offsetAtlas], &imageData[offset], IMAGE_SIZE * PIXEL_TYPE);
+            for (int x = 0; x < IMAGE_SIZE * PIXEL_TYPE; x++) {
+                atlas[offsetAtlas + x] = pixelData[x + offset];
+            }
         }
 
         xBlock++;
@@ -140,13 +125,12 @@ void create_texture_atlas(std::string directoryPath, int atlasWidth, int atlasHe
 
         //        for(int g = 0; g < IMAGE_SIZE; g++){
 
-        //             memcpy(, const void *__restrict src, size_t n) 
+        //             memcpy(, const void *__restrict src, size_t n)
         //        }
         //     }
         // }
 
         std::ostringstream atlasFileName;
-        int totalBlocks = (xBlock + 1) * (yBlock + 1);
         atlasFileName << "texture_atlas_" << atlasIndex++ << ".png";
         stbi_write_png(atlasFileName.str().c_str(), atlasWidth, atlasHeight, PIXEL_TYPE, atlas, 0);
     }
