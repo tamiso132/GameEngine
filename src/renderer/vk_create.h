@@ -29,12 +29,7 @@ struct DescriptorSet {
     VkDescriptorSet descriptorSet;
 };
 
-enum LayoutPhase {
-    PerFrame,
-    PerRenderPass,
-    PerMaterial,
-    PerObject
-};
+enum LayoutPhase { PerFrame, PerRenderPass, PerMaterial, PerObject };
 
 struct PipelineInfo {
     VkPipelineLayout pipeline_layout;
@@ -51,9 +46,7 @@ class GlobalState {
   public:
     void init(VkDevice device);
     GlobalBuilder begin_build_descriptor();
-    void write_descriptor_set(const char *layerName, int bindingIndex,
-                              VmaAllocator allocator, void *data,
-                              size_t dataSize);
+    void write_descriptor_set(const char *layerName, int bindingIndex, VmaAllocator allocator, void *data, size_t dataSize);
 
     VkDescriptorSetLayout get_descriptor_layout(const char *key);
 
@@ -63,9 +56,7 @@ class GlobalState {
     // Forward declaration
 
     // Private member functions
-    void add_descriptor_set(VkDescriptorSetLayout layout, VkDescriptorSet set,
-                            const char *key,
-                            std::vector<std::optional<AllocatedBuffer>> buffers);
+    void add_descriptor_set(VkDescriptorSetLayout layout, VkDescriptorSet set, const char *key, std::vector<std::optional<AllocatedBuffer>> buffers);
 
     // Private data members
     std::unordered_map<const char *, VkDescriptorSetLayout> descLayout;
@@ -82,18 +73,10 @@ class GlobalBuilder {
     friend GlobalState;
 
   public:
-    GlobalBuilder(vkutil::DescriptorLayoutCache *layoutCache,
-                  vkutil::DescriptorAllocator *allocator,
-                  GlobalState &globalState)
-        : refState(globalState) {
-        this->builder = this->builder.begin(layoutCache, allocator);
-    }
-    GlobalBuilder &bind_create_buffer(size_t buffer_max_size,
-                                      BufferType usage_type,
-                                      VkShaderStageFlags stageFlags);
+    GlobalBuilder(vkutil::DescriptorLayoutCache *layoutCache, vkutil::DescriptorAllocator *allocator, GlobalState &globalState) : refState(globalState) { this->builder = this->builder.begin(layoutCache, allocator); }
+    GlobalBuilder &bind_create_buffer(size_t buffer_max_size, BufferType usage_type, VkShaderStageFlags stageFlags);
 
-    GlobalBuilder *bind_image(VkDescriptorImageInfo *imageInfo, ImageType type,
-                              VkShaderStageFlags stageFlags);
+    GlobalBuilder *bind_image(VkDescriptorImageInfo *imageInfo, ImageType type, VkShaderStageFlags stageFlags);
 
     bool build(const char *key);
 

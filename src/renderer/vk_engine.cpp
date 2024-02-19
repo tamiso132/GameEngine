@@ -52,8 +52,6 @@ void VulkanEngine::init() {
 
     init_swapchain();
 
-    /*LOAD SHADERS*/
-
     init_default_renderpass();
 
     init_framebuffers();
@@ -1082,14 +1080,20 @@ void VulkanEngine::init_descriptors() {
         .build("cubemap");
 
     GPUTexture textureIndices;
-    textureIndices.faceIndices[0] = 1;
-    textureIndices.faceIndices[1] = 1;
-    textureIndices.faceIndices[2] = 1;
-    textureIndices.faceIndices[3] = 1;
-    textureIndices.faceIndices[4] = 1;
-    textureIndices.faceIndices[5] = 1;
+
+
+    textureIndices.faceIndices[0].faceIndex = 1; //4
+    textureIndices.faceIndices[1].faceIndex = 1; // 8
+    textureIndices.faceIndices[2].faceIndex = 2; // 12
+    textureIndices.faceIndices[3].faceIndex = 2; // 16
+    textureIndices.faceIndices[4].faceIndex = 1; // 24
+    textureIndices.faceIndices[5].faceIndex = 1;
 
     this->global.write_descriptor_set("cubemap", 1, _allocator, &textureIndices, sizeof(GPUTexture));
+
+    // AllocatedBuffer buffer;
+
+    // buffer = Helper::create_buffer(layers * sizeof(GPUMaterial), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU);
     // Material *texturedMat = create_material("texturedmesh");
     // VkSamplerCreateInfo samplerInfo =
     // vkinit::sampler_create_info(VK_FILTER_NEAREST);

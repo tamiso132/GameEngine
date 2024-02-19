@@ -13,6 +13,8 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 
+#include "../vk_engine.h"
+
 namespace Cube {
 
 // const glm::vec3 vertices[] = {
@@ -93,6 +95,9 @@ static void load_texture_array(AllocatedImage &textureArray, VkImageView *view) 
     viewInfo.pNext = nullptr;
     viewInfo.subresourceRange.layerCount = layers;
     viewInfo.image = textureArray._image;
+
+  
+
 
     vkCreateImageView(Helper::device, &viewInfo, nullptr, view);
 }

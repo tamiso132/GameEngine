@@ -1,13 +1,13 @@
 // #include "collision/octrees.h"
- #include "renderer/vk_engine.h"
+#include "renderer/vk_engine.h"
+
 int main(int argc, char *argv[]) {
-   VulkanEngine engine;
+    VulkanEngine engine;
 
+    engine.init();
 
-   engine.init();
+    engine.run();
 
-   engine.run();
-
-   engine.cleanup();
-  return 0;
+    engine.cleanup();
+    return 0;
 }

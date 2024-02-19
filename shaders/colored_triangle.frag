@@ -6,6 +6,7 @@ layout(set = 2, binding = 1) uniform GPUTexture {
 }
 textureIndex;
 
+
 //shader input
 layout (location = 0) in vec3 inColor;
 layout(location = 1) in vec2 inTexCoord;

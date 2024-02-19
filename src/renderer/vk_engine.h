@@ -3,6 +3,7 @@
 
 #pragma once
 #include <cstdint>
+#include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
 #include <glm/fwd.hpp>
@@ -26,18 +27,29 @@
 #include "vk_mesh.h"
 #include "vk_types.h"
 
-struct GPUObject {
+struct alignas(16) GPUObject {
     glm::mat4 transformMatrix;
 };
 
-struct GPUCamera {
+struct alignas(16) GPUCamera {
     glm::mat4 view;
     glm::mat4 proj;
     glm::mat4 viewproj;
 };
 
+struct alignas(16) GPUMaterial {
+    glm::vec3 ambient;
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+    float shininess;
+};
+
+struct alignas(16) AlignedArrayElement {
+    uint32_t faceIndex;
+};
+
 struct alignas(16) GPUTexture {
-    uint32_t faceIndices[6];
+    AlignedArrayElement faceIndices[6]; // 12-byte padding
 };
 
 struct TextureIndex {};
@@ -164,8 +176,6 @@ class VulkanEngine {
     // shuts down the engine
     void cleanup();
 
-    void create_vertex_buffer();
-
     void draw_test();
 
     // draw loop
@@ -195,6 +205,7 @@ class VulkanEngine {
 
     void init_descriptors();
 
+    void create_vertex_buffer();
     /*Helper functions*/
 
     void copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);

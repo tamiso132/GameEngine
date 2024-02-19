@@ -53,9 +53,7 @@ void GlobalState::write_descriptor_set(const char *layerName, int bindingIndex, 
     DescriptorSet set = this->descSet[this->descLayout[layerName]];
     void *dstData;
     vmaMapMemory(allocator, set.bindingsPointers[bindingIndex].value()._allocation, &dstData);
-
     std::memcpy(dstData, srcData, srcSize);
-
     vmaUnmapMemory(allocator, set.bindingsPointers[bindingIndex].value()._allocation);
 }
 
