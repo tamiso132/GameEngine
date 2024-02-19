@@ -2,3 +2,4 @@
 /vulkan-guide
 /.VSCodeCounter
 /.cache
+/tools/AtlasGenerator/build
