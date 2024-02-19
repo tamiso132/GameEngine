@@ -1,0 +1,5 @@
+/home/tom/projects/GameEngine/tools/AtlasGenerator/build/CMakeFiles/AtlasGenerator.dir
+/home/tom/projects/GameEngine/tools/AtlasGenerator/build/CMakeFiles/edit_cache.dir
+/home/tom/projects/GameEngine/tools/AtlasGenerator/build/CMakeFiles/rebuild_cache.dir
+/home/tom/projects/GameEngine/tools/AtlasGenerator/build/build/CMakeFiles/edit_cache.dir
+/home/tom/projects/GameEngine/tools/AtlasGenerator/build/build/CMakeFiles/rebuild_cache.dir

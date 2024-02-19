@@ -19,6 +19,7 @@ class Helper {
     void load_image_slices(const char *file, std::vector<AllocatedImage> &outImage, size_t sizeX, size_t sizeY);
 
     void static load_image(const char *file, AllocatedImage &outImage);
+    void load_test_image(AllocatedImage &outImage);
 
     static std::string get_filename_from_path(const char *path);
     // TODO make getters

@@ -1,0 +1,13 @@
+# ninja log v5
+2	75	1708347469569936464	CMakeFiles/AtlasGenerator.dir/src/main.cpp.o.ddi	4e803d1633a5451d
+75	85	1708347469586603019	CMakeFiles/AtlasGenerator.dir/CXX.dd	f5979e4a76073c71
+75	85	1708347469586603019	/home/tom/projects/GameEngine/tools/AtlasGenerator/build/CMakeFiles/AtlasGenerator.dir/CXXModules.json	f5979e4a76073c71
+75	85	1708347469586603019	CMakeFiles/AtlasGenerator.dir/src/main.cpp.o.modmap	f5979e4a76073c71
+85	1478	1708347470966593739	CMakeFiles/AtlasGenerator.dir/src/main.cpp.o	1981a77260864aa4
+1478	1587	1708347471083259621	AtlasGenerator	802a5519163a4511
+2	94	1708348219148434685	CMakeFiles/AtlasGenerator.dir/src/main.cpp.o.ddi	4e803d1633a5451d
+94	106	1708348219175101184	CMakeFiles/AtlasGenerator.dir/CXX.dd	f5979e4a76073c71
+94	106	1708348219175101184	/home/tom/projects/GameEngine/tools/AtlasGenerator/build/CMakeFiles/AtlasGenerator.dir/CXXModules.json	f5979e4a76073c71
+94	106	1708348219175101184	CMakeFiles/AtlasGenerator.dir/src/main.cpp.o.modmap	f5979e4a76073c71
+106	1397	1708348220455093145	CMakeFiles/AtlasGenerator.dir/src/main.cpp.o	1981a77260864aa4
+1397	1494	1708348220558425830	AtlasGenerator	802a5519163a4511
