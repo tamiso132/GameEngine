@@ -94,8 +94,22 @@ VertexInputDescription vertex_input_description() {
     normalAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
     normalAttribute.offset = offsetof(VertexTemp, normal);
 
+    VkVertexInputAttributeDescription uvAttribute = {};
+    uvAttribute.binding = 0;
+    uvAttribute.location = 2;
+    uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
+    uvAttribute.offset = offsetof(VertexTemp, uv);
+
+    VkVertexInputAttributeDescription faceAttribute = {};
+    faceAttribute.binding = 0;
+    faceAttribute.location = 3;
+    faceAttribute.format = VK_FORMAT_R32_UINT;
+    faceAttribute.offset = offsetof(VertexTemp, faceIndex);
+
     description.attributes.push_back(positionAttribute);
     description.attributes.push_back(normalAttribute);
+    description.attributes.push_back(uvAttribute);
+    description.attributes.push_back(faceAttribute);
 
     return description;
 }

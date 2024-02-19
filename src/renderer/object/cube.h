@@ -82,4 +82,18 @@ static void load_cube_map(AllocatedImage *cubeMapImage, VkImageView *view) {
 
     vkCreateImageView(Helper::device, &viewInfo, nullptr, view);
 } // namespace CubeMap
+
+static void load_texture_array(AllocatedImage &textureArray, VkImageView *view) {
+    uint32_t layers;
+    Helper::create_texture_array("assets/texture_atlas_0.png", 64, textureArray, layers);
+
+    VkImageViewCreateInfo viewInfo = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, textureArray._image, VK_IMAGE_ASPECT_COLOR_BIT);
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.pNext = nullptr;
+    viewInfo.subresourceRange.layerCount = layers;
+    viewInfo.image = textureArray._image;
+
+    vkCreateImageView(Helper::device, &viewInfo, nullptr, view);
+}
 } // namespace CubeMap

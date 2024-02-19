@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <vulkan/vulkan_core.h>
 
 #include <functional>
@@ -29,6 +30,7 @@ class Helper {
     static VkCommandBuffer main_cmd;
     static VkQueue graphicQueue;
     static void create_cube_map(const char *fileAtlas, uint32_t gridLength, std::vector<std::pair<uint32_t, uint32_t>> cubeMapping, AllocatedImage *cubeMap);
+    static void create_texture_array(const char *fileAtlas, uint32_t gridLength, AllocatedImage &imageArray, uint32_t &layers);
 
   private:
 };

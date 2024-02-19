@@ -87,9 +87,9 @@ void VulkanEngine::init() {
 
     // init_scene();
 
-    SDL_Rect rect;
-    SDL_GetDisplayBounds(1, &rect);
-    SDL_SetWindowPosition(_window, rect.x, rect.y);
+    // SDL_Rect rect;
+    // SDL_GetDisplayBounds(1, &rect);
+    // SDL_SetWindowPosition(_window, rect.x, rect.y);
     // everything went fine
     _isInitialized = true;
 }
@@ -111,54 +111,54 @@ void VulkanEngine::cleanup() {
     // }
 }
 const std::vector<VertexTemp> vertices = {
-
     // Right face
-    {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},   // yep
-    {{0.5f, 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},  // yep
-    {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}}, // yep
-    {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}}, // yep
-    {{0.5f, -0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},  // yep
-    {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},   // yep
+    {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, 0},   // yep
+    {{0.5f, 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, 0},  // yep
+    {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, 0}, // yep
+    {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, 0}, // yep
+    {{0.5f, -0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, 0},  // yep
+    {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, 0},   // yep
 
     // Left face
-    {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}},   // yep
-    {{-0.5f, 0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}},  // yep
-    {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}}, // yep
-    {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}}, // yep
-    {{-0.5f, -0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}},  // yep
-    {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}},   // yep
+    {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, 1},   // yep
+    {{-0.5f, 0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, 1},  // yep
+    {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, 1}, // yep
+    {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, 1}, // yep
+    {{-0.5f, -0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, 1},  // yep
+    {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, 1},   // yep
 
     // Top face
-    {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, 2},
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, 2},
+    {{0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, 2},
+    {{0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, 2},
+    {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}, 2},
+    {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, 2},
 
     // Bottom face
-    {{-0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}},
-    {{0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}},
-    {{-0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}},
-    {{-0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}}, // yep
+    {{-0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}, 3},
+    {{0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}, 3},
+    {{0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}, 3},
+    {{0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}, 3},
+    {{-0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}, 3},
+    {{-0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}, 3}, // yep
 
     // Front face
-    {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}}, // yep
-    {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},  // yep
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},   // yep
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},   // yep
-    {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}},  // yep
-    {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}}, // yep
+    {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}, 4}, // yep
+    {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}, 4},  // yep
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}, 4},   // yep
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}, 4},   // yep
+    {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}, 4},  // yep
+    {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}, 4}, // yep
 
     // Back face
-    {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},  // yep
-    {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},   // yep
-    {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},    // yep
-    {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},    // yep
-    {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},   // yep
-    {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}}; // yep
+    {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, 5}, // yep
+    {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, 5},  // yep
+    {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, 5},   // yep
+    {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, 5},   // yep
+    {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, 5},  // yep
+    {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, 5}  // yep
+};
 
 const std::vector<uint16_t> indices = {
     0, 1, 2, // front Face cube
@@ -1057,7 +1057,10 @@ void VulkanEngine::init_descriptors() {
     vkCreateSampler(_device, &sampler, nullptr, &blockySampler);
     _blockySampler = blockySampler;
 
-    CubeMap::load_cube_map(&_cubemap, &_cubeview);
+    //  CubeMap::load_cube_map(&_cubemap, &_cubeview);
+    AllocatedImage textureArray;
+    VkImageView view;
+    CubeMap::load_texture_array(_cubemap, &_cubeview);
 
     VkDescriptorImageInfo imageBufferInfo;
     imageBufferInfo.sampler = blockySampler;
@@ -1073,7 +1076,20 @@ void VulkanEngine::init_descriptors() {
     builder2.bind_create_buffer(sizeof(GPUCamera), BufferType::UNIFORM, VK_SHADER_STAGE_VERTEX_BIT).build("camera");
 
     GlobalBuilder builder3 = this->global.begin_build_descriptor();
-    builder3.bind_image(&imageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)->build("cubemap");
+    builder3
+        .bind_image(&imageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // yep
+        ->bind_create_buffer(sizeof(GPUTexture), BufferType::UNIFORM, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .build("cubemap");
+
+    GPUTexture textureIndices;
+    textureIndices.faceIndices[0] = 1;
+    textureIndices.faceIndices[1] = 1;
+    textureIndices.faceIndices[2] = 1;
+    textureIndices.faceIndices[3] = 1;
+    textureIndices.faceIndices[4] = 1;
+    textureIndices.faceIndices[5] = 1;
+
+    this->global.write_descriptor_set("cubemap", 1, _allocator, &textureIndices, sizeof(GPUTexture));
     // Material *texturedMat = create_material("texturedmesh");
     // VkSamplerCreateInfo samplerInfo =
     // vkinit::sampler_create_info(VK_FILTER_NEAREST);

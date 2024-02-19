@@ -2,6 +2,7 @@
 // or project specific include files.
 
 #pragma once
+#include <cstdint>
 #include <vulkan/vulkan_core.h>
 
 #include <glm/fwd.hpp>
@@ -34,6 +35,12 @@ struct GPUCamera {
     glm::mat4 proj;
     glm::mat4 viewproj;
 };
+
+struct alignas(16) GPUTexture {
+    uint32_t faceIndices[6];
+};
+
+struct TextureIndex {};
 
 struct Texture {
     AllocatedImage image;

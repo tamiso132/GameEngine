@@ -205,7 +205,7 @@ void Helper::load_test_image(AllocatedImage &outImage) {
     stbi_uc *pixels = stbi_load(fullpath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
     if (!pixels) {
-        //std::cout << "Failed to load texture file " << file << std::endl;
+        // std::cout << "Failed to load texture file " << file << std::endl;
         throw std::runtime_error("failed to load texture!");
     }
 
@@ -434,4 +434,127 @@ void Helper::create_cube_map(const char *fileAtlas, uint32_t gridLength, std::ve
     vmaDestroyBuffer(Helper::allocator, stagingBuffer._buffer, stagingBuffer._allocation);
 
     *cubeMap = newImage;
+}
+
+void Helper::create_texture_array(const char *fileAtlas, uint32_t gridLength, AllocatedImage &imageArray, uint32_t &layers) {
+    int texWidth, texHeight, texChannels;
+
+    auto fullpath = std::string(PROJECT_ROOT_PATH) + "/" + fileAtlas;
+
+    stbi_uc *pixels = stbi_load(fullpath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+    if (!pixels) {
+        std::cout << "Failed to load texture atlas " << fileAtlas << std::endl;
+        throw std::runtime_error("failed to load texture!");
+    }
+
+    uint32_t pixelSize = STBI_rgb_alpha;
+
+    VkDeviceSize oneImageSize = pixelSize * gridLength * gridLength;
+
+    VkDeviceSize imageSize = texWidth * texHeight * pixelSize;
+
+    uint32_t maxGridX = texWidth / gridLength;
+    uint32_t maxGridY = texHeight / gridLength;
+
+    AllocatedBuffer stagingBuffer = Helper::create_buffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+    char *data;
+    vmaMapMemory(Helper::allocator, stagingBuffer._allocation, (void **)&data);
+    uint32_t bufferOffset = 0;
+
+    for (int y = 0; y < maxGridY; y++) {
+        uint32_t topLeftStart = y * maxGridX * gridLength * gridLength * pixelSize;
+
+        for (int x = 0; x < maxGridX; x++) {
+            uint32_t topLeftStartOffset = x * gridLength * pixelSize + topLeftStart;
+
+            for (int i = 0; i < gridLength; i++) {
+                uint32_t totalOffset = topLeftStartOffset + i * texWidth * pixelSize;
+
+                memcpy(&data[bufferOffset], &pixels[totalOffset], gridLength * pixelSize);
+
+                bufferOffset += gridLength * pixelSize;
+            }
+            int x_x= 5;
+        }
+    }
+
+    vmaUnmapMemory(Helper::allocator, stagingBuffer._allocation);
+
+    stbi_image_free(pixels);
+    VkExtent3D imageExtent;
+    imageExtent.width = static_cast<uint32_t>(gridLength);
+    imageExtent.height = static_cast<uint32_t>(gridLength);
+    imageExtent.depth = 1;
+
+    layers = (texWidth / gridLength) * (texHeight / gridLength);
+
+    VkImageCreateInfo dimg_info = vkinit::image_create_info(VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, imageExtent);
+    dimg_info.imageType = VK_IMAGE_TYPE_2D;
+    dimg_info.arrayLayers = layers;
+    dimg_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+
+    dimg_info.pNext = nullptr;
+    dimg_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VmaAllocationCreateInfo dimg_allocinfo = {};
+    dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    AllocatedImage newImage;
+
+    // allocate and create the image
+    vmaCreateImage(Helper::allocator, &dimg_info, &dimg_allocinfo, &newImage._image, &newImage._allocation, nullptr);
+
+    Helper::immediate_submit([&](VkCommandBuffer cmd) {
+        VkImageSubresourceRange range;
+        range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        range.baseMipLevel = 0;
+        range.levelCount = 1;
+        range.baseArrayLayer = 0;
+        range.layerCount = layers;
+
+        VkImageMemoryBarrier imageBarrier_toTransfer = {};
+        imageBarrier_toTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+
+        imageBarrier_toTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageBarrier_toTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imageBarrier_toTransfer.image = newImage._image;
+        imageBarrier_toTransfer.subresourceRange = range;
+
+        imageBarrier_toTransfer.srcAccessMask = 0;
+        imageBarrier_toTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        // barrier the image into the transfer-receive layout
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toTransfer);
+
+        VkBufferImageCopy copyRegion = {};
+        copyRegion.bufferOffset = 0;
+        copyRegion.bufferRowLength = 0;
+        copyRegion.bufferImageHeight = 0;
+
+        copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        copyRegion.imageSubresource.mipLevel = 0;
+        copyRegion.imageSubresource.baseArrayLayer = 0;
+        copyRegion.imageSubresource.layerCount = layers;
+        copyRegion.imageExtent = imageExtent;
+
+        // copy the buffer into the image
+        vkCmdCopyBufferToImage(cmd, stagingBuffer._buffer, newImage._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+        VkImageMemoryBarrier imageBarrier_toReadable = imageBarrier_toTransfer;
+
+        imageBarrier_toReadable.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imageBarrier_toReadable.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        imageBarrier_toReadable.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imageBarrier_toReadable.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        // barrier the image into the shader readable layout
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toReadable);
+    });
+
+    vmaDestroyBuffer(Helper::allocator, stagingBuffer._buffer, stagingBuffer._allocation);
+
+    imageArray = newImage;
 }
