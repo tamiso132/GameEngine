@@ -44,23 +44,18 @@ struct alignas(16) GPUMaterial {
     float shininess;
 };
 
-struct alignas(16) AlignedArrayElement {
+struct alignas(16) GPUAlignedArrayElement {
     uint32_t faceIndex;
 };
 
 struct alignas(16) GPUTexture {
-    AlignedArrayElement faceIndices[6]; // 12-byte padding
+    GPUAlignedArrayElement faceIndices[6]; // 12-byte padding
+    GPUMaterial material;
 };
-
-struct TextureIndex {};
 
 struct Texture {
     AllocatedImage image;
     VkImageView imageView;
-};
-
-struct ShaderLayout {
-    std::vector<uint> shader_indexes;
 };
 
 class PipelineBuilder {
@@ -77,8 +72,6 @@ class PipelineBuilder {
     VkPipelineDepthStencilStateCreateInfo _depthStencil;
     VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
 };
-
-constexpr unsigned int FRAME_OVERLAP = 2;
 
 class VulkanEngine {
   public:
@@ -97,10 +90,6 @@ class VulkanEngine {
 
     VkPhysicalDeviceProperties _gpuProperties;
 
-    // FrameData _frames[FRAME_OVERLAP];
-
-    // FrameDataOpengl _openglFrames[FRAME_OVERLAP];
-
     VkQueue _graphicsQueue;
     uint32_t _graphicsQueueFamily;
 
@@ -114,15 +103,12 @@ class VulkanEngine {
     std::vector<VkImage> _swapchainImages;
     std::vector<VkImageView> _swapchainImageViews;
 
-    // DeletionQueue _mainDeletionQueue;
-
     VmaAllocator _allocator; // vma lib allocator
 
     // depth resources
     VkImageView _depthImageView;
     AllocatedImage _depthImage;
 
-    // the format for the depth image
     VkFormat _depthFormat;
 
     VkDescriptorSetLayout _globalSetLayout;
@@ -131,11 +117,7 @@ class VulkanEngine {
 
     VkDescriptorSetLayout _objectOpenglLayout;
 
-    // GPUSceneData _sceneParameters;
     AllocatedBuffer _sceneParameterBuffer;
-
-    // UploadContext _uploadContext;
-    //  initializes everything in the engine
 
     VkDescriptorPool _imgui_pool;
 
