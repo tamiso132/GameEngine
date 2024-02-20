@@ -1,5 +1,6 @@
 /build
 /vulkan-guide
+/shaders/spiv
 /.VSCodeCounter
 /.cache
 /tools/AtlasGenerator/build
