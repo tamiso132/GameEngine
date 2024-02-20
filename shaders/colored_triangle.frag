@@ -25,7 +25,7 @@ layout(set = 2, binding = 2) uniform sampler2DArray normalTextureArray;
 
 void main() {
     vec3 lightColor = vec3(1.0f, 1.0f, 1.0f);
-    vec3 lightPos = vec3(8, 0, 0);
+    vec3 lightPos = vec3(5, 0, 0);
 
     vec3 normal = texture(normalTextureArray, vec3(inTexCoord,textureInfo.faceIndices[inFaceIndex])).rgb;
   

@@ -234,7 +234,7 @@ void VulkanEngine::draw_test() {
     glm::vec3 position = glm::vec3(0, 0, 0);
     std::vector<GPUObject> objects;
     for (int i = 0; i < MAX_OBJECTS; i++) {
-        position.x += 10;
+        position.x += 1;
         glm::mat4 positionMatrix = glm::translate(glm::mat4(1.0f), position);
         GPUObject object;
         object.transformMatrix = positionMatrix;
@@ -257,7 +257,9 @@ void VulkanEngine::draw_test() {
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(this->cmd, 0, 1, &this->vertexBuffer._buffer, &offset);
     //    vkCmdBindIndexBuffer(this->cmd, this->indexBuffer._buffer, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDraw(this->cmd, vertices.size(), 1, 0, 0);
+    for (int i = 0; i < MAX_OBJECTS; i++) {
+        vkCmdDraw(this->cmd, vertices.size(), 1, 0, i);
+    }
     // vkCmdDrawIndexed(this->cmd, indices.size(), 1, 0, 0, 0);
 }
 
