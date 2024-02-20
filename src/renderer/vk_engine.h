@@ -32,9 +32,8 @@ struct alignas(16) GPUObject {
 };
 
 struct alignas(16) GPUCamera {
-    glm::mat4 view;
-    glm::mat4 proj;
     glm::mat4 viewproj;
+    glm::vec3 camPos;
 };
 
 struct alignas(16) GPUMaterial {
@@ -152,6 +151,9 @@ class VulkanEngine {
 
     AllocatedImage _cubemap;
     VkImageView _cubeview;
+
+    AllocatedImage _normalMap;
+    VkImageView _normalView;
 
     void init();
 

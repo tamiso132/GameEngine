@@ -9,11 +9,12 @@ layout(location = 0) out vec3 outNormal;
 layout(location = 1) out vec2 texCoord;
 layout(location = 2) out uint outFaceIndex;
 layout(location = 3) out vec3 outFrag;
+layout(location = 4) out vec3 camPos;
 
 layout(set = 0, binding = 0) uniform CameraBuffer {
-    mat4 view;
-    mat4 proj;
     mat4 viewproj;
+    vec3 camPos;
+
 }
 cameraData;
 
@@ -31,6 +32,7 @@ void main() {
     outNormal = vNormal;
     texCoord = vTexCoord;
     outFaceIndex = vFaceIndex;
+    camPos = cameraData.camPos;
 
     outFrag = (objectBuffer.objects[0].model * vec4(vPosition, 1.0)).rgb;
 }

@@ -1,6 +1,7 @@
 #include "camera.h"
 #include "glm/ext/matrix_transform.hpp"
 #include <cstdint>
+#include <glm/fwd.hpp>
 glm::mat4x4 Camera::get_projection() { return glm::mat4x4(); }
 
 glm::mat4x4 Camera::get_view() {
@@ -9,6 +10,8 @@ glm::mat4x4 Camera::get_view() {
 
     return view;
 }
+
+glm::vec3 Camera::get_camera_position() { return _camPos; }
 
 void Camera::process_input(SDL_Event *event, float deltaTime, int mouse_delta_x, int mouse_delta_y, const uint8_t *keystate, uint8_t focusWindow) {
 

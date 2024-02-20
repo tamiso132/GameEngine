@@ -38,6 +38,8 @@ using namespace std;
 
 std::vector<const char *> device_extensions = {"VK_KHR_dynamic_rendering"};
 
+const uint32_t MAX_OBJECTS = 20;
+
 void VulkanEngine::init() {
     // We initialize SDL and create a window with it.
 
@@ -71,6 +73,8 @@ void VulkanEngine::init() {
             shaderModules[filename] = shader;
         }
     }
+
+    CubeMap::init_objects();
 
     init_descriptors();
     auto c = shaderModules["colored_triangle.vert.spv"];
@@ -221,20 +225,24 @@ void VulkanEngine::draw_test() {
     projection[1][1] *= -1;
 
     GPUCamera camData;
-    camData.proj = projection;
-    camData.view = view;
-    camData.viewproj = projection * camData.view;
+    camData.camPos = _cam.get_camera_position();
+    camData.viewproj = projection * view;
 
     void *data;
     this->global.write_descriptor_set("camera", 0, this->_allocator, &camData, sizeof(GPUCamera));
 
-    glm::vec3 position = glm::vec3(1, 1, 1);
-    glm::mat4 positionMatrix = glm::translate(glm::mat4(1.0f), position);
+    glm::vec3 position = glm::vec3(0, 0, 0);
+    std::vector<GPUObject> objects;
+    for (int i = 0; i < MAX_OBJECTS; i++) {
+        position.x += 10;
+        glm::mat4 positionMatrix = glm::translate(glm::mat4(1.0f), position);
+        GPUObject object;
+        object.transformMatrix = positionMatrix;
 
-    GPUObject object;
-    object.transformMatrix = positionMatrix;
+        objects.push_back(object);
+    }
 
-    this->global.write_descriptor_set("object", 0, this->_allocator, &object, sizeof(GPUObject));
+    this->global.write_descriptor_set("object", 0, this->_allocator, objects.data(), sizeof(GPUObject) * MAX_OBJECTS);
 
     DescriptorSet cameraSet = global.get_descriptor_set("camera");
     DescriptorSet objectSet = global.get_descriptor_set("object");
@@ -271,7 +279,7 @@ void VulkanEngine::draw() {
 
     /*Render Pass*/
     VkClearValue clearValue;
-    clearValue.color = {1.0f, 1.0f, 1.0f, 1.0f};
+    clearValue.color = {0.0f, 0.0f, 0.0f, 1.0f};
     VkClearValue depthClear;
     depthClear.depthStencil.depth = 1.f;
 
@@ -709,15 +717,14 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
 
 void VulkanEngine::init_descriptors() {
     // // new code abstract
-    const uint32_t MAX_OBJECTS = 1;
 
     VkSamplerCreateInfo sampler = vkinit::sampler_create_info(VK_FILTER_LINEAR);
 
     // TODO, fix minimapping
     VkSampler blockySampler;
-    sampler.magFilter = VK_FILTER_LINEAR;
-    sampler.minFilter = VK_FILTER_LINEAR;
-    sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sampler.magFilter = VK_FILTER_NEAREST;
+    sampler.minFilter = VK_FILTER_NEAREST;
+    sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -726,20 +733,24 @@ void VulkanEngine::init_descriptors() {
     sampler.minLod = 0.0f;
     sampler.maxLod = 1.0f;
     sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-    sampler.anisotropyEnable = VK_TRUE;
-    sampler.maxAnisotropy = _gpuProperties.limits.maxSamplerAnisotropy;
+    sampler.anisotropyEnable = VK_FALSE;
 
     vkCreateSampler(_device, &sampler, nullptr, &blockySampler);
     _blockySampler = blockySampler;
 
-    AllocatedImage textureArray;
-    VkImageView view;
     CubeMap::load_texture_array(_cubemap, &_cubeview);
+
+    CubeMap::load_normal_map_array(_normalMap, &_normalView);
 
     VkDescriptorImageInfo imageBufferInfo;
     imageBufferInfo.sampler = blockySampler;
     imageBufferInfo.imageView = _cubeview;
     imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo normalImageBufferInfo;
+    normalImageBufferInfo.sampler = blockySampler;
+    normalImageBufferInfo.imageView = _normalView;
+    normalImageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     this->global.init(this->_device);
 
@@ -753,21 +764,10 @@ void VulkanEngine::init_descriptors() {
     builder3
         .bind_image(&imageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // yep
         ->bind_create_buffer(sizeof(GPUTexture), BufferType::UNIFORM, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .build("cubemap");
+        .bind_image(&normalImageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        ->build("cubemap");
 
-    GPUTexture textureIndices;
-
-    textureIndices.faceIndices[0].faceIndex = 1; // 4
-    textureIndices.faceIndices[1].faceIndex = 1; // 8
-    textureIndices.faceIndices[2].faceIndex = 2; // 12
-    textureIndices.faceIndices[3].faceIndex = 2; // 16
-    textureIndices.faceIndices[4].faceIndex = 1; // 24
-    textureIndices.faceIndices[5].faceIndex = 1;
-
-    textureIndices.material.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
-    textureIndices.material.diffuse = glm::vec3(1.0f, 1.0f, 0.31f);
-    textureIndices.material.specular = glm::vec3(0.5f, 0.5f, 0.5f);
-    textureIndices.material.shininess = 32.0f;
+    GPUTexture textureIndices = CubeMap::get_texture(CubeMap::BlockType::BIRCH_PLANKS);
 
     this->global.write_descriptor_set("cubemap", 1, _allocator, &textureIndices, sizeof(GPUTexture));
 }

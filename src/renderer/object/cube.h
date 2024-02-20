@@ -96,9 +96,75 @@ static void load_texture_array(AllocatedImage &textureArray, VkImageView *view) 
     viewInfo.subresourceRange.layerCount = layers;
     viewInfo.image = textureArray._image;
 
-  
+    vkCreateImageView(Helper::device, &viewInfo, nullptr, view);
+}
 
+static void load_normal_map_array(AllocatedImage &textureArray, VkImageView *view) {
+    uint32_t layers;
+    Helper::create_texture_array("assets/texture_atlas_0_normalmap.png", 64, textureArray, layers);
+
+    VkImageViewCreateInfo viewInfo = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, textureArray._image, VK_IMAGE_ASPECT_COLOR_BIT);
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.pNext = nullptr;
+    viewInfo.subresourceRange.layerCount = layers;
+    viewInfo.image = textureArray._image;
 
     vkCreateImageView(Helper::device, &viewInfo, nullptr, view);
 }
+
+static std::vector<GPUTexture> blockTextures;
+
+static void init_objects() {
+    std::vector<GPUTexture> texture;
+
+    GPUMaterial treeMaterial;
+    treeMaterial.ambient = glm::vec3(0.2f, 0.1f, 0.0f);  // Ambient color
+    treeMaterial.diffuse = glm::vec3(0.6f, 0.3f, 0.0f);  // Diffuse color
+    treeMaterial.specular = glm::vec3(0.3f, 0.2f, 0.1f); // Specular color
+    treeMaterial.shininess = 32.0f;
+
+    GPUMaterial planksMaterial;
+    planksMaterial.ambient = glm::vec3(0.4f, 0.3f, 0.2f);  // Ambient color
+    planksMaterial.diffuse = glm::vec3(0.6f, 0.5f, 0.4f);  // Diffuse color
+    planksMaterial.specular = glm::vec3(0.1f, 0.1f, 0.1f); // Specular color (lower to reduce shininess)
+    planksMaterial.shininess = 8.0f;
+
+    GPUMaterial stoneMaterial;
+    stoneMaterial.ambient = glm::vec3(0.3f, 0.3f, 0.3f);  // Ambient color
+    stoneMaterial.diffuse = glm::vec3(0.6f, 0.6f, 0.6f);  // Diffuse color
+    stoneMaterial.specular = glm::vec3(0.1f, 0.1f, 0.1f); // Specular color (lower to reduce shininess)
+    stoneMaterial.shininess = 8.0f;
+
+    /*ACACIA_TREE*/
+    texture.push_back(GPUTexture{{1, 1, 2, 2, 1, 1}, treeMaterial});
+
+    /*ACACIA_PLANKS*/
+    texture.push_back(GPUTexture{{3, 3, 3, 3, 3, 3}, planksMaterial});
+
+    /*ANDESITE*/
+    texture.push_back(GPUTexture{{12, 12, 12, 12, 12, 12}, stoneMaterial});
+
+    /*BIRCH_TREE*/
+    texture.push_back(GPUTexture({28, 28, 29, 27, 28, 28}, planksMaterial));
+
+    /*BIRCH TREE*/
+    texture.push_back(GPUTexture{{54, 54, 55, 55, 54, 54}, treeMaterial});
+
+    /*BIRCH PLANKS*/
+    texture.push_back(GPUTexture{{56, 56, 56, 56, 56, 56}, planksMaterial});
+
+    blockTextures = texture;
+}
+
+enum BlockType {
+    ACACIA_TREE = 0,
+    ACACIA_PLANKS,
+    ANDESITE,
+    BIRCH_TREE,
+    BIRCH_PLANKS,
+};
+
+static GPUTexture get_texture(BlockType blockType) { return blockTextures[blockType]; }
+
 } // namespace CubeMap
