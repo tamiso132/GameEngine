@@ -93,12 +93,17 @@ class VulkanEngine {
     uint32_t _graphicsQueueFamily;
 
     VkRenderPass _renderPass;
+    VkRenderPass brightRenderPass;
+    VkRenderPass blurRenderPass;
 
     VkSurfaceKHR _surface;
     VkSwapchainKHR _swapchain;
     VkFormat _swachainImageFormat;
 
     std::vector<VkFramebuffer> _framebuffers;
+    std::vector<VkFramebuffer> brightnessFrameBuffer;
+    std::vector<VkFramebuffer> blurFrameBuffer;
+    
     std::vector<VkImage> _swapchainImages;
     std::vector<VkImageView> _swapchainImageViews;
 

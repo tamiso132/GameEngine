@@ -1,5 +1,7 @@
 add_sources(
-   cube.h
+   texture.cpp
+   mesh.cpp
+   mesh.h
 )
 
 include_this()

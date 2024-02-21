@@ -24,6 +24,9 @@ textureInfo;
 layout(set = 2, binding = 2) uniform sampler2DArray normalTextureArray;
 
 void main() {
+
+    vec4 color = texture(textureArray, vec3(inTexCoord, textureInfo.faceIndices[inFaceIndex]));
+
     vec3 lightColor = vec3(1.0f, 1.0f, 1.0f);
     vec3 lightPos = vec3(5, 0, 0);
 
@@ -33,7 +36,6 @@ void main() {
     normal = normalize(normal * 2.0 - 1.0);   
   
 
-    vec4 color = texture(textureArray, vec3(inTexCoord, textureInfo.faceIndices[inFaceIndex]));
 
     vec3 ambient = lightColor *0.2* color.rgb;
 
@@ -49,15 +51,15 @@ void main() {
     vec3 specular = lightColor * (spec * textureInfo.specular);
 
     float distance = length(lightPos - inFragPos);
-    float attenuation = 1.0 / (distance * distance);
+    float attenuation = 5.0 / (distance * distance);
 
-    diffuse *= attenuation;
-    specular *= attenuation;
+   // diffuse *= attenuation;
+   // specular *= attenuation;
     
     // Gamma correction
     float gamma = 2.2;
 
     vec3 finalColor = pow(diffuse + ambient, vec3(1.0/gamma));
     
-    outFragColor = vec4(finalColor, 1.0f);
+    outFragColor = vec4(finalColor, 0.0f);
 }

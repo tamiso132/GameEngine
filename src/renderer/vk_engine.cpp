@@ -25,7 +25,7 @@
 #include "util/vk_descriptors.h"
 #include "vk_mem_alloc.h"
 
-#include "object/cube.h"
+#include "object/mesh.h"
 
 constexpr bool bUseValidationLayers = true;
 
@@ -74,10 +74,10 @@ void VulkanEngine::init() {
         }
     }
 
-    CubeMap::init_objects();
+    init_mesh();
+    Block::init_texture();
 
     init_descriptors();
-    auto c = shaderModules["colored_triangle.vert.spv"];
 
     init_pipelines(shaderModules);
 
@@ -92,55 +92,6 @@ void VulkanEngine::init() {
 }
 
 void VulkanEngine::cleanup() {}
-const std::vector<VertexTemp> vertices = {
-    // Right face
-    {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, 0},   // yep
-    {{0.5f, 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, 0},  // yep
-    {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, 0}, // yep
-    {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, 0}, // yep
-    {{0.5f, -0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, 0},  // yep
-    {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, 0},   // yep
-
-    // Left face
-    {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, 1},   // yep
-    {{-0.5f, 0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, 1},  // yep
-    {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, 1}, // yep
-    {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, 1}, // yep
-    {{-0.5f, -0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, 1},  // yep
-    {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, 1},   // yep
-
-    // Top face
-    {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, 2},
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, 2},
-    {{0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, 2},
-    {{0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, 2},
-    {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}, 2},
-    {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, 2},
-
-    // Bottom face
-    {{-0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}, 3},
-    {{0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}, 3},
-    {{0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}, 3},
-    {{0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}, 3},
-    {{-0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}, 3},
-    {{-0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}, 3}, // yep
-
-    // Front face
-    {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}, 4}, // yep
-    {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}, 4},  // yep
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}, 4},   // yep
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}, 4},   // yep
-    {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}, 4},  // yep
-    {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}, 4}, // yep
-
-    // Back face
-    {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, 5}, // yep
-    {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, 5},  // yep
-    {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, 5},   // yep
-    {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, 5},   // yep
-    {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, 5},  // yep
-    {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, 5}  // yep
-};
 
 const std::vector<uint16_t> indices = {
     0, 1, 2, // front Face cube
@@ -162,60 +113,7 @@ const std::vector<uint16_t> indices = {
     2, 3, 7, // Bottom Face Cube
 };
 
-void VulkanEngine::create_vertex_buffer() {
-    const size_t vertexBufferSize = vertices.size() * sizeof(VertexTemp);
-    const size_t indexBufferSize = indices.size() * sizeof(uint16_t);
-
-    // Staging buffer for data transfer to GPU
-    VkBufferCreateInfo stagingBufferInfo = {};
-    stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    stagingBufferInfo.size = vertexBufferSize;
-    stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-    VmaAllocationCreateInfo stagingAllocInfo = {};
-    stagingAllocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
-
-    AllocatedBuffer stagingBuffer;
-    VK_CHECK(vmaCreateBuffer(_allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuffer._buffer, &stagingBuffer._allocation, nullptr));
-
-    // Copy vertex data to staging buffer
-    void *stagingData;
-    vmaMapMemory(_allocator, stagingBuffer._allocation, &stagingData);
-    memcpy(stagingData, vertices.data(), vertexBufferSize);
-    vmaUnmapMemory(_allocator, stagingBuffer._allocation);
-
-    // Vertex buffer for GPU usage
-    VkBufferCreateInfo vertexBufferInfo = {};
-    vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    vertexBufferInfo.size = vertexBufferSize;
-    vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-    VmaAllocationCreateInfo vertexAllocInfo = {};
-    vertexAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-    VK_CHECK(vmaCreateBuffer(_allocator, &vertexBufferInfo, &vertexAllocInfo, &this->vertexBuffer._buffer, &this->vertexBuffer._allocation, nullptr));
-
-    // Perform a copy command to transfer data from staging buffer to vertex
-    // buffer (Assuming you have a command buffer and a Vulkan queue available)
-
-    // Clean up the staging buffer once data is transferred
-    this->copy_buffer(stagingBuffer._buffer, this->vertexBuffer._buffer, vertexBufferSize);
-
-    /*Indices buffer creation*/
-
-    vmaMapMemory(_allocator, stagingBuffer._allocation, &stagingData);
-    memcpy(stagingData, indices.data(), indexBufferSize);
-    vmaUnmapMemory(_allocator, stagingBuffer._allocation);
-
-    vertexBufferInfo.size = indexBufferSize;
-    vertexBufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-    VK_CHECK(vmaCreateBuffer(_allocator, &vertexBufferInfo, &vertexAllocInfo, &this->indexBuffer._buffer, &this->indexBuffer._allocation, nullptr));
-
-    copy_buffer(stagingBuffer._buffer, this->indexBuffer._buffer, indexBufferSize);
-
-    vmaDestroyBuffer(_allocator, stagingBuffer._buffer, stagingBuffer._allocation);
-}
+void VulkanEngine::create_vertex_buffer() {}
 
 void VulkanEngine::draw_test() {
     /*Camera*/
@@ -255,12 +153,12 @@ void VulkanEngine::draw_test() {
     vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 1, 1, &objectSet.descriptorSet, 0, nullptr);
     vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 2, 1, &cubemap.descriptorSet, 0, nullptr);
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(this->cmd, 0, 1, &this->vertexBuffer._buffer, &offset);
-    //    vkCmdBindIndexBuffer(this->cmd, this->indexBuffer._buffer, 0, VK_INDEX_TYPE_UINT16);
+    auto verticesBuffer = Cube::get_vertices_buffer()._buffer;
+    vkCmdBindVertexBuffers(this->cmd, 0, 1, &verticesBuffer, &offset);
+
     for (int i = 0; i < MAX_OBJECTS; i++) {
-        vkCmdDraw(this->cmd, vertices.size(), 1, 0, i);
+        vkCmdDraw(this->cmd, Cube::get_vertices_size(), 1, 0, i);
     }
-    // vkCmdDrawIndexed(this->cmd, indices.size(), 1, 0, 0, 0);
 }
 
 void VulkanEngine::draw() {
@@ -281,7 +179,7 @@ void VulkanEngine::draw() {
 
     /*Render Pass*/
     VkClearValue clearValue;
-    clearValue.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    clearValue.color = {1.0f, 1.0f, 1.0f, 1.0f};
     VkClearValue depthClear;
     depthClear.depthStencil.depth = 1.f;
 
@@ -552,9 +450,8 @@ void VulkanEngine::init_default_renderpass() {
     render_pass_info.pDependencies = &dependencies[0];
 
     VK_CHECK(vkCreateRenderPass(_device, &render_pass_info, nullptr, &_renderPass));
-
-    //_mainDeletionQueue.push_function([=]() { vkDestroyRenderPass(_device,
-    //_renderPass, nullptr); });
+    VK_CHECK(vkCreateRenderPass(_device, &render_pass_info, nullptr, &brightRenderPass));
+    VK_CHECK(vkCreateRenderPass(_device, &render_pass_info, nullptr, &blurRenderPass));
 }
 
 void VulkanEngine::init_framebuffers() {
@@ -599,9 +496,6 @@ void VulkanEngine::init_sync_structures() {
 }
 
 void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule> &shaders) {
-    // // build the stage-create-info for both vertex and fragment stages. This
-    // lets
-    // // the pipeline know the shader modules per stage
 
     PipelineBuilder pipelineBuilder;
     /*SHADERS PUSH*/
@@ -740,9 +634,9 @@ void VulkanEngine::init_descriptors() {
     vkCreateSampler(_device, &sampler, nullptr, &blockySampler);
     _blockySampler = blockySampler;
 
-    CubeMap::load_texture_array(_cubemap, &_cubeview);
+    TextureHelper::load_texture_array("assets/texture_atlas_0.png", 64, _cubemap, &_cubeview);
 
-    CubeMap::load_normal_map_array(_normalMap, &_normalView);
+    TextureHelper::load_texture_array("assets/texture_atlas_0.png", 64, _normalMap, &_normalView);
 
     VkDescriptorImageInfo imageBufferInfo;
     imageBufferInfo.sampler = blockySampler;
@@ -769,7 +663,7 @@ void VulkanEngine::init_descriptors() {
         .bind_image(&normalImageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         ->build("cubemap");
 
-    GPUTexture textureIndices = CubeMap::get_texture(CubeMap::BlockType::BIRCH_PLANKS);
+    GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_TREE);
 
     this->global.write_descriptor_set("cubemap", 1, _allocator, &textureIndices, sizeof(GPUTexture));
 }

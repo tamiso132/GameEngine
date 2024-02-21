@@ -197,6 +197,30 @@ void Helper::immediate_submit(std::function<void(VkCommandBuffer cmd)> &&functio
     vkQueueWaitIdle(Helper::graphicQueue);
 }
 
+void Helper::copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+    VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    VK_CHECK(vkResetCommandBuffer(Helper::main_cmd, 0));
+    VK_CHECK(vkBeginCommandBuffer(Helper::main_cmd, &cmdBeginInfo));
+
+    // Record the copy command
+    VkBufferCopy copyRegion = {};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+    copyRegion.size = size;
+
+    vkCmdCopyBuffer(Helper::main_cmd, srcBuffer, dstBuffer, 1, &copyRegion);
+
+    vkEndCommandBuffer(Helper::main_cmd);
+
+    // End the command buffer recording
+
+    // Submit the command buffer for execution (Assuming you have a Vulkan queue)
+    VkSubmitInfo submit = vkinit::submit_info(&Helper::main_cmd);
+
+    VK_CHECK(vkQueueSubmit(Helper::graphicQueue, 1, &submit, VK_NULL_HANDLE));
+    VK_CHECK(vkQueueWaitIdle(Helper::graphicQueue)); // Optional: Wait for the transfer to complete
+}
+
 void Helper::load_test_image(AllocatedImage &outImage) {
     int texWidth, texHeight, texChannels;
 

@@ -21,7 +21,8 @@ class Helper {
 
     void static load_image(const char *file, AllocatedImage &outImage);
     void load_test_image(AllocatedImage &outImage);
-
+    
+    static void copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     static std::string get_filename_from_path(const char *path);
     // TODO make getters
     static VkDevice device;
