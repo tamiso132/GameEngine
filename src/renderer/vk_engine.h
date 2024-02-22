@@ -57,6 +57,18 @@ struct Texture {
     VkImageView imageView;
 };
 
+// G-buffer attachement
+struct FrameBufferAttachment {
+    AllocatedImage image;
+    VkImageView view;
+    VkFormat format;
+};
+struct Attachments {
+    FrameBufferAttachment position, normal, albedo;
+    int32_t width;
+    int32_t height;
+};
+
 class PipelineBuilder {
   public:
     std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
@@ -103,7 +115,7 @@ class VulkanEngine {
     std::vector<VkFramebuffer> _framebuffers;
     std::vector<VkFramebuffer> brightnessFrameBuffer;
     std::vector<VkFramebuffer> blurFrameBuffer;
-    
+
     std::vector<VkImage> _swapchainImages;
     std::vector<VkImageView> _swapchainImageViews;
 
@@ -112,6 +124,9 @@ class VulkanEngine {
     // depth resources
     VkImageView _depthImageView;
     AllocatedImage _depthImage;
+
+    VkImageView colorImageView;
+    AllocatedImage colorImage;
 
     VkFormat _depthFormat;
 

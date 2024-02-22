@@ -455,10 +455,10 @@ void VulkanEngine::init_default_renderpass() {
 }
 
 void VulkanEngine::init_framebuffers() {
+
     // create the framebuffers for the swapchain images. This will connect the
     // render-pass to the images for rendering
     VkFramebufferCreateInfo fb_info = vkinit::framebuffer_create_info(_renderPass, _windowExtent);
-
     const uint32_t swapchain_imagecount = _swapchainImages.size();
     _framebuffers = std::vector<VkFramebuffer>(swapchain_imagecount);
 
@@ -530,9 +530,10 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
     pipelineBuilder._scissor.offset = {0, 0};
     pipelineBuilder._scissor.extent = _windowExtent;
 
-    // /*Extra*/
+    // /*Extra*/VkCullModeFlagBits
     // // configure the rasterizer to draw filled triangles
     pipelineBuilder._rasterizer = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
+    pipelineBuilder._rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 
     // // we dont use multisampling, so just run the default one
     pipelineBuilder._multisampling = vkinit::multisampling_state_create_info();
