@@ -12,8 +12,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 
-#include <deque>
-#include <functional>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <string>
@@ -21,6 +19,7 @@
 #include <vector>
 
 #include "../camera/camera.h"
+#include "VkBootstrap.h"
 #include "util/vk_descriptors.h"
 
 #include "vk_create.h"
@@ -82,11 +81,12 @@ class PipelineBuilder {
     VkPipelineMultisampleStateCreateInfo _multisampling;
     VkPipelineLayout _pipelineLayout;
     VkPipelineDepthStencilStateCreateInfo _depthStencil;
-    VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
+    VkPipeline build_pipeline(VkDevice device, VkPipelineRenderingCreateInfoKHR renderInfo);
 };
 
 class VulkanEngine {
   public:
+    vkb::DispatchTable deviceFunctions;
     bool _isInitialized{false};
     int _frameNumber{0};
     int _selectedShader{0};
@@ -111,7 +111,7 @@ class VulkanEngine {
 
     VkSurfaceKHR _surface;
     VkSwapchainKHR _swapchain;
-    VkFormat _swachainImageFormat;
+    VkFormat _swapchainImageFormat;
 
     std::vector<VkFramebuffer> _framebuffers;
     std::vector<VkFramebuffer> brightnessFrameBuffer;

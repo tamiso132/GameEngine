@@ -112,6 +112,30 @@ AllocatedBuffer Helper::create_buffer(size_t allocSize, VkBufferUsageFlags usage
     return newBuffer;
 }
 
+void Helper::transition_image_layout(VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, VkCommandBuffer cmd) {
+
+    const VkImageMemoryBarrier image_memory_barrier2{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                                                     .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                                                     .oldLayout = oldLayout,
+                                                     .newLayout = newLayout,
+                                                     .image = image,
+                                                     .subresourceRange = {
+                                                         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                         .baseMipLevel = 0,
+                                                         .levelCount = 1,
+                                                         .baseArrayLayer = 0,
+                                                         .layerCount = 1,
+                                                     }};
+
+    vkCmdPipelineBarrier(cmd,
+                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // srcStageMask
+                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,          // dstStageMask
+                         0, 0, nullptr, 0, nullptr,
+                         1,                     // imageMemoryBarrierCount
+                         &image_memory_barrier2 // pImageMemoryBarriers
+    );
+}
+
 bool Helper::load_shader_module(const char *filePath, VkShaderModule *outShaderModule) {
     std::string full_path = std::string(PROJECT_ROOT_PATH) + "/" + filePath;
 
@@ -500,7 +524,7 @@ void Helper::create_texture_array(const char *fileAtlas, uint32_t gridLength, Al
 
                 bufferOffset += gridLength * pixelSize;
             }
-            int x_x= 5;
+            int x_x = 5;
         }
     }
 

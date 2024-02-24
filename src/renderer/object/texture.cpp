@@ -92,7 +92,6 @@ namespace TextureHelper {
         viewInfo.pNext = nullptr;
         viewInfo.subresourceRange.layerCount = 6 * gridIndex.size() / 6;
         viewInfo.image = cubeMapImage->_image;
-
         vkCreateImageView(Helper::device, &viewInfo, nullptr, view);
     } // namespace CubeMap
 
