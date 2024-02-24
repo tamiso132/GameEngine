@@ -38,9 +38,10 @@ struct alignas(16) GPUCamera {
 
 struct alignas(16) GPUMaterial {
     glm::vec3 ambient;
+    glm::float32 shininess;
     glm::vec3 diffuse;
+    char padding2[4];
     glm::vec3 specular;
-    float shininess;
 };
 
 struct alignas(16) GPUAlignedArrayElement {

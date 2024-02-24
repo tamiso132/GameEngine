@@ -34,5 +34,5 @@ void main() {
     outFaceIndex = vFaceIndex;
     camPos = cameraData.camPos;
 
-    outFrag = (objectBuffer.objects[0].model * vec4(vPosition, 1.0)).rgb;
+    outFrag = (objectBuffer.objects[gl_BaseInstance].model * vec4(vPosition, 1.0)).rgb;
 }

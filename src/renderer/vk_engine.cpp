@@ -664,7 +664,7 @@ void VulkanEngine::init_descriptors() {
         .bind_image(&normalImageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         ->build("cubemap");
 
-    GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_TREE);
+    GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_PLANKS);
 
     this->global.write_descriptor_set("cubemap", 1, _allocator, &textureIndices, sizeof(GPUTexture));
 }

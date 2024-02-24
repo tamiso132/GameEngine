@@ -32,10 +32,10 @@ namespace Block {
         treeMaterial.shininess = 32.0f;
 
         GPUMaterial planksMaterial;
-        planksMaterial.ambient = glm::vec3(0.4f, 0.3f, 0.2f);  // Ambient color
-        planksMaterial.diffuse = glm::vec3(0.6f, 0.5f, 0.4f);  // Diffuse color
-        planksMaterial.specular = glm::vec3(0.1f, 0.1f, 0.1f); // Specular color (lower to reduce shininess)
-        planksMaterial.shininess = 8.0f;
+        planksMaterial.ambient = glm::vec3(0.2f, 0.2f, 0.2f);  // Ambient color
+        planksMaterial.diffuse = glm::vec3(0.5f, 0.5f, 0.5f);  // Diffuse color
+        planksMaterial.specular = glm::vec3(1.0f, 1.0f, 1.0f); // Specular color (lower to reduce shininess)
+        planksMaterial.shininess = 32.0f;
 
         GPUMaterial stoneMaterial;
         stoneMaterial.ambient = glm::vec3(0.3f, 0.3f, 0.3f);  // Ambient color
