@@ -12,8 +12,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 
-#include <deque>
-#include <functional>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <string>
@@ -27,6 +25,8 @@
 #include "vk_mesh.h"
 #include "vk_types.h"
 
+#include <VkBootstrap.h>
+
 struct alignas(16) GPUObject {
     glm::mat4 transformMatrix;
 };
@@ -38,9 +38,10 @@ struct alignas(16) GPUCamera {
 
 struct alignas(16) GPUMaterial {
     glm::vec3 ambient;
+    glm::float32 shininess;
     glm::vec3 diffuse;
+    char padding2[4];
     glm::vec3 specular;
-    float shininess;
 };
 
 struct alignas(16) GPUAlignedArrayElement {
@@ -69,11 +70,12 @@ class PipelineBuilder {
     VkPipelineMultisampleStateCreateInfo _multisampling;
     VkPipelineLayout _pipelineLayout;
     VkPipelineDepthStencilStateCreateInfo _depthStencil;
-    VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
+    VkPipeline build_pipeline(VkDevice device, VkPipelineRenderingCreateInfoKHR renderInfo);
 };
 
 class VulkanEngine {
   public:
+    vkb::DispatchTable deviceFunctions;
     bool _isInitialized{false};
     int _frameNumber{0};
     int _selectedShader{0};
@@ -92,17 +94,9 @@ class VulkanEngine {
     VkQueue _graphicsQueue;
     uint32_t _graphicsQueueFamily;
 
-    VkRenderPass _renderPass;
-    VkRenderPass brightRenderPass;
-    VkRenderPass blurRenderPass;
-
     VkSurfaceKHR _surface;
     VkSwapchainKHR _swapchain;
-    VkFormat _swachainImageFormat;
-
-    std::vector<VkFramebuffer> _framebuffers;
-    std::vector<VkFramebuffer> brightnessFrameBuffer;
-    std::vector<VkFramebuffer> blurFrameBuffer;
+    VkFormat _swapchainImageFormat;
 
     std::vector<VkImage> _swapchainImages;
     std::vector<VkImageView> _swapchainImageViews;
@@ -180,10 +174,6 @@ class VulkanEngine {
     void init_vulkan();
 
     void init_swapchain();
-
-    void init_default_renderpass();
-
-    void init_framebuffers();
 
     void init_commands();
 

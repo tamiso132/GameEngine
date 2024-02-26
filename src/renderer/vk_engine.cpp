@@ -1,18 +1,18 @@
 ﻿#include "vk_engine.h"
 
 #include <SDL_stdinc.h>
+#include <SDL_video.h>
+#include <cstdio>
+#include <filesystem>
+#include <glm/ext/matrix_clip_space.hpp>
 #include <glm/fwd.hpp>
 #include <imgui.h>
 #include <vulkan/vulkan_core.h>
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
-#include <fstream>
 #include <iostream>
 
-#include "VkBootstrap.h"
 #include "util/vk_initializers.h"
 #include "vk_create.h"
 #include "vk_mesh.h"
@@ -20,9 +20,7 @@
 
 #define VMA_IMPLEMENTATION
 #include "imgui_impl_sdl2.h"
-#include "imgui_impl_vulkan.h"
 #include "util/helper.h"
-#include "util/vk_descriptors.h"
 #include "vk_mem_alloc.h"
 
 #include "object/mesh.h"
@@ -75,22 +73,22 @@ void VulkanEngine::init() {
 
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
 
-    _window = SDL_CreateWindow("Vulkan Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, _windowExtent.width, _windowExtent.height, window_flags);
+    _window = SDL_CreateWindow("Vulkan Engine", 0, 0, _windowExtent.width, _windowExtent.height, window_flags);
 
     init_vulkan();
 
     init_swapchain();
 
-    init_default_renderpass();
+    // init_default_renderpass();
 
-    init_framebuffers();
+    // init_framebuffers();
 
     init_commands();
 
     init_sync_structures();
 
     Helper::init(this->_device, this->_gpuProperties, this->_allocator, this->cmd, this->_graphicsQueue);
-    for (const auto &entry : fs::directory_iterator(directoryPath)) {
+    for (const auto &entry : std::filesystem::directory_iterator(directoryPath)) {
         if (fs::is_regular_file(entry.path())) {
             VkShaderModule shader;
             Helper::load_shader_module(entry.path().c_str(), &shader);
@@ -110,8 +108,10 @@ void VulkanEngine::init() {
     create_vertex_buffer();
 
     // TODO, a check if more then 1 display
-    // SDL_Rect rect;
-    // SDL_GetDisplayBounds(1, &rect);
+    SDL_Rect rect;
+    SDL_GetWindowSize(_window, &rect.w, &rect.h);
+    printf("WINDOW WIDTH: %d\n", rect.w);
+    printf("WINDOW HEIGHT: %d\n", rect.h);
     // SDL_SetWindowPosition(_window, rect.x, rect.y);
     // everything went fine
     _isInitialized = true;
@@ -145,6 +145,7 @@ void VulkanEngine::draw_test() {
     /*Camera*/
     auto view = _cam.get_view();
     //  camera projection
+
     glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
     projection[1][1] *= -1;
 
@@ -187,6 +188,10 @@ void VulkanEngine::draw_test() {
     }
 }
 
+// void VulkanEngine::dynamic_draw(){
+
+// }
+
 void VulkanEngine::draw() {
     // // check if window is minimized and skip drawing
     if (SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED)
@@ -209,19 +214,43 @@ void VulkanEngine::draw() {
     VkClearValue depthClear;
     depthClear.depthStencil.depth = 1.f;
 
-    VkRenderPassBeginInfo rpInfo = vkinit::renderpass_begin_info(_renderPass, _windowExtent, _framebuffers[swapchainImageIndex]);
+    // VkRenderPassBeginInfo rpInfo = vkinit::renderpass_begin_info(_renderPass, _windowExtent, _framebuffers[swapchainImageIndex]);
 
-    // connect clear values
-    rpInfo.clearValueCount = 2;
+    VkRenderingAttachmentInfo colorAttachment = {};
 
-    VkClearValue clearValues[] = {clearValue, depthClear};
-    rpInfo.pClearValues = &clearValues[0];
+    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colorAttachment.clearValue = clearValue;
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+    colorAttachment.imageView = _swapchainImageViews[swapchainImageIndex];
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
-    vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+    VkRenderingAttachmentInfo depthAttachment = {};
+
+    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depthAttachment.clearValue = depthClear;
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachment.imageView = _depthImageView;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    VkRenderingInfoKHR dynamicInfo = {};
+    dynamicInfo.pNext = nullptr;
+    dynamicInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    dynamicInfo.colorAttachmentCount = 1;
+    dynamicInfo.pColorAttachments = &colorAttachment;
+    dynamicInfo.pDepthAttachment = &depthAttachment;
+    dynamicInfo.renderArea = {{0, 0}, _windowExtent};
+    dynamicInfo.layerCount = 1;
+
+    Helper::transition_image_layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, _swapchainImages[swapchainImageIndex], cmd);
+    deviceFunctions.cmdBeginRenderingKHR(cmd, &dynamicInfo);
 
     draw_test();
 
-    vkCmdEndRenderPass(cmd);
+    deviceFunctions.cmdEndRenderingKHR(cmd);
+
+    Helper::transition_image_layout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, _swapchainImages[swapchainImageIndex], cmd);
 
     VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -257,9 +286,6 @@ void VulkanEngine::draw() {
 void VulkanEngine::run() {
     SDL_Event e;
     bool bQuit = false;
-
-    const double target_fps = 60.0;
-    const double target_frame_duration = 1.0 / target_fps;
 
     float delta_time = 0;
     auto last_frame = 0.0f;
@@ -297,7 +323,6 @@ void VulkanEngine::run() {
 
 void VulkanEngine::init_vulkan() {
     vkb::InstanceBuilder builder;
-
     // make the vulkan instance, with basic debug features
     auto inst_ret = builder.set_app_name("Example Vulkan Application").request_validation_layers(bUseValidationLayers).use_default_debug_messenger().require_api_version(1, 3, 0).build();
 
@@ -315,7 +340,6 @@ void VulkanEngine::init_vulkan() {
 
     VkPhysicalDeviceVulkan11Features features_11;
     features_11.shaderDrawParameters = true;
-
     VkPhysicalDeviceVulkan13Features features_13;
     features_13.dynamicRendering = true;
 
@@ -334,7 +358,7 @@ void VulkanEngine::init_vulkan() {
     vkb::DeviceBuilder deviceBuilder{physicalDevice};
 
     vkb::Device vkbDevice = deviceBuilder.build().value();
-
+    this->deviceFunctions = vkbDevice.make_table();
     // Get the VkDevice handle used in the rest of a vulkan application
     _device = vkbDevice.device;
     _chosenGPU = physicalDevice.physical_device;
@@ -366,13 +390,15 @@ void VulkanEngine::init_swapchain() {
                                       .set_desired_extent(_windowExtent.width, _windowExtent.height)
                                       .build()
                                       .value();
+    printf("SWAPCHAIN HEIGHT: %d\n", vkbSwapchain.extent.height);
+    printf("SWAPCHAIN WIDTH: %d\n", vkbSwapchain.extent.width);
 
     // store swapchain and its related images
     _swapchain = vkbSwapchain.swapchain;
     _swapchainImages = vkbSwapchain.get_images().value();
     _swapchainImageViews = vkbSwapchain.get_image_views().value();
 
-    _swachainImageFormat = vkbSwapchain.image_format;
+    _swapchainImageFormat = vkbSwapchain.image_format;
 
     // depth image size will match the window
     VkExtent3D depthImageExtent = {_windowExtent.width, _windowExtent.height, 1};
@@ -398,6 +424,7 @@ void VulkanEngine::init_swapchain() {
     VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImageView));
 }
 
+<<<<<<< HEAD
 void VulkanEngine::init_default_renderpass() {
 
     attachments.width = _windowExtent.width;
@@ -580,6 +607,8 @@ void VulkanEngine::init_framebuffers() {
     }
 }
 
+=======
+>>>>>>> a8fea47cb4ff8a2d97040d5fea39385aa0ac9f5c
 void VulkanEngine::init_commands() {
     // // create a command pool for commands submitted to the graphics queue.
     // // we also want the pool to allow for resetting of individual command
@@ -642,9 +671,6 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
     pipelineBuilder._rasterizer = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
     pipelineBuilder._rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 
-    // // we dont use multisampling, so just run the default one
-    pipelineBuilder._multisampling = vkinit::multisampling_state_create_info();
-
     // // a single blend attachment with no blending and writing to RGBA
     pipelineBuilder._colorBlendAttachment = vkinit::color_blend_attachment_state();
 
@@ -661,12 +687,20 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
     pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount = description.attributes.size();
     pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount = description.bindings.size();
 
-    this->pipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
+    VkPipelineRenderingCreateInfoKHR pipelineCreateInfo = {};
+    pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    pipelineCreateInfo.pNext = nullptr;
+    pipelineCreateInfo.pColorAttachmentFormats = &this->_swapchainImageFormat;
+    pipelineCreateInfo.colorAttachmentCount = 1;
+    pipelineCreateInfo.depthAttachmentFormat = _depthFormat;
+
+    this->pipeline = pipelineBuilder.build_pipeline(_device, pipelineCreateInfo);
 }
 
-VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
+VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineRenderingCreateInfoKHR pass) {
     // make viewport state from our stored viewport and scissor.
     // at the moment we wont support multiple viewports or scissors
+
     VkPipelineViewportStateCreateInfo viewportState = {};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.pNext = nullptr;
@@ -690,9 +724,20 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
     // build the actual pipeline
     // we now use all of the info structs we have been writing into into this
     // one to create the pipeline
+
+    VkPipelineMultisampleStateCreateInfo multisampleInfo = {};
+    multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampleInfo.flags = 0;
+    multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampleInfo.sampleShadingEnable = VK_FALSE; // You can set this to VK_TRUE if you want to enable sample shading
+    multisampleInfo.pNext = nullptr;
+
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext = nullptr;
+    pipelineInfo.pNext = &pass;
+    pipelineInfo.renderPass = nullptr;
+
+    pipelineInfo.pMultisampleState = &multisampleInfo;
 
     pipelineInfo.stageCount = _shaderStages.size();
     pipelineInfo.pStages = _shaderStages.data();
@@ -700,11 +745,9 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
     pipelineInfo.pInputAssemblyState = &_inputAssembly;
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pRasterizationState = &_rasterizer;
-    pipelineInfo.pMultisampleState = &_multisampling;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDepthStencilState = &_depthStencil;
     pipelineInfo.layout = _pipelineLayout;
-    pipelineInfo.renderPass = pass;
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
@@ -726,8 +769,8 @@ void VulkanEngine::init_descriptors() {
 
     // TODO, fix minimapping
     VkSampler blockySampler;
-    sampler.magFilter = VK_FILTER_NEAREST;
-    sampler.minFilter = VK_FILTER_NEAREST;
+    sampler.magFilter = VK_FILTER_LINEAR;
+    sampler.minFilter = VK_FILTER_LINEAR;
     sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -737,7 +780,8 @@ void VulkanEngine::init_descriptors() {
     sampler.minLod = 0.0f;
     sampler.maxLod = 1.0f;
     sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-    sampler.anisotropyEnable = VK_FALSE;
+    sampler.anisotropyEnable = VK_TRUE;
+    sampler.maxAnisotropy = _gpuProperties.limits.maxSamplerAnisotropy;
 
     vkCreateSampler(_device, &sampler, nullptr, &blockySampler);
     _blockySampler = blockySampler;

@@ -17,11 +17,13 @@ class Helper {
     static bool load_shader_module(const char *filePath, VkShaderModule *outShaderModule);
     static void immediate_submit(std::function<void(VkCommandBuffer cmd)> &&function);
 
+    static void transition_image_layout(VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, VkCommandBuffer cmd = Helper::main_cmd);
+
     void load_image_slices(const char *file, std::vector<AllocatedImage> &outImage, size_t sizeX, size_t sizeY);
 
     void static load_image(const char *file, AllocatedImage &outImage);
     void load_test_image(AllocatedImage &outImage);
-    
+
     static void copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     static std::string get_filename_from_path(const char *path);
     // TODO make getters
