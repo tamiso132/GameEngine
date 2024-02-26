@@ -57,18 +57,6 @@ struct Texture {
     VkImageView imageView;
 };
 
-// G-buffer attachement
-struct FrameBufferAttachment {
-    AllocatedImage image;
-    VkImageView view;
-    VkFormat format;
-};
-struct Attachments {
-    FrameBufferAttachment position, normal, albedo;
-    int32_t width;
-    int32_t height;
-};
-
 class PipelineBuilder {
   public:
     std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
