@@ -38,32 +38,6 @@ std::vector<const char *> device_extensions = {"VK_KHR_dynamic_rendering"};
 
 const uint32_t MAX_OBJECTS = 20;
 
-struct Light {
-    glm::vec4 position;
-    glm::vec3 color;
-    float radius;
-};
-
-struct {
-    AllocatedBuffer GBuffer;
-    AllocatedBuffer lights;
-} buffers;
-
-struct FrameBufferAttachment {
-    VkImage image = VK_NULL_HANDLE;
-    VkDeviceMemory mem = VK_NULL_HANDLE;
-    VkImageView view = VK_NULL_HANDLE;
-    VkFormat format;
-};
-
-struct Attachments {
-    FrameBufferAttachment position, normal, albedo;
-    int32_t width;
-    int32_t height;
-} attachments;
-
-std::array<Light, 64> lights;
-
 void VulkanEngine::init() {
     // We initialize SDL and create a window with it.
 
@@ -78,10 +52,6 @@ void VulkanEngine::init() {
     init_vulkan();
 
     init_swapchain();
-
-    // init_default_renderpass();
-
-    // init_framebuffers();
 
     init_commands();
 
@@ -105,8 +75,6 @@ void VulkanEngine::init() {
 
     init_pipelines(shaderModules);
 
-    create_vertex_buffer();
-
     // TODO, a check if more then 1 display
     SDL_Rect rect;
     SDL_GetWindowSize(_window, &rect.w, &rect.h);
@@ -118,28 +86,6 @@ void VulkanEngine::init() {
 }
 
 void VulkanEngine::cleanup() {}
-
-const std::vector<uint16_t> indices = {
-    0, 1, 2, // front Face cube
-    2, 3, 1, // front Face cube
-
-    1, 5, 3, // Right Face Cube
-    3, 7, 5, // Right Face Cube
-
-    0, 4, 2, // Left Face Cube
-    2, 6, 4, // Left Face Cube
-
-    4, 5, 6, // Back Face Cube,
-    6, 7, 5, // Back Face Cube
-
-    4, 5, 0, // Top Face Cube
-    0, 1, 4, // Top Face Cube
-
-    6, 7, 2, // Bottom Face Cube
-    2, 3, 7, // Bottom Face Cube
-};
-
-void VulkanEngine::create_vertex_buffer() {}
 
 void VulkanEngine::draw_test() {
     /*Camera*/
@@ -188,10 +134,6 @@ void VulkanEngine::draw_test() {
     }
 }
 
-// void VulkanEngine::dynamic_draw(){
-
-// }
-
 void VulkanEngine::draw() {
     // // check if window is minimized and skip drawing
     if (SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED)
@@ -213,8 +155,6 @@ void VulkanEngine::draw() {
     clearValue.color = {1.0f, 1.0f, 1.0f, 1.0f};
     VkClearValue depthClear;
     depthClear.depthStencil.depth = 1.f;
-
-    // VkRenderPassBeginInfo rpInfo = vkinit::renderpass_begin_info(_renderPass, _windowExtent, _framebuffers[swapchainImageIndex]);
 
     VkRenderingAttachmentInfo colorAttachment = {};
 
@@ -384,7 +324,7 @@ void VulkanEngine::init_swapchain() {
     vkb::SwapchainBuilder swapchainBuilder{_chosenGPU, _device, _surface};
 
     vkb::Swapchain vkbSwapchain = swapchainBuilder
-                                      .use_default_format_selection()
+                                      .set_desired_format({VK_FORMAT_R16G16B16A16_SFLOAT, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
                                       // use vsync present mode
                                       .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
                                       .set_desired_extent(_windowExtent.width, _windowExtent.height)
@@ -424,191 +364,6 @@ void VulkanEngine::init_swapchain() {
     VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImageView));
 }
 
-<<<<<<< HEAD
-void VulkanEngine::init_default_renderpass() {
-
-    attachments.width = _windowExtent.width;
-    attachments.height = _windowExtent.height;
-
-    // createGBufferAttachments();
-
-    std::array<VkAttachmentDescription, 5> attachmentsDesc{};
-    // Color attachment
-    attachmentsDesc[0].format = _swachainImageFormat;
-    attachmentsDesc[0].samples = VK_SAMPLE_COUNT_1_BIT;
-    attachmentsDesc[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachmentsDesc[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    attachmentsDesc[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachmentsDesc[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachmentsDesc[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachmentsDesc[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-    // Deferred attachments
-    // Position
-    attachmentsDesc[1].format = attachments.position.format;
-    attachmentsDesc[1].samples = VK_SAMPLE_COUNT_1_BIT;
-    attachmentsDesc[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachmentsDesc[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachmentsDesc[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachmentsDesc[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachmentsDesc[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachmentsDesc[1].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    // Normals
-    attachmentsDesc[2].format = attachments.normal.format;
-    attachmentsDesc[2].samples = VK_SAMPLE_COUNT_1_BIT;
-    attachmentsDesc[2].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachmentsDesc[2].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachmentsDesc[2].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachmentsDesc[2].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachmentsDesc[2].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachmentsDesc[2].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    // Albedo
-    attachmentsDesc[3].format = attachments.albedo.format;
-    attachmentsDesc[3].samples = VK_SAMPLE_COUNT_1_BIT;
-    attachmentsDesc[3].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachmentsDesc[3].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachmentsDesc[3].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachmentsDesc[3].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachmentsDesc[3].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachmentsDesc[3].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    // Depth attachment
-    attachmentsDesc[4].format = _depthFormat;
-    attachmentsDesc[4].samples = VK_SAMPLE_COUNT_1_BIT;
-    attachmentsDesc[4].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachmentsDesc[4].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachmentsDesc[4].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachmentsDesc[4].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachmentsDesc[4].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachmentsDesc[4].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    // Three subpasses
-    std::array<VkSubpassDescription, 3> subpassDescriptions{};
-
-    // First subpass: Fill G-Buffer components
-    // ----------------------------------------------------------------------------------------
-
-    VkAttachmentReference colorReferences[4];
-    colorReferences[0] = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-    colorReferences[1] = {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-    colorReferences[2] = {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-    colorReferences[3] = {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-    VkAttachmentReference depthReference = {4, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
-
-    subpassDescriptions[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpassDescriptions[0].colorAttachmentCount = 4;
-    subpassDescriptions[0].pColorAttachments = colorReferences;
-    subpassDescriptions[0].pDepthStencilAttachment = &depthReference;
-
-    // Second subpass: Final composition (using G-Buffer components)
-    // ----------------------------------------------------------------------------------------
-
-    VkAttachmentReference colorReference = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-
-    VkAttachmentReference inputReferences[3];
-    inputReferences[0] = {1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    inputReferences[1] = {2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    inputReferences[2] = {3, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-
-    subpassDescriptions[1].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpassDescriptions[1].colorAttachmentCount = 1;
-    subpassDescriptions[1].pColorAttachments = &colorReference;
-    subpassDescriptions[1].pDepthStencilAttachment = &depthReference;
-    // Use the color attachments filled in the first pass as input attachments
-    subpassDescriptions[1].inputAttachmentCount = 3;
-    subpassDescriptions[1].pInputAttachments = inputReferences;
-
-    // Third subpass: Forward transparency
-    // ----------------------------------------------------------------------------------------
-    colorReference = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-
-    inputReferences[0] = {1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-
-    subpassDescriptions[2].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpassDescriptions[2].colorAttachmentCount = 1;
-    subpassDescriptions[2].pColorAttachments = &colorReference;
-    subpassDescriptions[2].pDepthStencilAttachment = &depthReference;
-    // Use the color/depth attachments filled in the first pass as input attachments
-    subpassDescriptions[2].inputAttachmentCount = 1;
-    subpassDescriptions[2].pInputAttachments = inputReferences;
-
-    // Subpass dependencies for layout transitions
-    std::array<VkSubpassDependency, 5> dependencies;
-
-    // This makes sure that writes to the depth image are done before we try to write to it again
-    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependencies[0].dstSubpass = 0;
-    dependencies[0].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependencies[0].srcAccessMask = 0;
-    dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    dependencies[0].dependencyFlags = 0;
-
-    dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependencies[1].dstSubpass = 0;
-    dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependencies[1].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependencies[1].srcAccessMask = 0;
-    dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependencies[1].dependencyFlags = 0;
-
-    // This dependency transitions the input attachment from color attachment to input attachment read
-    dependencies[2].srcSubpass = 0;
-    dependencies[2].dstSubpass = 1;
-    dependencies[2].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependencies[2].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    dependencies[2].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependencies[2].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
-    dependencies[2].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-    dependencies[3].srcSubpass = 1;
-    dependencies[3].dstSubpass = 2;
-    dependencies[3].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependencies[3].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    dependencies[3].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependencies[3].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
-    dependencies[3].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-    dependencies[4].srcSubpass = 2;
-    dependencies[4].dstSubpass = VK_SUBPASS_EXTERNAL;
-    dependencies[4].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependencies[4].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependencies[4].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependencies[4].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    dependencies[4].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-    VkRenderPassCreateInfo renderPassInfo = {};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentsDesc.size());
-    renderPassInfo.pAttachments = attachmentsDesc.data();
-    renderPassInfo.subpassCount = static_cast<uint32_t>(subpassDescriptions.size());
-    renderPassInfo.pSubpasses = subpassDescriptions.data();
-    renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
-    renderPassInfo.pDependencies = dependencies.data();
-
-    VK_CHECK(vkCreateRenderPass(_device, &renderPassInfo, nullptr, &_renderPass));
-}
-
-void VulkanEngine::init_framebuffers() {
-
-    // create the framebuffers for the swapchain images. This will connect the
-    // render-pass to the images for rendering
-    VkFramebufferCreateInfo fb_info = vkinit::framebuffer_create_info(_renderPass, _windowExtent);
-    const uint32_t swapchain_imagecount = _swapchainImages.size();
-    _framebuffers = std::vector<VkFramebuffer>(swapchain_imagecount);
-
-    for (int i = 0; i < swapchain_imagecount; i++) {
-        VkImageView attachments[2];
-        attachments[0] = _swapchainImageViews[i];
-        attachments[1] = _depthImageView;
-
-        fb_info.pAttachments = attachments;
-        fb_info.attachmentCount = 2;
-        VK_CHECK(vkCreateFramebuffer(_device, &fb_info, nullptr, &_framebuffers[i]));
-    }
-}
-
-=======
->>>>>>> a8fea47cb4ff8a2d97040d5fea39385aa0ac9f5c
 void VulkanEngine::init_commands() {
     // // create a command pool for commands submitted to the graphics queue.
     // // we also want the pool to allow for resetting of individual command
@@ -642,12 +397,16 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
     VkPipelineLayoutCreateInfo triangleLayoutInfo = vkinit::pipeline_layout_create_info();
 
     VkDescriptorSetLayout layouts[] = {this->global.get_descriptor_layout("camera"), this->global.get_descriptor_layout("object"), this->global.get_descriptor_layout("cubemap")};
-
     triangleLayoutInfo.pSetLayouts = layouts;
     triangleLayoutInfo.setLayoutCount = sizeof(layouts) / sizeof(layouts[0]);
 
     VK_CHECK(vkCreatePipelineLayout(this->_device, &triangleLayoutInfo, nullptr, &this->pipelineLayout));
 
+    VkDescriptorSetLayout layoutHdr[] = {this->global.get_descriptor_layout("hdr")};
+    triangleLayoutInfo.pSetLayouts = layoutHdr;
+    triangleLayoutInfo.setLayoutCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(this->_device, &triangleLayoutInfo, nullptr, &this->hdrLayout));
     /*Pipeline Settings*/
     pipelineBuilder._vertexInputInfo = vkinit::vertex_input_state_create_info();
     pipelineBuilder._pipelineLayout = this->pipelineLayout;
@@ -687,6 +446,7 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
     pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount = description.attributes.size();
     pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount = description.bindings.size();
 
+
     VkPipelineRenderingCreateInfoKHR pipelineCreateInfo = {};
     pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     pipelineCreateInfo.pNext = nullptr;
@@ -695,6 +455,8 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
     pipelineCreateInfo.depthAttachmentFormat = _depthFormat;
 
     this->pipeline = pipelineBuilder.build_pipeline(_device, pipelineCreateInfo);
+
+    pipelineBuilder._pipelineLayout = hdrLayout;
 }
 
 VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineRenderingCreateInfoKHR pass) {
@@ -765,12 +527,12 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineRenderingC
 void VulkanEngine::init_descriptors() {
     // // new code abstract
 
-    VkSamplerCreateInfo sampler = vkinit::sampler_create_info(VK_FILTER_LINEAR);
+    VkSamplerCreateInfo sampler = vkinit::sampler_create_info(VK_FILTER_NEAREST);
 
     // TODO, fix minimapping
     VkSampler blockySampler;
-    sampler.magFilter = VK_FILTER_LINEAR;
-    sampler.minFilter = VK_FILTER_LINEAR;
+    sampler.magFilter = VK_FILTER_NEAREST;
+    sampler.minFilter = VK_FILTER_NEAREST;
     sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -783,7 +545,11 @@ void VulkanEngine::init_descriptors() {
     sampler.anisotropyEnable = VK_TRUE;
     sampler.maxAnisotropy = _gpuProperties.limits.maxSamplerAnisotropy;
 
+    VkSamplerCreateInfo hdrSamplerInfo = vkinit::sampler_create_info(VK_FILTER_NEAREST);
+
     vkCreateSampler(_device, &sampler, nullptr, &blockySampler);
+    vkCreateSampler(_device, &hdrSamplerInfo, nullptr, &this->hdrSampler);
+
     _blockySampler = blockySampler;
 
     TextureHelper::load_texture_array("assets/texture_atlas_0.png", 64, _cubemap, &_cubeview);
@@ -796,6 +562,11 @@ void VulkanEngine::init_descriptors() {
     imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo normalImageBufferInfo;
+    normalImageBufferInfo.sampler = blockySampler;
+    normalImageBufferInfo.imageView = _normalView;
+    normalImageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo hdrImageBuffer;
     normalImageBufferInfo.sampler = blockySampler;
     normalImageBufferInfo.imageView = _normalView;
     normalImageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -814,6 +585,9 @@ void VulkanEngine::init_descriptors() {
         ->bind_create_buffer(sizeof(GPUTexture), BufferType::UNIFORM, VK_SHADER_STAGE_FRAGMENT_BIT)
         .bind_image(&normalImageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         ->build("cubemap");
+
+    GlobalBuilder builder4 = this->global.begin_build_descriptor();
+    builder4.bind_image(&hdrImageBuffer, COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)->build("hdr");
 
     GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_TREE);
 

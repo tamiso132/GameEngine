@@ -131,6 +131,7 @@ class VulkanEngine {
     VkPipelineLayout _opengl_layout;
 
     VkSampler _blockySampler;
+    VkSampler hdrSampler;
 
     std::vector<VertexOpengl> _openglVertices;
 
@@ -141,6 +142,9 @@ class VulkanEngine {
 
     VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
+
+    VkPipeline hdrPipeline;
+    VkPipelineLayout hdrLayout;
 
     VkFence fence_wait;
 
