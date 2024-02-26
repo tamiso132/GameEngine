@@ -1,4 +1,5 @@
 ﻿#include "vk_initializers.h"
+#include <vulkan/vulkan_core.h>
 
 VkCommandPoolCreateInfo
 vkinit::command_pool_create_info(uint32_t queueFamilyIndex,
@@ -186,7 +187,7 @@ VkPipelineMultisampleStateCreateInfo vkinit::multisampling_state_create_info() {
 
   info.sampleShadingEnable = VK_FALSE;
   // multisampling defaulted to no multisampling (1 sample per pixel)
-  info.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  info.rasterizationSamples = VK_SAMPLE_COUNT_4_BIT;
   info.minSampleShading = 1.0f;
   info.pSampleMask = nullptr;
   info.alphaToCoverageEnable = VK_FALSE;

@@ -1,10 +1,7 @@
 #include "mesh.h"
 
 #include "../util/helper.h"
-#include "../vk_mesh.h"
-#include "glm/glm.hpp"
 #include <cstdint>
-#include <cstring>
 #include <glm/fwd.hpp>
 #include <stb_image.h>
 #include <utility>

@@ -1,7 +1,10 @@
 ﻿#include "vk_engine.h"
 
 #include <SDL_stdinc.h>
+#include <SDL_video.h>
+#include <cstdio>
 #include <filesystem>
+#include <glm/ext/matrix_clip_space.hpp>
 #include <glm/fwd.hpp>
 #include <imgui.h>
 #include <vulkan/vulkan_core.h>
@@ -44,7 +47,7 @@ void VulkanEngine::init() {
 
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
 
-    _window = SDL_CreateWindow("Vulkan Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, _windowExtent.width, _windowExtent.height, window_flags);
+    _window = SDL_CreateWindow("Vulkan Engine", 0, 0, _windowExtent.width, _windowExtent.height, window_flags);
 
     init_vulkan();
 
@@ -79,8 +82,10 @@ void VulkanEngine::init() {
     create_vertex_buffer();
 
     // TODO, a check if more then 1 display
-    // SDL_Rect rect;
-    // SDL_GetDisplayBounds(1, &rect);
+    SDL_Rect rect;
+    SDL_GetWindowSize(_window, &rect.w, &rect.h);
+    printf("WINDOW WIDTH: %d\n", rect.w);
+    printf("WINDOW HEIGHT: %d\n", rect.h);
     // SDL_SetWindowPosition(_window, rect.x, rect.y);
     // everything went fine
     _isInitialized = true;
@@ -114,6 +119,7 @@ void VulkanEngine::draw_test() {
     /*Camera*/
     auto view = _cam.get_view();
     //  camera projection
+
     glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
     projection[1][1] *= -1;
 
@@ -218,7 +224,7 @@ void VulkanEngine::draw() {
 
     deviceFunctions.cmdEndRenderingKHR(cmd);
 
-    Helper::transition_image_layout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, _swapchainImages[swapchainImageIndex], cmd); 
+    Helper::transition_image_layout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, _swapchainImages[swapchainImageIndex], cmd);
 
     VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -291,7 +297,6 @@ void VulkanEngine::run() {
 
 void VulkanEngine::init_vulkan() {
     vkb::InstanceBuilder builder;
-
     // make the vulkan instance, with basic debug features
     auto inst_ret = builder.set_app_name("Example Vulkan Application").request_validation_layers(bUseValidationLayers).use_default_debug_messenger().require_api_version(1, 3, 0).build();
 
@@ -309,7 +314,6 @@ void VulkanEngine::init_vulkan() {
 
     VkPhysicalDeviceVulkan11Features features_11;
     features_11.shaderDrawParameters = true;
-
     VkPhysicalDeviceVulkan13Features features_13;
     features_13.dynamicRendering = true;
 
@@ -360,6 +364,8 @@ void VulkanEngine::init_swapchain() {
                                       .set_desired_extent(_windowExtent.width, _windowExtent.height)
                                       .build()
                                       .value();
+    printf("SWAPCHAIN HEIGHT: %d\n", vkbSwapchain.extent.height);
+    printf("SWAPCHAIN WIDTH: %d\n", vkbSwapchain.extent.width);
 
     // store swapchain and its related images
     _swapchain = vkbSwapchain.swapchain;
@@ -390,107 +396,6 @@ void VulkanEngine::init_swapchain() {
     VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(_depthFormat, _depthImage._image, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImageView));
-}
-
-void VulkanEngine::init_default_renderpass() {
-
-    VkAttachmentDescription color_attachment = {};
-    color_attachment.format = _swapchainImageFormat;
-    color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-    VkAttachmentReference color_attachment_ref = {};
-    color_attachment_ref.attachment = 0;
-    color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentDescription depth_attachment = {};
-    // Depth attachment
-    depth_attachment.flags = 0;
-    depth_attachment.format = _depthFormat;
-    depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference depth_attachment_ref = {};
-    depth_attachment_ref.attachment = 1;
-    depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    // we are going to create 1 subpass, which is the minimum you can do
-    VkSubpassDescription subpass = {};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &color_attachment_ref;
-    // hook the depth attachment into the subpass
-    subpass.pDepthStencilAttachment = &depth_attachment_ref;
-
-    // 1 dependency, which is from "outside" into the subpass. And we can read
-    // or write color
-    VkSubpassDependency dependency = {};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.srcAccessMask = 0;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    // dependency from outside to the subpass, making this subpass dependent on
-    // the previous renderpasses
-    VkSubpassDependency depth_dependency = {};
-    depth_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    depth_dependency.dstSubpass = 0;
-    depth_dependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    depth_dependency.srcAccessMask = 0;
-    depth_dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    depth_dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-    // array of 2 dependencies, one for color, two for depth
-    VkSubpassDependency dependencies[2] = {dependency, depth_dependency};
-
-    // array of 2 attachments, one for the color, and other for depth
-    VkAttachmentDescription attachments[2] = {color_attachment, depth_attachment};
-
-    VkRenderPassCreateInfo render_pass_info = {};
-    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    // 2 attachments from attachment array
-    render_pass_info.attachmentCount = 2;
-    render_pass_info.pAttachments = &attachments[0];
-    render_pass_info.subpassCount = 1;
-    render_pass_info.pSubpasses = &subpass;
-    // 2 dependencies from dependency array
-    render_pass_info.dependencyCount = 2;
-    render_pass_info.pDependencies = &dependencies[0];
-
-    VK_CHECK(vkCreateRenderPass(_device, &render_pass_info, nullptr, &_renderPass));
-    VK_CHECK(vkCreateRenderPass(_device, &render_pass_info, nullptr, &brightRenderPass));
-    VK_CHECK(vkCreateRenderPass(_device, &render_pass_info, nullptr, &blurRenderPass));
-}
-
-void VulkanEngine::init_framebuffers() {
-
-    // create the framebuffers for the swapchain images. This will connect the
-    // render-pass to the images for rendering
-    //  VkFramebufferCreateInfo fb_info = vkinit::framebuffer_create_info(_renderPass, _windowExtent);
-    // const uint32_t swapchain_imagecount = _swapchainImages.size();
-    // // _framebuffers = std::vector<VkFramebuffer>(swapchain_imagecount);
-
-    // for (int i = 0; i < swapchain_imagecount; i++) {
-    //     VkImageView attachments[2];
-    //     attachments[0] = _swapchainImageViews[i];
-    //     attachments[1] = _depthImageView;
-
-    //     // fb_info.pAttachments = attachments;
-    //     //  fb_info.attachmentCount = 2;
-    //     //  VK_CHECK(vkCreateFramebuffer(_device, &fb_info, nullptr, &_framebuffers[i]));
-    // }
 }
 
 void VulkanEngine::init_commands() {
@@ -555,9 +460,6 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
     pipelineBuilder._rasterizer = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
     pipelineBuilder._rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 
-    // // we dont use multisampling, so just run the default one
-    pipelineBuilder._multisampling = vkinit::multisampling_state_create_info();
-
     // // a single blend attachment with no blending and writing to RGBA
     pipelineBuilder._colorBlendAttachment = vkinit::color_blend_attachment_state();
 
@@ -611,10 +513,20 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineRenderingC
     // build the actual pipeline
     // we now use all of the info structs we have been writing into into this
     // one to create the pipeline
+
+    VkPipelineMultisampleStateCreateInfo multisampleInfo = {};
+    multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampleInfo.flags = 0;
+    multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampleInfo.sampleShadingEnable = VK_FALSE; // You can set this to VK_TRUE if you want to enable sample shading
+    multisampleInfo.pNext = nullptr;
+
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = &pass;
     pipelineInfo.renderPass = nullptr;
+
+    pipelineInfo.pMultisampleState = &multisampleInfo;
 
     pipelineInfo.stageCount = _shaderStages.size();
     pipelineInfo.pStages = _shaderStages.data();
@@ -622,7 +534,6 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineRenderingC
     pipelineInfo.pInputAssemblyState = &_inputAssembly;
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pRasterizationState = &_rasterizer;
-    pipelineInfo.pMultisampleState = &_multisampling;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDepthStencilState = &_depthStencil;
     pipelineInfo.layout = _pipelineLayout;
@@ -647,8 +558,8 @@ void VulkanEngine::init_descriptors() {
 
     // TODO, fix minimapping
     VkSampler blockySampler;
-    sampler.magFilter = VK_FILTER_NEAREST;
-    sampler.minFilter = VK_FILTER_NEAREST;
+    sampler.magFilter = VK_FILTER_LINEAR;
+    sampler.minFilter = VK_FILTER_LINEAR;
     sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -658,7 +569,8 @@ void VulkanEngine::init_descriptors() {
     sampler.minLod = 0.0f;
     sampler.maxLod = 1.0f;
     sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-    sampler.anisotropyEnable = VK_FALSE;
+    sampler.anisotropyEnable = VK_TRUE;
+    sampler.maxAnisotropy = _gpuProperties.limits.maxSamplerAnisotropy;
 
     vkCreateSampler(_device, &sampler, nullptr, &blockySampler);
     _blockySampler = blockySampler;
@@ -692,7 +604,7 @@ void VulkanEngine::init_descriptors() {
         .bind_image(&normalImageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         ->build("cubemap");
 
-    GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_PLANKS);
+    GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_TREE);
 
     this->global.write_descriptor_set("cubemap", 1, _allocator, &textureIndices, sizeof(GPUTexture));
 }

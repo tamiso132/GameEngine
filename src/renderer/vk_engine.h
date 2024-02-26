@@ -19,12 +19,13 @@
 #include <vector>
 
 #include "../camera/camera.h"
-#include "VkBootstrap.h"
 #include "util/vk_descriptors.h"
 
 #include "vk_create.h"
 #include "vk_mesh.h"
 #include "vk_types.h"
+
+#include <VkBootstrap.h>
 
 struct alignas(16) GPUObject {
     glm::mat4 transformMatrix;
@@ -105,17 +106,9 @@ class VulkanEngine {
     VkQueue _graphicsQueue;
     uint32_t _graphicsQueueFamily;
 
-    VkRenderPass _renderPass;
-    VkRenderPass brightRenderPass;
-    VkRenderPass blurRenderPass;
-
     VkSurfaceKHR _surface;
     VkSwapchainKHR _swapchain;
     VkFormat _swapchainImageFormat;
-
-    std::vector<VkFramebuffer> _framebuffers;
-    std::vector<VkFramebuffer> brightnessFrameBuffer;
-    std::vector<VkFramebuffer> blurFrameBuffer;
 
     std::vector<VkImage> _swapchainImages;
     std::vector<VkImageView> _swapchainImageViews;
@@ -193,10 +186,6 @@ class VulkanEngine {
     void init_vulkan();
 
     void init_swapchain();
-
-    void init_default_renderpass();
-
-    void init_framebuffers();
 
     void init_commands();
 
