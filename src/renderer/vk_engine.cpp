@@ -446,10 +446,9 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
     pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount = description.attributes.size();
     pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount = description.bindings.size();
 
-
     VkPipelineRenderingCreateInfoKHR pipelineCreateInfo = {};
     pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    pipelineCreateInfo.pNext = nullptr;
+    pipelineCreateInfo.pNext = nullptr; 
     pipelineCreateInfo.pColorAttachmentFormats = &this->_swapchainImageFormat;
     pipelineCreateInfo.colorAttachmentCount = 1;
     pipelineCreateInfo.depthAttachmentFormat = _depthFormat;
@@ -457,6 +456,17 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
     this->pipeline = pipelineBuilder.build_pipeline(_device, pipelineCreateInfo);
 
     pipelineBuilder._pipelineLayout = hdrLayout;
+
+    pipelineBuilder._shaderStages.clear();
+
+    pipelineBuilder._shaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, shaders["hdr.frag.spv"]));
+
+    pipelineBuilder._vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+    pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions = nullptr;
+    pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount = 0;
+    pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount = 0;
+
+    this->hdrPipeline = pipelineBuilder.build_pipeline(_device, pipelineCreateInfo);
 }
 
 VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineRenderingCreateInfoKHR pass) {
@@ -566,11 +576,6 @@ void VulkanEngine::init_descriptors() {
     normalImageBufferInfo.imageView = _normalView;
     normalImageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    VkDescriptorImageInfo hdrImageBuffer;
-    normalImageBufferInfo.sampler = blockySampler;
-    normalImageBufferInfo.imageView = _normalView;
-    normalImageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
     this->global.init(this->_device);
 
     GlobalBuilder builder = this->global.begin_build_descriptor();
@@ -586,8 +591,13 @@ void VulkanEngine::init_descriptors() {
         .bind_image(&normalImageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         ->build("cubemap");
 
+    VkDescriptorImageInfo imageInfo;
+    imageInfo.imageView = _swapchainImageViews[0];
+    imageInfo.imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    imageInfo.sampler = _blockSampler;
+
     GlobalBuilder builder4 = this->global.begin_build_descriptor();
-    builder4.bind_image(&hdrImageBuffer, COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)->build("hdr");
+    builder4.bind_image(&imageInfo, ImageType::COLOR_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)->build("hdr");
 
     GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_TREE);
 

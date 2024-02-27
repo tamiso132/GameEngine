@@ -7,6 +7,7 @@
 
 namespace Quad {
     AllocatedBuffer quadVerticesBuffer;
+    AllocatedBuffer quadScreenBuffer;
     uint32_t verticesSize;
     void init_quad_vertices() {
 
@@ -59,6 +60,58 @@ namespace Quad {
 
         vmaDestroyBuffer(Helper::allocator, stagingBuffer._buffer, stagingBuffer._allocation);
     }
+
+    void init_quad_screen_vertices() {
+        std::vector<VertexQuadScreen> quadVertices = {
+            // Vertex 1
+            {{0, 0}},
+
+            // Vertex 2
+            {{1, 0}},
+
+            // Vertex 3
+            {{0, 1}},
+
+            // Vertex 4
+            {{1, 1}},
+        };
+
+        verticesSize = quadVertices.size();
+        const size_t vertexBufferSize = quadVertices.size() * sizeof(VertexQuadScreen);
+
+        VkBufferCreateInfo stagingBufferInfo = {};
+        stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        stagingBufferInfo.size = vertexBufferSize;
+        stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+        VmaAllocationCreateInfo stagingAllocInfo = {};
+        stagingAllocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+        AllocatedBuffer stagingBuffer;
+        VK_CHECK(vmaCreateBuffer(Helper::allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuffer._buffer, &stagingBuffer._allocation, nullptr));
+
+        // Copy vertex data to staging buffer
+        void *stagingData;
+        vmaMapMemory(Helper::allocator, stagingBuffer._allocation, &stagingData);
+        memcpy(stagingData, quadVertices.data(), vertexBufferSize);
+        vmaUnmapMemory(Helper::allocator, stagingBuffer._allocation);
+
+        // Vertex buffer for GPU usage
+        VkBufferCreateInfo vertexBufferInfo = {};
+        vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        vertexBufferInfo.size = vertexBufferSize;
+        vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+        VmaAllocationCreateInfo vertexAllocInfo = {};
+        vertexAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+        VK_CHECK(vmaCreateBuffer(Helper::allocator, &vertexBufferInfo, &vertexAllocInfo, &quadScreenBuffer._buffer, &quadScreenBuffer._allocation, nullptr));
+
+        Helper::copy_buffer(stagingBuffer._buffer, quadScreenBuffer._buffer, vertexBufferSize);
+
+        vmaDestroyBuffer(Helper::allocator, stagingBuffer._buffer, stagingBuffer._allocation);
+    }
+    AllocatedBuffer get_screen_vertices() { return quadScreenBuffer; }
 } // namespace Quad
 
 namespace Cube {
@@ -159,5 +212,7 @@ namespace Cube {
 
 void init_mesh() {
     Quad::init_quad_vertices();
+    Quad::init_quad_screen_vertices();
+
     Cube::init_cube_vertices();
 }

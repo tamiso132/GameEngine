@@ -31,6 +31,7 @@ namespace Block {
 
 namespace Quad {
     static AllocatedBuffer get_vertices();
+    AllocatedBuffer get_screen_vertices();
 } // namespace Quad
 
 namespace Cube {

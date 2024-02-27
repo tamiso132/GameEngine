@@ -22,6 +22,10 @@ struct alignas(16) VertexTemp {
     uint32_t faceIndex;
 };
 
+struct alignas(16) VertexQuadScreen {
+    glm::vec2 uv;
+};
+
 struct Vertex {
     glm::vec3 position;
     glm::vec3 normal;

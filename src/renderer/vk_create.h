@@ -22,6 +22,7 @@ enum ImageType {
     COMBINED_IMAGE_SAMPLER = 1,
     SAMPLED_IMAGE = 2,
     STORAGE_IMAGE = 3,
+    COLOR_ATTACHMENT = 0x00000010,
 };
 
 struct DescriptorSet {
