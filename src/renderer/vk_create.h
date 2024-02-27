@@ -79,6 +79,8 @@ class GlobalBuilder {
 
     GlobalBuilder *bind_image(VkDescriptorImageInfo *imageInfo, ImageType type, VkShaderStageFlags stageFlags);
 
+    GlobalBuilder &update_descriptor(bool isUpdate);
+
     bool build(const char *key);
 
   private:

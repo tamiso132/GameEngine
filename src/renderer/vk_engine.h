@@ -161,6 +161,9 @@ class VulkanEngine {
     AllocatedImage _normalMap;
     VkImageView _normalView;
 
+    AllocatedImage hdrImage;
+    VkImageView hdrImageView;
+
     void init();
 
     // shuts down the engine
@@ -190,6 +193,8 @@ class VulkanEngine {
     void init_scene();
 
     void init_descriptors();
+
+    void init_hdr();
 
     void create_vertex_buffer();
     /*Helper functions*/

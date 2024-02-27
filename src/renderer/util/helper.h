@@ -21,7 +21,9 @@ class Helper {
 
     void load_image_slices(const char *file, std::vector<AllocatedImage> &outImage, size_t sizeX, size_t sizeY);
 
+    static void create_image(VkExtent3D extent, VkFormat format, VkImageAspectFlags vkImageAspectFlag, AllocatedImage *image, VkImageView *view);
     void static load_image(const char *file, AllocatedImage &outImage);
+
     void load_test_image(AllocatedImage &outImage);
 
     static void copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);

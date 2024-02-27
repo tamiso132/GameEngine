@@ -71,6 +71,8 @@ void VulkanEngine::init() {
     init_mesh();
     Block::init_texture();
 
+    init_hdr();
+
     init_descriptors();
 
     init_pipelines(shaderModules);
@@ -448,7 +450,7 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
 
     VkPipelineRenderingCreateInfoKHR pipelineCreateInfo = {};
     pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    pipelineCreateInfo.pNext = nullptr; 
+    pipelineCreateInfo.pNext = nullptr;
     pipelineCreateInfo.pColorAttachmentFormats = &this->_swapchainImageFormat;
     pipelineCreateInfo.colorAttachmentCount = 1;
     pipelineCreateInfo.depthAttachmentFormat = _depthFormat;
@@ -534,6 +536,7 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineRenderingC
     }
 }
 
+void VulkanEngine::init_hdr() { Helper::create_image({_windowExtent.width, _windowExtent.height, 1}, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, &hdrImage, &hdrImageView); }
 void VulkanEngine::init_descriptors() {
     // // new code abstract
 
@@ -552,8 +555,6 @@ void VulkanEngine::init_descriptors() {
     sampler.minLod = 0.0f;
     sampler.maxLod = 1.0f;
     sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-    sampler.anisotropyEnable = VK_TRUE;
-    sampler.maxAnisotropy = _gpuProperties.limits.maxSamplerAnisotropy;
 
     VkSamplerCreateInfo hdrSamplerInfo = vkinit::sampler_create_info(VK_FILTER_NEAREST);
 
@@ -579,25 +580,26 @@ void VulkanEngine::init_descriptors() {
     this->global.init(this->_device);
 
     GlobalBuilder builder = this->global.begin_build_descriptor();
-    builder.bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::STORAGE, VK_SHADER_STAGE_VERTEX_BIT).build("object");
+    builder.bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::STORAGE, VK_SHADER_STAGE_VERTEX_BIT).update_descriptor(true).build("object");
 
     GlobalBuilder builder2 = this->global.begin_build_descriptor();
-    builder2.bind_create_buffer(sizeof(GPUCamera), BufferType::UNIFORM, VK_SHADER_STAGE_VERTEX_BIT).build("camera");
+    builder2.bind_create_buffer(sizeof(GPUCamera), BufferType::UNIFORM, VK_SHADER_STAGE_VERTEX_BIT).update_descriptor(true).build("camera");
 
     GlobalBuilder builder3 = this->global.begin_build_descriptor();
     builder3
         .bind_image(&imageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // yep
         ->bind_create_buffer(sizeof(GPUTexture), BufferType::UNIFORM, VK_SHADER_STAGE_FRAGMENT_BIT)
         .bind_image(&normalImageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        ->build("cubemap");
+        ->update_descriptor(true)
+        .build("cubemap");
 
     VkDescriptorImageInfo imageInfo;
-    imageInfo.imageView = _swapchainImageViews[0];
-    imageInfo.imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    imageInfo.imageView = hdrImageView;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imageInfo.sampler = _blockSampler;
 
     GlobalBuilder builder4 = this->global.begin_build_descriptor();
-    builder4.bind_image(&imageInfo, ImageType::COLOR_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)->build("hdr");
+    builder4.bind_image(&imageInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)->build("hdr");
 
     GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_TREE);
 

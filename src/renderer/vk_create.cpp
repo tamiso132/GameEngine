@@ -93,6 +93,11 @@ GlobalBuilder *GlobalBuilder::bind_image(VkDescriptorImageInfo *imageInfo, Image
     return this;
 }
 
+GlobalBuilder &GlobalBuilder::update_descriptor(bool isUpdate) {
+    this->builder = this->builder.update_descriptor(isUpdate);
+    return *this;
+}
+
 bool GlobalBuilder::build(const char *key) {
     VkDescriptorSet set;
     VkDescriptorSetLayout layout;
