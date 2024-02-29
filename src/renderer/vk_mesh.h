@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "vk_types.h"
+
 struct VertexInputDescription {
     std::vector<VkVertexInputBindingDescription> bindings;
     std::vector<VkVertexInputAttributeDescription> attributes;

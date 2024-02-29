@@ -30,8 +30,6 @@ struct DescriptorSet {
     VkDescriptorSet descriptorSet;
 };
 
-enum LayoutPhase { PerFrame, PerRenderPass, PerMaterial, PerObject };
-
 struct PipelineInfo {
     VkPipelineLayout pipeline_layout;
     std::vector<std::reference_wrapper<VkDescriptorSetLayout>> desc_layouts;

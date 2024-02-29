@@ -27,7 +27,6 @@
 
 constexpr bool bUseValidationLayers = true;
 
-const char *directoryPath = "shaders/spiv/";
 namespace fs = std::filesystem;
 
 // we want to immediately abort when there is an error. In normal engines this
@@ -58,15 +57,6 @@ void VulkanEngine::init() {
     init_sync_structures();
 
     Helper::init(this->_device, this->_gpuProperties, this->_allocator, this->cmd, this->_graphicsQueue);
-    for (const auto &entry : std::filesystem::directory_iterator(directoryPath)) {
-        if (fs::is_regular_file(entry.path())) {
-            VkShaderModule shader;
-            Helper::load_shader_module(entry.path().c_str(), &shader);
-            auto c = entry.path().c_str();
-            auto filename = Helper::get_filename_from_path(c);
-            shaderModules[filename] = shader;
-        }
-    }
 
     init_mesh();
     Block::init_texture();
@@ -166,6 +156,9 @@ void VulkanEngine::draw() {
     colorAttachment.imageView = _swapchainImageViews[swapchainImageIndex];
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.resolveImageView = hdrImageView;
+    colorAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+    colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
     VkRenderingAttachmentInfo depthAttachment = {};
 
@@ -186,6 +179,8 @@ void VulkanEngine::draw() {
     dynamicInfo.layerCount = 1;
 
     Helper::transition_image_layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, _swapchainImages[swapchainImageIndex], cmd);
+    Helper::transition_image_layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, hdrImage._image);
+
     deviceFunctions.cmdBeginRenderingKHR(cmd, &dynamicInfo);
 
     draw_test();
@@ -275,6 +270,11 @@ void VulkanEngine::init_vulkan() {
     _debug_messenger = vkb_inst.debug_messenger;
 
     SDL_Vulkan_CreateSurface(_window, _instance, &_surface);
+    VkPhysicalDeviceDynamicRenderingLocalReadFeaturesKHR dynamicRendering;
+    dynamicRendering.pNext = nullptr;
+    dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_LOCAL_READ_FEATURES_KHR;
+    dynamicRendering.dynamicRenderingLocalRead = VK_TRUE;
+
 
     VkPhysicalDeviceFeatures features;
     features.imageCubeArray = true;

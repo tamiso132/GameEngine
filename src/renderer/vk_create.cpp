@@ -94,7 +94,7 @@ GlobalBuilder *GlobalBuilder::bind_image(VkDescriptorImageInfo *imageInfo, Image
 }
 
 GlobalBuilder &GlobalBuilder::update_descriptor(bool isUpdate) {
-    this->builder = this->builder.update_descriptor(isUpdate);
+    this->builder.update_descriptor(isUpdate);
     return *this;
 }
 

@@ -241,7 +241,7 @@ namespace vkutil {
         return true;
     }
 
-    vkutil::DescriptorBuilder &DescriptorBuilder::update_descriptor(bool isUpdate) { this->update = true; }
+    void DescriptorBuilder::update_descriptor(bool isUpdate) { this->update = true; }
 
     bool DescriptorBuilder::build(VkDescriptorSet &set) {
         VkDescriptorSetLayout layout;

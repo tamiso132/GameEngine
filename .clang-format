@@ -3,5 +3,5 @@
 Language: Cpp
 BasedOnStyle: LLVM
 IndentWidth: 4
-ColumnLimit: 100000
+ColumnLimit: 200
 NamespaceIndentation: All
