@@ -10,6 +10,8 @@ add_sources(
     vk_mesh.h
     vk_create.h
     vk_create.cpp
+    renderer.h
+    renderer.cpp
 )
 
 include_this()

@@ -7,6 +7,7 @@
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/fwd.hpp>
 #include <imgui.h>
+#include <unordered_map>
 #include <vulkan/vulkan_core.h>
 
 #include <cstddef>
@@ -24,10 +25,9 @@
 #include "vk_mem_alloc.h"
 
 #include "object/mesh.h"
+#include "renderer.h"
 
 constexpr bool bUseValidationLayers = true;
-
-namespace fs = std::filesystem;
 
 // we want to immediately abort when there is an error. In normal engines this
 // would give an error message to the user, or perform a dump of state.
@@ -39,9 +39,7 @@ const uint32_t MAX_OBJECTS = 20;
 
 void VulkanEngine::init() {
     // We initialize SDL and create a window with it.
-
-    std::unordered_map<std::string, VkShaderModule> shaderModules;
-
+    unordered_map<std::string, VkShaderModule> shaderModules;
     SDL_Init(SDL_INIT_VIDEO);
 
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
@@ -60,8 +58,6 @@ void VulkanEngine::init() {
 
     init_mesh();
     Block::init_texture();
-
-    init_hdr();
 
     init_descriptors();
 
@@ -88,13 +84,13 @@ void VulkanEngine::draw_test() {
     projection[1][1] *= -1;
 
     GPUCamera camData;
-    camData.camPos = _cam.get_camera_position();
+    camData.camPos   = _cam.get_camera_position();
     camData.viewproj = projection * view;
 
     void *data;
     this->global.write_descriptor_set("camera", 0, this->_allocator, &camData, sizeof(GPUCamera));
 
-    glm::vec3 position = glm::vec3(0, 0, 0);
+    glm::vec3              position = glm::vec3(0, 0, 0);
     std::vector<GPUObject> objects;
     for (int i = 0; i < MAX_OBJECTS; i++) {
         position.x += 1;
@@ -109,7 +105,7 @@ void VulkanEngine::draw_test() {
 
     DescriptorSet cameraSet = global.get_descriptor_set("camera");
     DescriptorSet objectSet = global.get_descriptor_set("object");
-    DescriptorSet cubemap = global.get_descriptor_set("cubemap");
+    DescriptorSet cubemap   = global.get_descriptor_set("cubemap");
 
     vkCmdBindPipeline(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipeline);
 
@@ -117,8 +113,8 @@ void VulkanEngine::draw_test() {
 
     vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 1, 1, &objectSet.descriptorSet, 0, nullptr);
     vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 2, 1, &cubemap.descriptorSet, 0, nullptr);
-    VkDeviceSize offset = 0;
-    auto verticesBuffer = Cube::get_vertices_buffer()._buffer;
+    VkDeviceSize offset         = 0;
+    auto         verticesBuffer = Cube::get_vertices_buffer()._buffer;
     vkCmdBindVertexBuffers(this->cmd, 0, 1, &verticesBuffer, &offset);
 
     for (int i = 0; i < MAX_OBJECTS; i++) {
@@ -150,36 +146,33 @@ void VulkanEngine::draw() {
 
     VkRenderingAttachmentInfo colorAttachment = {};
 
-    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachment.clearValue = clearValue;
+    colorAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colorAttachment.clearValue  = clearValue;
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
-    colorAttachment.imageView = _swapchainImageViews[swapchainImageIndex];
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.resolveImageView = hdrImageView;
+    colorAttachment.imageView   = _swapchainImageViews[swapchainImageIndex];
+    colorAttachment.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
-    colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
     VkRenderingAttachmentInfo depthAttachment = {};
 
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.clearValue = depthClear;
+    depthAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depthAttachment.clearValue  = depthClear;
     depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    depthAttachment.imageView = _depthImageView;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.imageView   = _depthImageView;
+    depthAttachment.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
 
-    VkRenderingInfoKHR dynamicInfo = {};
-    dynamicInfo.pNext = nullptr;
-    dynamicInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    VkRenderingInfoKHR dynamicInfo   = {};
+    dynamicInfo.pNext                = nullptr;
+    dynamicInfo.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;
     dynamicInfo.colorAttachmentCount = 1;
-    dynamicInfo.pColorAttachments = &colorAttachment;
-    dynamicInfo.pDepthAttachment = &depthAttachment;
-    dynamicInfo.renderArea = {{0, 0}, _windowExtent};
-    dynamicInfo.layerCount = 1;
+    dynamicInfo.pColorAttachments    = &colorAttachment;
+    dynamicInfo.pDepthAttachment     = &depthAttachment;
+    dynamicInfo.renderArea           = {{0, 0}, _windowExtent};
+    dynamicInfo.layerCount           = 1;
 
     Helper::transition_image_layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, _swapchainImages[swapchainImageIndex], cmd);
-    Helper::transition_image_layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, hdrImage._image);
 
     deviceFunctions.cmdBeginRenderingKHR(cmd, &dynamicInfo);
 
@@ -192,25 +185,25 @@ void VulkanEngine::draw() {
     VK_CHECK(vkEndCommandBuffer(cmd));
 
     /*Submit Queue*/
-    VkSubmitInfo submit = vkinit::submit_info(&cmd);
+    VkSubmitInfo         submit    = vkinit::submit_info(&cmd);
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     submit.pWaitDstStageMask = &waitStage;
 
     submit.waitSemaphoreCount = 1;
-    submit.pWaitSemaphores = &this->present_semp;
+    submit.pWaitSemaphores    = &this->present_semp;
 
     submit.signalSemaphoreCount = 1;
-    submit.pSignalSemaphores = &this->render_semp;
+    submit.pSignalSemaphores    = &this->render_semp;
 
     VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, this->fence_wait));
 
     VkPresentInfoKHR presentInfo = vkinit::present_info();
 
-    presentInfo.pSwapchains = &_swapchain;
+    presentInfo.pSwapchains    = &_swapchain;
     presentInfo.swapchainCount = 1;
 
-    presentInfo.pWaitSemaphores = &this->render_semp;
+    presentInfo.pWaitSemaphores    = &this->render_semp;
     presentInfo.waitSemaphoreCount = 1;
 
     presentInfo.pImageIndices = &swapchainImageIndex;
@@ -222,15 +215,15 @@ void VulkanEngine::draw() {
 
 void VulkanEngine::run() {
     SDL_Event e;
-    bool bQuit = false;
+    bool      bQuit = false;
 
     float delta_time = 0;
-    auto last_frame = 0.0f;
+    auto  last_frame = 0.0f;
 
     SDL_bool mouse_inside_window = SDL_FALSE;
     SDL_SetRelativeMouseMode(mouse_inside_window); // fix true later
 
-    int relX, relY;
+    int  relX, relY;
     bool move_keys[] = {0, 0, 0, 0};
     // main loop
     const Uint8 *keystate = SDL_GetKeyboardState(NULL);
@@ -266,28 +259,27 @@ void VulkanEngine::init_vulkan() {
     vkb::Instance vkb_inst = inst_ret.value();
 
     // grab the instance
-    _instance = vkb_inst.instance;
+    _instance        = vkb_inst.instance;
     _debug_messenger = vkb_inst.debug_messenger;
 
     SDL_Vulkan_CreateSurface(_window, _instance, &_surface);
     VkPhysicalDeviceDynamicRenderingLocalReadFeaturesKHR dynamicRendering;
-    dynamicRendering.pNext = nullptr;
-    dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_LOCAL_READ_FEATURES_KHR;
+    dynamicRendering.pNext                     = nullptr;
+    dynamicRendering.sType                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_LOCAL_READ_FEATURES_KHR;
     dynamicRendering.dynamicRenderingLocalRead = VK_TRUE;
 
-
     VkPhysicalDeviceFeatures features;
-    features.imageCubeArray = true;
-    features.samplerAnisotropy = true;
 
+    features.imageCubeArray    = true;
+    features.samplerAnisotropy = true;
     VkPhysicalDeviceVulkan11Features features_11;
     features_11.shaderDrawParameters = true;
     VkPhysicalDeviceVulkan13Features features_13;
     features_13.dynamicRendering = true;
 
     vkb::PhysicalDeviceSelector selector{vkb_inst};
-    vkb::PhysicalDevice physicalDevice = selector.set_minimum_version(1, 3)
-                                             .set_required_features(features) // features for 1.0
+    vkb::PhysicalDevice         physicalDevice = selector.set_minimum_version(1, 3)
+                                             .set_required_features(features)
                                              .set_required_features_11(features_11)
                                              .set_required_features_13(features_13)
                                              .add_required_extension(device_extensions[0])
@@ -298,11 +290,10 @@ void VulkanEngine::init_vulkan() {
     // create the final vulkan device
 
     vkb::DeviceBuilder deviceBuilder{physicalDevice};
-
-    vkb::Device vkbDevice = deviceBuilder.build().value();
-    this->deviceFunctions = vkbDevice.make_table();
+    vkb::Device        vkbDevice = deviceBuilder.build().value();
+    this->deviceFunctions        = vkbDevice.make_table();
     // Get the VkDevice handle used in the rest of a vulkan application
-    _device = vkbDevice.device;
+    _device    = vkbDevice.device;
     _chosenGPU = physicalDevice.physical_device;
 
     // use vkbootstrap to get a Graphics queue
@@ -312,9 +303,9 @@ void VulkanEngine::init_vulkan() {
 
     // initialize the memory allocator
     VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.physicalDevice = _chosenGPU;
-    allocatorInfo.device = _device;
-    allocatorInfo.instance = _instance;
+    allocatorInfo.physicalDevice         = _chosenGPU;
+    allocatorInfo.device                 = _device;
+    allocatorInfo.instance               = _instance;
     vmaCreateAllocator(&allocatorInfo, &_allocator);
 
     vkGetPhysicalDeviceProperties(_chosenGPU, &_gpuProperties);
@@ -336,8 +327,8 @@ void VulkanEngine::init_swapchain() {
     printf("SWAPCHAIN WIDTH: %d\n", vkbSwapchain.extent.width);
 
     // store swapchain and its related images
-    _swapchain = vkbSwapchain.swapchain;
-    _swapchainImages = vkbSwapchain.get_images().value();
+    _swapchain           = vkbSwapchain.swapchain;
+    _swapchainImages     = vkbSwapchain.get_images().value();
     _swapchainImageViews = vkbSwapchain.get_image_views().value();
 
     _swapchainImageFormat = vkbSwapchain.image_format;
@@ -354,8 +345,8 @@ void VulkanEngine::init_swapchain() {
 
     // for the depth image, we want to allocate it from gpu local memory
     VmaAllocationCreateInfo dimg_allocinfo = {};
-    dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    dimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    dimg_allocinfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
+    dimg_allocinfo.requiredFlags           = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     // allocate and create the image
     vmaCreateImage(_allocator, &dimg_info, &dimg_allocinfo, &_depthImage._image, &_depthImage._allocation, nullptr);
@@ -379,8 +370,8 @@ void VulkanEngine::init_commands() {
 }
 
 void VulkanEngine::init_sync_structures() {
-    VkFenceCreateInfo fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
-    VkSemaphoreCreateInfo sempahoreInfo = vkinit::semaphore_create_info();
+    VkFenceCreateInfo     fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
+    VkSemaphoreCreateInfo sempahoreInfo   = vkinit::semaphore_create_info();
 
     VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &this->fence_wait));
 
@@ -390,37 +381,36 @@ void VulkanEngine::init_sync_structures() {
 
 void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule> &shaders) {
 
+    std::unordered_map<std::string, VkShaderModule> shaderModules;
+    ResourceManager                                 d;
+    d.load_shaders();
+
     PipelineBuilder pipelineBuilder;
     /*SHADERS PUSH*/
-    pipelineBuilder._shaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, shaders["colored_triangle.vert.spv"]));
-    pipelineBuilder._shaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, shaders["colored_triangle.frag.spv"]));
+    pipelineBuilder._shaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, d.get_shader("colored_triangle.vert.spv").shaderModule));
+    pipelineBuilder._shaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, d.get_shader("colored_triangle.frag.spv").shaderModule));
 
     /*Layout PUSH*/
     VkPipelineLayoutCreateInfo triangleLayoutInfo = vkinit::pipeline_layout_create_info();
 
-    VkDescriptorSetLayout layouts[] = {this->global.get_descriptor_layout("camera"), this->global.get_descriptor_layout("object"), this->global.get_descriptor_layout("cubemap")};
-    triangleLayoutInfo.pSetLayouts = layouts;
+    VkDescriptorSetLayout layouts[]   = {this->global.get_descriptor_layout("camera"), this->global.get_descriptor_layout("object"), this->global.get_descriptor_layout("cubemap")};
+    triangleLayoutInfo.pSetLayouts    = layouts;
     triangleLayoutInfo.setLayoutCount = sizeof(layouts) / sizeof(layouts[0]);
 
     VK_CHECK(vkCreatePipelineLayout(this->_device, &triangleLayoutInfo, nullptr, &this->pipelineLayout));
 
-    VkDescriptorSetLayout layoutHdr[] = {this->global.get_descriptor_layout("hdr")};
-    triangleLayoutInfo.pSetLayouts = layoutHdr;
-    triangleLayoutInfo.setLayoutCount = 1;
-
-    VK_CHECK(vkCreatePipelineLayout(this->_device, &triangleLayoutInfo, nullptr, &this->hdrLayout));
     /*Pipeline Settings*/
     pipelineBuilder._vertexInputInfo = vkinit::vertex_input_state_create_info();
-    pipelineBuilder._pipelineLayout = this->pipelineLayout;
+    pipelineBuilder._pipelineLayout  = this->pipelineLayout;
 
     pipelineBuilder._inputAssembly = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
     // /*VIEWPORT*/
     // // build viewport and scissor from the swapchain extents
-    pipelineBuilder._viewport.x = 0.0f;
-    pipelineBuilder._viewport.y = 0.0f;
-    pipelineBuilder._viewport.width = (float)_windowExtent.width;
-    pipelineBuilder._viewport.height = (float)_windowExtent.height;
+    pipelineBuilder._viewport.x        = 0.0f;
+    pipelineBuilder._viewport.y        = 0.0f;
+    pipelineBuilder._viewport.width    = (float)_windowExtent.width;
+    pipelineBuilder._viewport.height   = (float)_windowExtent.height;
     pipelineBuilder._viewport.minDepth = 0.0f;
     pipelineBuilder._viewport.maxDepth = 1.0f;
 
@@ -429,7 +419,7 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
 
     // /*Extra*/VkCullModeFlagBits
     // // configure the rasterizer to draw filled triangles
-    pipelineBuilder._rasterizer = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
+    pipelineBuilder._rasterizer          = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
     pipelineBuilder._rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 
     // // a single blend attachment with no blending and writing to RGBA
@@ -443,32 +433,19 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
     auto description = vertex_input_description();
 
     pipelineBuilder._vertexInputInfo.pVertexAttributeDescriptions = description.attributes.data();
-    pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions = description.bindings.data();
+    pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions   = description.bindings.data();
 
     pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount = description.attributes.size();
-    pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount = description.bindings.size();
+    pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount   = description.bindings.size();
 
     VkPipelineRenderingCreateInfoKHR pipelineCreateInfo = {};
-    pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    pipelineCreateInfo.pNext = nullptr;
-    pipelineCreateInfo.pColorAttachmentFormats = &this->_swapchainImageFormat;
-    pipelineCreateInfo.colorAttachmentCount = 1;
-    pipelineCreateInfo.depthAttachmentFormat = _depthFormat;
+    pipelineCreateInfo.sType                            = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    pipelineCreateInfo.pNext                            = nullptr;
+    pipelineCreateInfo.pColorAttachmentFormats          = &this->_swapchainImageFormat;
+    pipelineCreateInfo.colorAttachmentCount             = 1;
+    pipelineCreateInfo.depthAttachmentFormat            = _depthFormat;
 
     this->pipeline = pipelineBuilder.build_pipeline(_device, pipelineCreateInfo);
-
-    pipelineBuilder._pipelineLayout = hdrLayout;
-
-    pipelineBuilder._shaderStages.clear();
-
-    pipelineBuilder._shaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, shaders["hdr.frag.spv"]));
-
-    pipelineBuilder._vertexInputInfo.pVertexAttributeDescriptions = nullptr;
-    pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions = nullptr;
-    pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount = 0;
-
-    this->hdrPipeline = pipelineBuilder.build_pipeline(_device, pipelineCreateInfo);
 }
 
 VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineRenderingCreateInfoKHR pass) {
@@ -476,54 +453,54 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineRenderingC
     // at the moment we wont support multiple viewports or scissors
 
     VkPipelineViewportStateCreateInfo viewportState = {};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.pNext = nullptr;
+    viewportState.sType                             = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.pNext                             = nullptr;
 
     viewportState.viewportCount = 1;
-    viewportState.pViewports = &_viewport;
-    viewportState.scissorCount = 1;
-    viewportState.pScissors = &_scissor;
+    viewportState.pViewports    = &_viewport;
+    viewportState.scissorCount  = 1;
+    viewportState.pScissors     = &_scissor;
 
     // setup dummy color blending. We arent using transparent objects yet
     // the blending is just "no blend", but we do write to the color attachment
     VkPipelineColorBlendStateCreateInfo colorBlending = {};
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.pNext = nullptr;
+    colorBlending.sType                               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.pNext                               = nullptr;
 
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY;
+    colorBlending.logicOpEnable   = VK_FALSE;
+    colorBlending.logicOp         = VK_LOGIC_OP_COPY;
     colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &_colorBlendAttachment;
+    colorBlending.pAttachments    = &_colorBlendAttachment;
 
     // build the actual pipeline
     // we now use all of the info structs we have been writing into into this
     // one to create the pipeline
 
     VkPipelineMultisampleStateCreateInfo multisampleInfo = {};
-    multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampleInfo.flags = 0;
-    multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisampleInfo.sampleShadingEnable = VK_FALSE; // You can set this to VK_TRUE if you want to enable sample shading
-    multisampleInfo.pNext = nullptr;
+    multisampleInfo.sType                                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampleInfo.flags                                = 0;
+    multisampleInfo.rasterizationSamples                 = VK_SAMPLE_COUNT_1_BIT;
+    multisampleInfo.sampleShadingEnable                  = VK_FALSE; // You can set this to VK_TRUE if you want to enable sample shading
+    multisampleInfo.pNext                                = nullptr;
 
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext = &pass;
-    pipelineInfo.renderPass = nullptr;
+    pipelineInfo.sType                        = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.pNext                        = &pass;
+    pipelineInfo.renderPass                   = nullptr;
 
     pipelineInfo.pMultisampleState = &multisampleInfo;
 
-    pipelineInfo.stageCount = _shaderStages.size();
-    pipelineInfo.pStages = _shaderStages.data();
-    pipelineInfo.pVertexInputState = &_vertexInputInfo;
+    pipelineInfo.stageCount          = _shaderStages.size();
+    pipelineInfo.pStages             = _shaderStages.data();
+    pipelineInfo.pVertexInputState   = &_vertexInputInfo;
     pipelineInfo.pInputAssemblyState = &_inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pViewportState      = &viewportState;
     pipelineInfo.pRasterizationState = &_rasterizer;
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDepthStencilState = &_depthStencil;
-    pipelineInfo.layout = _pipelineLayout;
-    pipelineInfo.subpass = 0;
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+    pipelineInfo.pColorBlendState    = &colorBlending;
+    pipelineInfo.pDepthStencilState  = &_depthStencil;
+    pipelineInfo.layout              = _pipelineLayout;
+    pipelineInfo.subpass             = 0;
+    pipelineInfo.basePipelineHandle  = VK_NULL_HANDLE;
 
     // its easy to error out on create graphics pipeline, so we handle it a bit
     // better than the common VK_CHECK case
@@ -544,22 +521,19 @@ void VulkanEngine::init_descriptors() {
 
     // TODO, fix minimapping
     VkSampler blockySampler;
-    sampler.magFilter = VK_FILTER_NEAREST;
-    sampler.minFilter = VK_FILTER_NEAREST;
-    sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    sampler.magFilter    = VK_FILTER_NEAREST;
+    sampler.minFilter    = VK_FILTER_NEAREST;
+    sampler.mipmapMode   = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler.mipLodBias = 0.0f;
-    sampler.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    sampler.minLod = 0.0f;
-    sampler.maxLod = 1.0f;
-    sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-
-    VkSamplerCreateInfo hdrSamplerInfo = vkinit::sampler_create_info(VK_FILTER_NEAREST);
+    sampler.mipLodBias   = 0.0f;
+    sampler.compareOp    = VK_COMPARE_OP_LESS_OR_EQUAL;
+    sampler.minLod       = 0.0f;
+    sampler.maxLod       = 1.0f;
+    sampler.borderColor  = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 
     vkCreateSampler(_device, &sampler, nullptr, &blockySampler);
-    vkCreateSampler(_device, &hdrSamplerInfo, nullptr, &this->hdrSampler);
 
     _blockySampler = blockySampler;
 
@@ -568,13 +542,13 @@ void VulkanEngine::init_descriptors() {
     TextureHelper::load_texture_array("assets/texture_atlas_0.png", 64, _normalMap, &_normalView);
 
     VkDescriptorImageInfo imageBufferInfo;
-    imageBufferInfo.sampler = blockySampler;
-    imageBufferInfo.imageView = _cubeview;
+    imageBufferInfo.sampler     = blockySampler;
+    imageBufferInfo.imageView   = _cubeview;
     imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo normalImageBufferInfo;
-    normalImageBufferInfo.sampler = blockySampler;
-    normalImageBufferInfo.imageView = _normalView;
+    normalImageBufferInfo.sampler     = blockySampler;
+    normalImageBufferInfo.imageView   = _normalView;
     normalImageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     this->global.init(this->_device);
@@ -593,14 +567,6 @@ void VulkanEngine::init_descriptors() {
         ->update_descriptor(true)
         .build("cubemap");
 
-    VkDescriptorImageInfo imageInfo;
-    imageInfo.imageView = hdrImageView;
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo.sampler = _blockSampler;
-
-    GlobalBuilder builder4 = this->global.begin_build_descriptor();
-    builder4.bind_image(&imageInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)->build("hdr");
-
     GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_TREE);
 
     this->global.write_descriptor_set("cubemap", 1, _allocator, &textureIndices, sizeof(GPUTexture));
@@ -613,9 +579,9 @@ void VulkanEngine::copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceS
 
     // Record the copy command
     VkBufferCopy copyRegion = {};
-    copyRegion.srcOffset = 0;
-    copyRegion.dstOffset = 0;
-    copyRegion.size = size;
+    copyRegion.srcOffset    = 0;
+    copyRegion.dstOffset    = 0;
+    copyRegion.size         = size;
 
     vkCmdCopyBuffer(cmd, srcBuffer, dstBuffer, 1, &copyRegion);
 

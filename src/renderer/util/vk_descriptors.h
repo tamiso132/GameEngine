@@ -13,18 +13,22 @@ namespace vkutil {
     class DescriptorAllocator {
       public:
         struct PoolSizes {
-            std::vector<std::pair<VkDescriptorType, float>> sizes = {{VK_DESCRIPTOR_TYPE_SAMPLER, 0.5f},
-                                                                     {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4.f},
-                                                                     {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4.f},
-                                                                     {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.f},
-                                                                     {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1.f},
-                                                                     {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1.f},
-                                                                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2.f},
-                                                                     {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2.f},
-                                                                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1.f},
-                                                                     {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1.f},
-                                                                     {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0.5f}};
+            // clang-format off
+      std::vector<std::pair<VkDescriptorType, float>> sizes = 
+        {
+          {VK_DESCRIPTOR_TYPE_SAMPLER, 0.5f},
+          {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4.f},
+          {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4.f},
+          {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.f},
+          {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1.f},
+          {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1.f},
+          {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2.f},
+          {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2.f},
+          {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1.f},
+          {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1.f},
+          {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0.5f}};
         };
+        // clang-format on
 
         void reset_pools();
         bool allocate(VkDescriptorSet *set, VkDescriptorSetLayout layout);
@@ -38,8 +42,8 @@ namespace vkutil {
       private:
         VkDescriptorPool grab_pool();
 
-        VkDescriptorPool currentPool{VK_NULL_HANDLE};
-        PoolSizes descriptorSizes;
+        VkDescriptorPool              currentPool{VK_NULL_HANDLE};
+        PoolSizes                     descriptorSizes;
         std::vector<VkDescriptorPool> usedPools;
         std::vector<VkDescriptorPool> freePools;
     };
@@ -67,7 +71,7 @@ namespace vkutil {
         };
 
         std::unordered_map<DescriptorLayoutInfo, VkDescriptorSetLayout, DescriptorLayoutHash> layoutCache;
-        VkDevice device;
+        VkDevice                                                                              device;
     };
 
     class DescriptorBuilder {
@@ -84,11 +88,11 @@ namespace vkutil {
         bool build(VkDescriptorSet &set);
 
       private:
-        std::vector<VkWriteDescriptorSet> writes;
+        std::vector<VkWriteDescriptorSet>         writes;
         std::vector<VkDescriptorSetLayoutBinding> bindings;
 
         DescriptorLayoutCache *cache;
-        DescriptorAllocator *alloc;
-        bool update;
+        DescriptorAllocator   *alloc;
+        bool                   update;
     };
 } // namespace vkutil

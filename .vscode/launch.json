@@ -1,51 +1,51 @@
 {
   "version": "0.2.0",
   "configurations": [
-      {
-          "name": "Your Vulkan App",
-          "type": "cppdbg",
-          "request": "launch",
-          "program": "${workspaceFolder}/build/VulkanGuide",
-          "preLaunchTask": "build",
-          "args": [],
-          "stopAtEntry": false,
-          "cwd": "${workspaceFolder}",
-          "environment": [],
-          "externalConsole": false,
-          "MIMode": "gdb",
-          "setupCommands": [
-              {
-                  "description": "Enable pretty-printing for gdb",
-                  "text": "-enable-pretty-printing",
-                  "ignoreFailures": true
-              }
-          ],
-          "includePath": [
-            "${workspaceFolder}/src",
-          ]
-      },
-      {
-        "name": "AtlasGenerator",
-        "type": "cppdbg",
-        "request": "launch",
-        "program": "${workspaceFolder}/tools/AtlasGenerator/build/AtlasGenerator",
-        "preLaunchTask": "build",
-        "args": ["test", "512"],
-        "stopAtEntry": false,
-        "cwd": "${workspaceFolder}",
-        "environment": [],
-        "externalConsole": false,
-        "MIMode": "gdb",
-        "setupCommands": [
-          {
-            "description": "Enable pretty-printing for gdb",
-            "text": "-enable-pretty-printing",
-            "ignoreFailures": true
-          }
-        ],
-        "includePath": [
-          "${workspaceFolder}/src",
-        ]
-      }
+    {
+      "name": "Your Vulkan App",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/VulkanGuide",
+      "preLaunchTask": "build",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+    },
+    {
+      "name": "AtlasGenerator",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/tools/AtlasGenerator/build/AtlasGenerator",
+      "preLaunchTask": "build",
+      "args": [
+        "test",
+        "512"
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "includePath": [
+        "${workspaceFolder}/src",
+      ]
+    }
   ]
 }

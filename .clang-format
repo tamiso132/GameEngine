@@ -5,3 +5,6 @@ BasedOnStyle: LLVM
 IndentWidth: 4
 ColumnLimit: 200
 NamespaceIndentation: All
+AlignConsecutiveDeclarations: true
+AlignConsecutiveAssignments: true
+AlignOperands: true
