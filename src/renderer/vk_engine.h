@@ -101,6 +101,9 @@ class VulkanEngine {
     std::vector<VkImage> _swapchainImages;
     std::vector<VkImageView> _swapchainImageViews;
 
+    std::vector<AllocatedImage> hdrimages;
+    std::vector<VkImageView> hdrImageViews;
+
     VmaAllocator _allocator; // vma lib allocator
 
     // depth resources

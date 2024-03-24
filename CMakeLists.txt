@@ -18,8 +18,6 @@ find_package(fmt REQUIRED)
 
 find_package(glm REQUIRED)
 
-find_package(VulkanMemoryAllocator CONFIG REQUIRED)
-
 # Set C++ standard to C++20
 set(CMAKE_CXX_STANDARD 20)
 
@@ -43,9 +41,9 @@ add_compile_options(-w)
 add_executable(VulkanGuide ${SOURCES_FILES_GAME_ENGINE})
 
 
-target_include_directories(VulkanGuide PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS})
+target_include_directories(VulkanGuide PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS} thirdparty/vma)
 
-target_link_libraries(VulkanGuide PRIVATE imgui fastgltf ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES} ${CMAKE_DL_LIBS} vk-bootstrap fmt::fmt GPUOpen::VulkanMemoryAllocator tinyobj stb_image)
+target_link_libraries(VulkanGuide PRIVATE imgui fastgltf ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES} ${CMAKE_DL_LIBS} vk-bootstrap fmt::fmt tinyobj stb_image)
 
 target_include_directories(VulkanGuide PRIVATE ${INCLUDE_DIRECTORIES_ENGINE})
 target_include_directories(VulkanGuide PRIVATE thirdparty/stb_image thirdparty/fastgltf/include thirdparty/imgui)

@@ -138,7 +138,6 @@ void VulkanEngine::draw() {
     VK_CHECK(vkResetCommandBuffer(this->cmd, 0));
     VK_CHECK(vkBeginCommandBuffer(this->cmd, &cmdBeginInfo));
 
-    /*Render Pass*/
     VkClearValue clearValue;
     clearValue.color = {1.0f, 1.0f, 1.0f, 1.0f};
     VkClearValue depthClear;
@@ -323,8 +322,6 @@ void VulkanEngine::init_swapchain() {
                                       .set_desired_extent(_windowExtent.width, _windowExtent.height)
                                       .build()
                                       .value();
-    printf("SWAPCHAIN HEIGHT: %d\n", vkbSwapchain.extent.height);
-    printf("SWAPCHAIN WIDTH: %d\n", vkbSwapchain.extent.width);
 
     // store swapchain and its related images
     _swapchain           = vkbSwapchain.swapchain;
@@ -513,11 +510,27 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineRenderingC
     }
 }
 
-void VulkanEngine::init_hdr() { Helper::create_image({_windowExtent.width, _windowExtent.height, 1}, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, &hdrImage, &hdrImageView); }
+void VulkanEngine::init_hdr() {}
 void VulkanEngine::init_descriptors() {
     // // new code abstract
 
     VkSamplerCreateInfo sampler = vkinit::sampler_create_info(VK_FILTER_NEAREST);
+
+    for (auto i = 0; i < _swapchainImages.size(); i++) {
+        VkImageCreateInfo       imageInfo = vkinit::image_create_info(_swapchainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, {_windowExtent.width, _windowExtent.height, 1});
+        VmaAllocationCreateInfo allocInfo;
+        allocInfo.usage         = VMA_MEMORY_USAGE_GPU_ONLY;
+        allocInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        AllocatedImage allocImage;
+        vmaCreateImage(_allocator, &imageInfo, &allocInfo, &allocImage._image, &allocImage._allocation, nullptr);
+
+        VkImageViewCreateInfo viewInfo = vkinit::imageview_create_info(_swapchainImageFormat, allocImage._image, VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageView           view;
+        vkCreateImageView(_device, &viewInfo, nullptr, &view);
+
+        this->hdrImageViews.push_back(view);
+        this->hdrimages.push_back(allocImage);
+    }
 
     // TODO, fix minimapping
     VkSampler blockySampler;
@@ -551,6 +564,11 @@ void VulkanEngine::init_descriptors() {
     normalImageBufferInfo.imageView   = _normalView;
     normalImageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    VkDescriptorImageInfo hdrImageInfo;
+    normalImageBufferInfo.sampler     = blockySampler;
+    normalImageBufferInfo.imageView   = this->hdrImageViews[0];
+    normalImageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
     this->global.init(this->_device);
 
     GlobalBuilder builder = this->global.begin_build_descriptor();
@@ -566,8 +584,10 @@ void VulkanEngine::init_descriptors() {
         .bind_image(&normalImageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         ->update_descriptor(true)
         .build("cubemap");
-
     GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_TREE);
+
+    GlobalBuilder builder4 = this->global.begin_build_descriptor();
+    builder4.bind_image(&hdrImageInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); 
 
     this->global.write_descriptor_set("cubemap", 1, _allocator, &textureIndices, sizeof(GPUTexture));
 }
