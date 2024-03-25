@@ -1,4 +1,6 @@
 #include "descriptor.h"
+#include <cstdint>
+#include <vulkan/vulkan_core.h>
 
 //> descriptor_bind
 void DescriptorLayoutBuilder::add_binding(uint32_t binding, VkDescriptorType type) {
@@ -8,6 +10,27 @@ void DescriptorLayoutBuilder::add_binding(uint32_t binding, VkDescriptorType typ
     newbind.descriptorType  = type;
 
     bindings.push_back(newbind);
+}
+
+void DescriptorLayoutBuilder::add_buffer(size_t bufferSize, VkBufferUsageFlags bufferType, VkMemoryPropertyFlags requiredFlags, VmaMemoryUsage memoryUsage) {
+    VkBufferUsageFlags bufferUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+    if (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT == bufferType) {
+        add_binding(this->binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        bufferUsage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    } else {
+        add_binding(this->binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    }
+
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.size        = bufferSize;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    bufferInfo.usage       = bufferUsage;
+    bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocInfo.requiredFlags           = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }
 
 void DescriptorLayoutBuilder::clear() { bindings.clear(); }
@@ -31,43 +54,7 @@ VkDescriptorSetLayout DescriptorLayoutBuilder::build(VkDevice device, VkShaderSt
 
     return set;
 }
-//< descriptor_layout
 
-//> descriptor_pool_init
-void DescriptorAllocator::init_pool(VkDevice device, uint32_t maxSets, std::span<PoolSizeRatio> poolRatios) {
-    std::vector<VkDescriptorPoolSize> poolSizes;
-    for (PoolSizeRatio ratio : poolRatios) {
-        poolSizes.push_back(VkDescriptorPoolSize{.type = ratio.type, .descriptorCount = uint32_t(ratio.ratio * maxSets)});
-    }
-
-    VkDescriptorPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-    pool_info.flags                      = 0;
-    pool_info.maxSets                    = maxSets;
-    pool_info.poolSizeCount              = (uint32_t)poolSizes.size();
-    pool_info.pPoolSizes                 = poolSizes.data();
-
-    vkCreateDescriptorPool(device, &pool_info, nullptr, &pool);
-}
-
-void DescriptorAllocator::clear_descriptors(VkDevice device) { vkResetDescriptorPool(device, pool, 0); }
-
-void DescriptorAllocator::destroy_pool(VkDevice device) { vkDestroyDescriptorPool(device, pool, nullptr); }
-//< descriptor_pool_init
-//> descriptor_alloc
-VkDescriptorSet DescriptorAllocator::allocate(VkDevice device, VkDescriptorSetLayout layout) {
-    VkDescriptorSetAllocateInfo allocInfo = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-    allocInfo.pNext                       = nullptr;
-    allocInfo.descriptorPool              = pool;
-    allocInfo.descriptorSetCount          = 1;
-    allocInfo.pSetLayouts                 = &layout;
-
-    VkDescriptorSet ds;
-    VK_CHECK(vkAllocateDescriptorSets(device, &allocInfo, &ds));
-
-    return ds;
-}
-//< descriptor_alloc
-//> write_image
 void DescriptorWriter::write_image(int binding, VkImageView image, VkSampler sampler, VkImageLayout layout, VkDescriptorType type) {
     VkDescriptorImageInfo &info = imageInfos.emplace_back(VkDescriptorImageInfo{.sampler = sampler, .imageView = image, .imageLayout = layout});
 
@@ -81,9 +68,7 @@ void DescriptorWriter::write_image(int binding, VkImageView image, VkSampler sam
 
     writes.push_back(write);
 }
-//< write_image
-//
-//> write_buffer
+
 void DescriptorWriter::write_buffer(int binding, VkBuffer buffer, size_t size, size_t offset, VkDescriptorType type) {
     VkDescriptorBufferInfo &info = bufferInfos.emplace_back(VkDescriptorBufferInfo{.buffer = buffer, .offset = offset, .range = size});
 
@@ -97,8 +82,7 @@ void DescriptorWriter::write_buffer(int binding, VkBuffer buffer, size_t size, s
 
     writes.push_back(write);
 }
-//< write_buffer
-//> writer_end
+
 void DescriptorWriter::clear() {
     imageInfos.clear();
     writes.clear();

@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <iostream>
 
+#include "descriptor.h"
 #include "util/vk_initializers.h"
 #include "vk_create.h"
 #include "vk_mesh.h"
@@ -100,7 +101,10 @@ void VulkanEngine::draw_test() {
 
         objects.push_back(object);
     }
-
+    //     std::memcpy(dstData, srcData, srcSize);
+    //     vmaUnmapMemory(allocator, set.bindingsPointers[bindingIndex].value()._allocation);
+    DescriptorWriter writer;
+    // writer.write_buffer(0, objects, size_t size, size_t offset, VkDescriptorType type)
     this->global.write_descriptor_set("object", 0, this->_allocator, objects.data(), sizeof(GPUObject) * MAX_OBJECTS);
 
     DescriptorSet cameraSet = global.get_descriptor_set("camera");
@@ -390,7 +394,7 @@ void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule
     /*Layout PUSH*/
     VkPipelineLayoutCreateInfo triangleLayoutInfo = vkinit::pipeline_layout_create_info();
 
-    VkDescriptorSetLayout layouts[]   = {this->global.get_descriptor_layout("camera"), this->global.get_descriptor_layout("object"), this->global.get_descriptor_layout("cubemap")};
+    VkDescriptorSetLayout layouts[]   = {c_cameraLayout, c_objectLayout, c_textureLayout};
     triangleLayoutInfo.pSetLayouts    = layouts;
     triangleLayoutInfo.setLayoutCount = sizeof(layouts) / sizeof(layouts[0]);
 
@@ -516,22 +520,6 @@ void VulkanEngine::init_descriptors() {
 
     VkSamplerCreateInfo sampler = vkinit::sampler_create_info(VK_FILTER_NEAREST);
 
-    for (auto i = 0; i < _swapchainImages.size(); i++) {
-        VkImageCreateInfo       imageInfo = vkinit::image_create_info(_swapchainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, {_windowExtent.width, _windowExtent.height, 1});
-        VmaAllocationCreateInfo allocInfo;
-        allocInfo.usage         = VMA_MEMORY_USAGE_GPU_ONLY;
-        allocInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        AllocatedImage allocImage;
-        vmaCreateImage(_allocator, &imageInfo, &allocInfo, &allocImage._image, &allocImage._allocation, nullptr);
-
-        VkImageViewCreateInfo viewInfo = vkinit::imageview_create_info(_swapchainImageFormat, allocImage._image, VK_IMAGE_ASPECT_COLOR_BIT);
-        VkImageView           view;
-        vkCreateImageView(_device, &viewInfo, nullptr, &view);
-
-        this->hdrImageViews.push_back(view);
-        this->hdrimages.push_back(allocImage);
-    }
-
     // TODO, fix minimapping
     VkSampler blockySampler;
     sampler.magFilter    = VK_FILTER_NEAREST;
@@ -552,44 +540,58 @@ void VulkanEngine::init_descriptors() {
 
     TextureHelper::load_texture_array("assets/texture_atlas_0.png", 64, _cubemap, &_cubeview);
 
-    TextureHelper::load_texture_array("assets/texture_atlas_0.png", 64, _normalMap, &_normalView);
-
     VkDescriptorImageInfo imageBufferInfo;
     imageBufferInfo.sampler     = blockySampler;
     imageBufferInfo.imageView   = _cubeview;
     imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    VkDescriptorImageInfo normalImageBufferInfo;
-    normalImageBufferInfo.sampler     = blockySampler;
-    normalImageBufferInfo.imageView   = _normalView;
-    normalImageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    DescriptorLayoutBuilder builder;
+    builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    c_objectLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT);
+    builder.clear();
 
-    VkDescriptorImageInfo hdrImageInfo;
-    normalImageBufferInfo.sampler     = blockySampler;
-    normalImageBufferInfo.imageView   = this->hdrImageViews[0];
-    normalImageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    c_cameraLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT);
+    builder.clear();
 
-    this->global.init(this->_device);
+    builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    builder.add_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    c_textureLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    GlobalBuilder builder = this->global.begin_build_descriptor();
-    builder.bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::STORAGE, VK_SHADER_STAGE_VERTEX_BIT).update_descriptor(true).build("object");
+    c_textureSet = c_globalAllocator.allocate(_device, c_textureLayout);
 
-    GlobalBuilder builder2 = this->global.begin_build_descriptor();
-    builder2.bind_create_buffer(sizeof(GPUCamera), BufferType::UNIFORM, VK_SHADER_STAGE_VERTEX_BIT).update_descriptor(true).build("camera");
+    DescriptorWriter writer;
+    writer.write_image(0, _cubeview, blockySampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    writer.update_set(_device, c_textureSet);
 
-    GlobalBuilder builder3 = this->global.begin_build_descriptor();
-    builder3
-        .bind_image(&imageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // yep
-        ->bind_create_buffer(sizeof(GPUTexture), BufferType::UNIFORM, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bind_image(&normalImageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        ->update_descriptor(true)
-        .build("cubemap");
-    GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_TREE);
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.size        = sizeof(GPUObject) * MAX_OBJECTS;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    bufferInfo.usage       = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 
-    GlobalBuilder builder4 = this->global.begin_build_descriptor();
-    builder4.bind_image(&hdrImageInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); 
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocInfo.requiredFlags           = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    this->global.write_descriptor_set("cubemap", 1, _allocator, &textureIndices, sizeof(GPUTexture));
+    vmaCreateBuffer(_allocator, const VkBufferCreateInfo *_Nonnull pBufferCreateInfo, &allocInfo, buffer, c_buffer, nullptr);
+    // GlobalBuilder builder = this->global.begin_build_descriptor();
+    // builder.bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::STORAGE, VK_SHADER_STAGE_VERTEX_BIT).update_descriptor(true).build("object");
+
+    // GlobalBuilder builder2 = this->global.begin_build_descriptor();
+    // builder2.bind_create_buffer(sizeof(GPUCamera), BufferType::UNIFORM, VK_SHADER_STAGE_VERTEX_BIT).update_descriptor(true).build("camera");
+
+    // GlobalBuilder builder3 = this->global.begin_build_descriptor();
+    // builder3
+    //     .bind_image(&imageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // yep
+    //     ->bind_create_buffer(sizeof(GPUTexture), BufferType::UNIFORM, VK_SHADER_STAGE_FRAGMENT_BIT)
+    //     .bind_image(&normalImageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+    //     ->update_descriptor(true)
+    //     .build("cubemap");
+    // GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_TREE);
+
+    // GlobalBuilder builder4 = this->global.begin_build_descriptor();
+    // builder4.bind_image(&hdrImageInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 }
 
 void VulkanEngine::copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {

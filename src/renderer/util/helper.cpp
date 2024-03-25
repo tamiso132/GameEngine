@@ -544,6 +544,7 @@ void Helper::create_texture_array(const char *fileAtlas, uint32_t gridLength, Al
         copyRegion.imageExtent = imageExtent;
 
         // copy the buffer into the image
+        
         vkCmdCopyBufferToImage(cmd, stagingBuffer._buffer, newImage._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
         VkImageMemoryBarrier imageBarrier_toReadable = imageBarrier_toTransfer;

@@ -1,92 +1,92 @@
-#pragma once
+// #pragma once
 
-#include <stdint.h>
+// #include <stdint.h>
 
-#include <optional>
-#include <string>
-#include <unordered_map>
-#include <vector>
+// #include <optional>
+// #include <string>
+// #include <unordered_map>
+// #include <vector>
 
-#include "util/vk_descriptors.h"
-#include "vk_types.h"
+// #include "util/vk_descriptors.h"
+// #include "vk_types.h"
 
-enum BufferType {
-    UNIFORM = 6,
-    STORAGE = 7,
-    DYNAMIC_UNIFORM = 8,
-    DYNAMIC_STORAGE = 9,
-};
+// enum BufferType {
+//     UNIFORM = 6,
+//     STORAGE = 7,
+//     DYNAMIC_UNIFORM = 8,
+//     DYNAMIC_STORAGE = 9,
+// };
 
-enum ImageType {
-    SAMPLER = 0,
-    COMBINED_IMAGE_SAMPLER = 1,
-    SAMPLED_IMAGE = 2,
-    STORAGE_IMAGE = 3,
-    COLOR_ATTACHMENT = 0x00000010,
-};
+// enum ImageType {
+//     SAMPLER = 0,
+//     COMBINED_IMAGE_SAMPLER = 1,
+//     SAMPLED_IMAGE = 2,
+//     STORAGE_IMAGE = 3,
+//     COLOR_ATTACHMENT = 0x00000010,
+// };
 
-struct DescriptorSet {
-    std::vector<std::optional<AllocatedBuffer>> bindingsPointers;
-    VkDescriptorSet descriptorSet;
-};
+// struct DescriptorSet {
+//     std::vector<std::optional<AllocatedBuffer>> bindingsPointers;
+//     VkDescriptorSet descriptorSet;
+// };
 
-struct PipelineInfo {
-    VkPipelineLayout pipeline_layout;
-    std::vector<std::reference_wrapper<VkDescriptorSetLayout>> desc_layouts;
-    std::vector<size_t> indices;
-};
+// struct PipelineInfo {
+//     VkPipelineLayout pipeline_layout;
+//     std::vector<std::reference_wrapper<VkDescriptorSetLayout>> desc_layouts;
+//     std::vector<size_t> indices;
+// };
 
-/*GlobalState*/
-class GlobalBuilder;
+// /*GlobalState*/
+// class GlobalBuilder;
 
-class GlobalState {
-    friend GlobalBuilder;
+// class GlobalState {
+//     friend GlobalBuilder;
 
-  public:
-    void init(VkDevice device);
-    GlobalBuilder begin_build_descriptor();
-    void write_descriptor_set(const char *layerName, int bindingIndex, VmaAllocator allocator, void *data, size_t dataSize);
+//   public:
+//     void init(VkDevice device);
+//     GlobalBuilder begin_build_descriptor();
+//     void write_descriptor_set(const char *layerName, int bindingIndex, VmaAllocator allocator, void *data, size_t dataSize);
 
-    VkDescriptorSetLayout get_descriptor_layout(const char *key);
+//     VkDescriptorSetLayout get_descriptor_layout(const char *key);
 
-    DescriptorSet get_descriptor_set(const char *key);
+//     DescriptorSet get_descriptor_set(const char *key);
 
-  private:
-    // Forward declaration
+//   private:
+//     // Forward declaration
 
-    // Private member functions
-    void add_descriptor_set(VkDescriptorSetLayout layout, VkDescriptorSet set, const char *key, std::vector<std::optional<AllocatedBuffer>> buffers);
+//     // Private member functions
+//     void add_descriptor_set(VkDescriptorSetLayout layout, VkDescriptorSet set, const char *key, std::vector<std::optional<AllocatedBuffer>> buffers);
 
-    // Private data members
-    std::unordered_map<const char *, VkDescriptorSetLayout> descLayout;
-    std::unordered_map<VkDescriptorSetLayout, DescriptorSet> descSet;
-    std::unordered_map<VkPipeline, PipelineInfo> pipInfo;
+//     // Private data members
+//     std::unordered_map<const char *, VkDescriptorSetLayout> descLayout;
+//     std::unordered_map<VkDescriptorSetLayout, DescriptorSet> descSet;
+//     std::unordered_map<VkPipeline, PipelineInfo> pipInfo;
 
-    vkutil::DescriptorAllocator *_globalAllocator;
-    vkutil::DescriptorLayoutCache *_globalLayoutCache;
+//     vkutil::DescriptorAllocator *_globalAllocator;
+//     vkutil::DescriptorLayoutCache *_globalLayoutCache;
 
-    // Nested struct
-};
+//     // Nested struct
+// };
 
-class GlobalBuilder {
-    friend GlobalState;
+// class GlobalBuilder {
+//     friend GlobalState;
 
-  public:
-    GlobalBuilder(vkutil::DescriptorLayoutCache *layoutCache, vkutil::DescriptorAllocator *allocator, GlobalState &globalState) : refState(globalState) { this->builder = this->builder.begin(layoutCache, allocator); }
-    GlobalBuilder &bind_create_buffer(size_t buffer_max_size, BufferType usage_type, VkShaderStageFlags stageFlags);
+//   public:
+//     GlobalBuilder(vkutil::DescriptorLayoutCache *layoutCache, vkutil::DescriptorAllocator *allocator, GlobalState &globalState) : refState(globalState) { this->builder = this->builder.begin(layoutCache, allocator); }
+//     GlobalBuilder &bind_create_buffer(size_t buffer_max_size, BufferType usage_type, VkShaderStageFlags stageFlags);
 
-    GlobalBuilder *bind_image(VkDescriptorImageInfo *imageInfo, ImageType type, VkShaderStageFlags stageFlags);
+//     GlobalBuilder *bind_image(VkDescriptorImageInfo *imageInfo, ImageType type, VkShaderStageFlags stageFlags);
 
-    GlobalBuilder &update_descriptor(bool isUpdate);
+//     GlobalBuilder &update_descriptor(bool isUpdate);
 
-    bool build(const char *key);
+//     bool build(const char *key);
 
-  private:
-    vkutil::DescriptorBuilder builder;
-    size_t currentBinding;
-    std::vector<std::optional<AllocatedBuffer>> allocBuffers;
+//   private:
+//     vkutil::DescriptorBuilder builder;
+//     size_t currentBinding;
+//     std::vector<std::optional<AllocatedBuffer>> allocBuffers;
 
-    std::vector<VkDescriptorBufferInfo> bufferInfos;
+//     std::vector<VkDescriptorBufferInfo> bufferInfos;
 
-    GlobalState &refState;
-};
+//     GlobalState &refState;
+// };

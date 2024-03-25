@@ -2,6 +2,7 @@
 // or project specific include files.
 
 #pragma once
+#include "descriptor.h"
 #include <cstdint>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -37,11 +38,11 @@ struct alignas(16) GPUCamera {
 };
 
 struct alignas(16) GPUMaterial {
-    glm::vec3 ambient;
+    glm::vec3    ambient;
     glm::float32 shininess;
-    glm::vec3 diffuse;
-    char padding2[4];
-    glm::vec3 specular;
+    glm::vec3    diffuse;
+    char         padding2[4];
+    glm::vec3    specular;
 };
 
 struct alignas(16) GPUAlignedArrayElement {
@@ -50,67 +51,76 @@ struct alignas(16) GPUAlignedArrayElement {
 
 struct alignas(16) GPUTexture {
     GPUAlignedArrayElement faceIndices[6]; // 12-byte padding
-    GPUMaterial material;
+    GPUMaterial            material;
 };
 
 struct Texture {
     AllocatedImage image;
-    VkImageView imageView;
+    VkImageView    imageView;
 };
 
 class PipelineBuilder {
   public:
     std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
-    VkPipelineVertexInputStateCreateInfo _vertexInputInfo;
-    VkPipelineInputAssemblyStateCreateInfo _inputAssembly;
-    VkViewport _viewport;
-    VkRect2D _scissor;
-    VkPipelineRasterizationStateCreateInfo _rasterizer;
-    VkPipelineColorBlendAttachmentState _colorBlendAttachment;
-    VkPipelineMultisampleStateCreateInfo _multisampling;
-    VkPipelineLayout _pipelineLayout;
-    VkPipelineDepthStencilStateCreateInfo _depthStencil;
-    VkPipeline build_pipeline(VkDevice device, VkPipelineRenderingCreateInfoKHR renderInfo);
+    VkPipelineVertexInputStateCreateInfo         _vertexInputInfo;
+    VkPipelineInputAssemblyStateCreateInfo       _inputAssembly;
+    VkViewport                                   _viewport;
+    VkRect2D                                     _scissor;
+    VkPipelineRasterizationStateCreateInfo       _rasterizer;
+    VkPipelineColorBlendAttachmentState          _colorBlendAttachment;
+    VkPipelineMultisampleStateCreateInfo         _multisampling;
+    VkPipelineLayout                             _pipelineLayout;
+    VkPipelineDepthStencilStateCreateInfo        _depthStencil;
+    VkPipeline                                   build_pipeline(VkDevice device, VkPipelineRenderingCreateInfoKHR renderInfo);
+};
+
+struct FrameData {
+    VkSemaphore                 c_swapchainSemphore, c_renderSemphore;
+    VkFence                     c_renderFence;
+    DescriptorAllocatorGrowable c_frameDescriptors;
+
+    VkCommandPool   c_cmdPool;
+    VkCommandBuffer c_mainCmd;
 };
 
 class VulkanEngine {
   public:
     vkb::DispatchTable deviceFunctions;
-    bool _isInitialized{false};
-    int _frameNumber{0};
-    int _selectedShader{0};
+    bool               _isInitialized{false};
+    int                _frameNumber{0};
+    int                _selectedShader{0};
 
     VkExtent2D _windowExtent{1700, 900};
 
     struct SDL_Window *_window{nullptr};
 
-    VkInstance _instance;
+    VkInstance               _instance;
     VkDebugUtilsMessengerEXT _debug_messenger;
-    VkPhysicalDevice _chosenGPU;
-    VkDevice _device;
+    VkPhysicalDevice         _chosenGPU;
+    VkDevice                 _device;
 
     VkPhysicalDeviceProperties _gpuProperties;
 
-    VkQueue _graphicsQueue;
+    VkQueue  _graphicsQueue;
     uint32_t _graphicsQueueFamily;
 
-    VkSurfaceKHR _surface;
+    VkSurfaceKHR   _surface;
     VkSwapchainKHR _swapchain;
-    VkFormat _swapchainImageFormat;
+    VkFormat       _swapchainImageFormat;
 
-    std::vector<VkImage> _swapchainImages;
+    std::vector<VkImage>     _swapchainImages;
     std::vector<VkImageView> _swapchainImageViews;
 
     std::vector<AllocatedImage> hdrimages;
-    std::vector<VkImageView> hdrImageViews;
+    std::vector<VkImageView>    hdrImageViews;
 
     VmaAllocator _allocator; // vma lib allocator
 
     // depth resources
-    VkImageView _depthImageView;
+    VkImageView    _depthImageView;
     AllocatedImage _depthImage;
 
-    VkImageView colorImageView;
+    VkImageView    colorImageView;
     AllocatedImage colorImage;
 
     VkFormat _depthFormat;
@@ -119,53 +129,46 @@ class VulkanEngine {
     VkDescriptorSetLayout _objectSetLayout;
     VkDescriptorSetLayout _singleTextureSetLayout;
 
-    VkDescriptorSetLayout _objectOpenglLayout;
-
     AllocatedBuffer _sceneParameterBuffer;
 
     VkDescriptorPool _imgui_pool;
 
-    vkutil::DescriptorAllocator *_descriptorAllocator;
-    vkutil::DescriptorLayoutCache *_descriptorLayoutCache;
-
     Camera _cam;
-
-    VkPipeline _opengl_pipeline;
-    VkPipelineLayout _opengl_layout;
 
     VkSampler _blockySampler;
     VkSampler hdrSampler;
 
-    std::vector<VertexOpengl> _openglVertices;
-
-    GlobalState global;
-
     VkCommandBuffer cmd;
-    VkCommandPool pool;
+    VkCommandPool   pool;
 
-    VkPipeline pipeline;
+    VkPipeline       pipeline;
     VkPipelineLayout pipelineLayout;
 
-    VkPipeline hdrPipeline;
+    VkPipeline       hdrPipeline;
     VkPipelineLayout hdrLayout;
 
     VkFence fence_wait;
 
-    VkSemaphore present_semp;
-    VkSemaphore render_semp;
+    VkSemaphore     present_semp;
+    VkSemaphore     render_semp;
     AllocatedBuffer vertexBuffer;
     AllocatedBuffer indexBuffer;
 
     VkSampler _blockSampler;
 
     AllocatedImage _cubemap;
-    VkImageView _cubeview;
+    VkImageView    _cubeview;
 
-    AllocatedImage _normalMap;
-    VkImageView _normalView;
+    std::vector<FrameData>      c_frames;
+    DescriptorAllocatorGrowable c_globalAllocator;
 
-    AllocatedImage hdrImage;
-    VkImageView hdrImageView;
+    VkDescriptorSetLayout c_objectLayout;
+    VkDescriptorSetLayout c_cameraLayout;
+    VkDescriptorSetLayout c_textureLayout;
+
+    VkDescriptorSet c_textureSet;
+
+    AllocatedBuffer c_buffer;
 
     void init();
 
