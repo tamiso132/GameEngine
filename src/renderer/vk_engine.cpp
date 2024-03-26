@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <iostream>
 
+#include "VkBootstrap.h"
 #include "descriptor.h"
 #include "util/vk_initializers.h"
 #include "vk_create.h"
@@ -301,8 +302,10 @@ void VulkanEngine::init_vulkan() {
 
     // use vkbootstrap to get a Graphics queue
     _graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
+    _transferQueue = vkbDevice.get_queue(vkb::QueueType::transfer).value();
 
     _graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+    _transferQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::transfer).value();
 
     // initialize the memory allocator
     VmaAllocatorCreateInfo allocatorInfo = {};

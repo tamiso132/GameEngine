@@ -20,23 +20,7 @@ struct Desc {
     std::unordered_map<std::string, DescriptorState> descriptorStates;
 };
 
-//> descriptor_layout
-struct DescriptorLayoutBuilder {
 
-    void add_binding(uint32_t binding, VkDescriptorType type);
-    void add_buffer(size_t bufferSize, VkBufferUsageFlags bufferType);
-    void add_image(VkImageView image, VkSampler sampler, VkImageLayout layout, VkDescriptorType type);
-    void clear();
-
-    // VkDescriptorSetLayout build(VkDevice device, VkShaderStageFlags shaderStages, void *pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
-    VkDescriptorSetLayout build(VkDevice device, VkShaderStageFlags shaderStages, void *pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
-
-  private:
-    std::unordered_map<uint32_t, AllocatedBuffer> buffers;
-    std::unordered_map<uint32_t, AllocatedImage>  allocatedImage;
-    uint32_t                                      binding;
-    std::vector<VkDescriptorSetLayoutBinding>     bindings;
-};
 //< descriptor_layout
 //
 //> writer

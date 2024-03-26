@@ -104,6 +104,9 @@ class VulkanEngine {
     VkQueue  _graphicsQueue;
     uint32_t _graphicsQueueFamily;
 
+    VkQueue  _transferQueue;
+    uint32_t _transferQueueFamily;
+
     VkSurfaceKHR   _surface;
     VkSwapchainKHR _swapchain;
     VkFormat       _swapchainImageFormat;

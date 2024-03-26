@@ -13,23 +13,23 @@
 #include "../vk_types.h"
 #include "vk_initializers.h"
 
-VkDevice Helper::device;
+VkDevice                   Helper::device;
 VkPhysicalDeviceProperties Helper::gpuProperties;
-VmaAllocator Helper::allocator;
-VkCommandBuffer Helper::main_cmd;
-VkQueue Helper::graphicQueue;
+VmaAllocator               Helper::allocator;
+VkCommandBuffer            Helper::main_cmd;
+VkQueue                    Helper::graphicQueue;
 
 void Helper::init(VkDevice device, VkPhysicalDeviceProperties gpuProperties, VmaAllocator allocator, VkCommandBuffer cmd, VkQueue graphicQueue) {
     Helper::gpuProperties = gpuProperties;
-    Helper::device = device;
-    Helper::allocator = allocator;
-    Helper::main_cmd = cmd;
-    Helper::graphicQueue = graphicQueue;
+    Helper::device        = device;
+    Helper::allocator     = allocator;
+    Helper::main_cmd      = cmd;
+    Helper::graphicQueue  = graphicQueue;
 }
 
 size_t Helper::pad_uniform_buffer_size(size_t originalSize) {
-    auto minUboAlignment = Helper::gpuProperties.limits.minUniformBufferOffsetAlignment;
-    size_t alignedSize = originalSize;
+    auto   minUboAlignment = Helper::gpuProperties.limits.minUniformBufferOffsetAlignment;
+    size_t alignedSize     = originalSize;
     if (minUboAlignment > 0) {
         alignedSize = (alignedSize + minUboAlignment - 1) & ~(minUboAlignment - 1);
     }
@@ -38,14 +38,14 @@ size_t Helper::pad_uniform_buffer_size(size_t originalSize) {
 
 AllocatedBuffer Helper::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) {
     VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.pNext = nullptr;
-    bufferInfo.size = allocSize;
+    bufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.pNext              = nullptr;
+    bufferInfo.size               = allocSize;
 
     bufferInfo.usage = usage;
 
     VmaAllocationCreateInfo vmaallocInfo = {};
-    vmaallocInfo.usage = memoryUsage;
+    vmaallocInfo.usage                   = memoryUsage;
 
     AllocatedBuffer newBuffer;
 
@@ -56,17 +56,17 @@ AllocatedBuffer Helper::create_buffer(size_t allocSize, VkBufferUsageFlags usage
 
 void Helper::transition_image_layout(VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, VkCommandBuffer cmd) {
 
-    const VkImageMemoryBarrier image_memory_barrier2{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                                                     .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                                                     .oldLayout = oldLayout,
-                                                     .newLayout = newLayout,
-                                                     .image = image,
+    const VkImageMemoryBarrier image_memory_barrier2{.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                                                     .srcAccessMask    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                                                     .oldLayout        = oldLayout,
+                                                     .newLayout        = newLayout,
+                                                     .image            = image,
                                                      .subresourceRange = {
-                                                         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                                         .baseMipLevel = 0,
-                                                         .levelCount = 1,
+                                                         .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                         .baseMipLevel   = 0,
+                                                         .levelCount     = 1,
                                                          .baseArrayLayer = 0,
-                                                         .layerCount = 1,
+                                                         .layerCount     = 1,
                                                      }};
 
     vkCmdPipelineBarrier(cmd,
@@ -107,13 +107,13 @@ bool Helper::load_shader_module(const char *filePath, VkShaderModule *outShaderM
 
     // create a new shader module, using the buffer we loaded
     VkShaderModuleCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.pNext = nullptr;
+    createInfo.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.pNext                    = nullptr;
 
     // codeSize has to be in bytes, so multply the ints in the buffer by size of
     // int to know the real size of the buffer
     createInfo.codeSize = buffer.size() * sizeof(uint32_t);
-    createInfo.pCode = buffer.data();
+    createInfo.pCode    = buffer.data();
 
     // check that the creation goes well.
     VkShaderModule shaderModule;
@@ -126,7 +126,7 @@ bool Helper::load_shader_module(const char *filePath, VkShaderModule *outShaderM
 
 std::string Helper::get_filename_from_path(const char *path) {
     const char slash = '/';
-    int index = 0;
+    int        index = 0;
     for (int i = 0; i < strlen(path); i++) {
         if (path[i] == slash) {
             index = i;
@@ -170,9 +170,9 @@ void Helper::copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize si
 
     // Record the copy command
     VkBufferCopy copyRegion = {};
-    copyRegion.srcOffset = 0;
-    copyRegion.dstOffset = 0;
-    copyRegion.size = size;
+    copyRegion.srcOffset    = 0;
+    copyRegion.dstOffset    = 0;
+    copyRegion.size         = size;
 
     vkCmdCopyBuffer(Helper::main_cmd, srcBuffer, dstBuffer, 1, &copyRegion);
 
@@ -191,8 +191,8 @@ void Helper::create_image(VkExtent3D extent, VkFormat format, VkImageAspectFlags
     VkImageCreateInfo imageInfo = vkinit::image_create_info(format, VK_IMAGE_USAGE_SAMPLED_BIT, extent);
 
     VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    allocInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    allocInfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocInfo.requiredFlags           = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     vmaCreateImage(Helper::allocator, &imageInfo, &allocInfo, &image->_image, &image->_allocation, nullptr);
 
@@ -213,7 +213,7 @@ void Helper::load_test_image(AllocatedImage &outImage) {
         throw std::runtime_error("failed to load texture!");
     }
 
-    void *pixel_ptr = pixels;
+    void        *pixel_ptr = pixels;
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
     VkFormat image_format = VK_FORMAT_R8G8B8A8_SRGB;
@@ -240,7 +240,7 @@ void Helper::load_image(const char *file, AllocatedImage &outImage) {
         throw std::runtime_error("failed to load texture!");
     }
 
-    void *pixel_ptr = pixels;
+    void        *pixel_ptr = pixels;
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
     VkFormat image_format = VK_FORMAT_R8G8B8A8_SRGB;
@@ -257,34 +257,34 @@ void Helper::load_image(const char *file, AllocatedImage &outImage) {
     stbi_image_free(pixels);
 
     VkExtent3D imageExtent;
-    imageExtent.width = static_cast<uint32_t>(texWidth);
+    imageExtent.width  = static_cast<uint32_t>(texWidth);
     imageExtent.height = static_cast<uint32_t>(texHeight);
-    imageExtent.depth = 1;
+    imageExtent.depth  = 1;
 
     VkImageCreateInfo dimg_info = vkinit::image_create_info(image_format, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, imageExtent);
 
     AllocatedImage newImage;
 
     VmaAllocationCreateInfo dimg_allocinfo = {};
-    dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    dimg_allocinfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
 
     // allocate and create the image
     vmaCreateImage(Helper::allocator, &dimg_info, &dimg_allocinfo, &newImage._image, &newImage._allocation, nullptr);
 
     Helper::immediate_submit([&](VkCommandBuffer cmd) {
         VkImageSubresourceRange range;
-        range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        range.baseMipLevel = 0;
-        range.levelCount = 1;
+        range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        range.baseMipLevel   = 0;
+        range.levelCount     = 1;
         range.baseArrayLayer = 0;
-        range.layerCount = 1;
+        range.layerCount     = 1;
 
         VkImageMemoryBarrier imageBarrier_toTransfer = {};
-        imageBarrier_toTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        imageBarrier_toTransfer.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 
-        imageBarrier_toTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageBarrier_toTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        imageBarrier_toTransfer.image = newImage._image;
+        imageBarrier_toTransfer.oldLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageBarrier_toTransfer.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imageBarrier_toTransfer.image            = newImage._image;
         imageBarrier_toTransfer.subresourceRange = range;
 
         imageBarrier_toTransfer.srcAccessMask = 0;
@@ -294,15 +294,15 @@ void Helper::load_image(const char *file, AllocatedImage &outImage) {
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toTransfer);
 
         VkBufferImageCopy copyRegion = {};
-        copyRegion.bufferOffset = 0;
-        copyRegion.bufferRowLength = 0;
+        copyRegion.bufferOffset      = 0;
+        copyRegion.bufferRowLength   = 0;
         copyRegion.bufferImageHeight = 0;
 
-        copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        copyRegion.imageSubresource.mipLevel = 0;
+        copyRegion.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        copyRegion.imageSubresource.mipLevel       = 0;
         copyRegion.imageSubresource.baseArrayLayer = 0;
-        copyRegion.imageSubresource.layerCount = 1;
-        copyRegion.imageExtent = imageExtent;
+        copyRegion.imageSubresource.layerCount     = 1;
+        copyRegion.imageExtent                     = imageExtent;
 
         // copy the buffer into the image
         vkCmdCopyBufferToImage(cmd, stagingBuffer._buffer, newImage._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
@@ -356,7 +356,7 @@ void Helper::create_cube_map(const char *fileAtlas, uint32_t gridLength, std::ve
         uint32_t topLeftStart = (cubeMapping[i].first * gridLength * pixelSize) + cubeMapping[i].second * gridLength * texWidth * pixelSize;
 
         for (int y = 0; y < gridLength; y++) {
-            int rowStart = topLeftStart + y * texWidth * pixelSize;
+            int rowStart   = topLeftStart + y * texWidth * pixelSize;
             int dataOffset = (gridLength * gridLength * pixelSize) * i + y * gridLength * pixelSize;
 
             memcpy(data + dataOffset, &pixels[rowStart], gridLength * pixelSize);
@@ -367,21 +367,21 @@ void Helper::create_cube_map(const char *fileAtlas, uint32_t gridLength, std::ve
     stbi_image_free(pixels);
 
     VkExtent3D imageExtent;
-    imageExtent.width = static_cast<uint32_t>(gridLength);
+    imageExtent.width  = static_cast<uint32_t>(gridLength);
     imageExtent.height = static_cast<uint32_t>(gridLength);
-    imageExtent.depth = 1;
+    imageExtent.depth  = 1;
 
     VkImageCreateInfo imageInfo = vkinit::image_create_info(VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, imageExtent);
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.arrayLayers = cubeMapArraySize * 6;
-    imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.imageType         = VK_IMAGE_TYPE_2D;
+    imageInfo.arrayLayers       = cubeMapArraySize * 6;
+    imageInfo.flags             = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+    imageInfo.tiling            = VK_IMAGE_TILING_OPTIMAL;
 
-    imageInfo.pNext = nullptr;
+    imageInfo.pNext         = nullptr;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     VmaAllocationCreateInfo dimg_allocinfo = {};
-    dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    dimg_allocinfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
 
     AllocatedImage newImage;
 
@@ -389,18 +389,18 @@ void Helper::create_cube_map(const char *fileAtlas, uint32_t gridLength, std::ve
 
     Helper::immediate_submit([&](VkCommandBuffer cmd) {
         VkImageSubresourceRange range;
-        range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        range.baseMipLevel = 0;
-        range.levelCount = 1;
+        range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        range.baseMipLevel   = 0;
+        range.levelCount     = 1;
         range.baseArrayLayer = 0;
-        range.layerCount = 6 * cubeMapArraySize;
+        range.layerCount     = 6 * cubeMapArraySize;
 
         VkImageMemoryBarrier imageBarrier_toTransfer = {};
-        imageBarrier_toTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        imageBarrier_toTransfer.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 
-        imageBarrier_toTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageBarrier_toTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        imageBarrier_toTransfer.image = newImage._image;
+        imageBarrier_toTransfer.oldLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageBarrier_toTransfer.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imageBarrier_toTransfer.image            = newImage._image;
         imageBarrier_toTransfer.subresourceRange = range;
 
         imageBarrier_toTransfer.srcAccessMask = 0;
@@ -410,15 +410,15 @@ void Helper::create_cube_map(const char *fileAtlas, uint32_t gridLength, std::ve
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toTransfer);
 
         VkBufferImageCopy copyRegion = {};
-        copyRegion.bufferOffset = 0;
-        copyRegion.bufferRowLength = 0;
+        copyRegion.bufferOffset      = 0;
+        copyRegion.bufferRowLength   = 0;
         copyRegion.bufferImageHeight = 0;
 
-        copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        copyRegion.imageSubresource.mipLevel = 0;
+        copyRegion.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        copyRegion.imageSubresource.mipLevel       = 0;
         copyRegion.imageSubresource.baseArrayLayer = 0;
-        copyRegion.imageSubresource.layerCount = 6 * cubeMapArraySize;
-        copyRegion.imageExtent = imageExtent;
+        copyRegion.imageSubresource.layerCount     = 6 * cubeMapArraySize;
+        copyRegion.imageExtent                     = imageExtent;
 
         // copy the buffer into the image
         vkCmdCopyBufferToImage(cmd, stagingBuffer._buffer, newImage._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
@@ -488,22 +488,22 @@ void Helper::create_texture_array(const char *fileAtlas, uint32_t gridLength, Al
 
     stbi_image_free(pixels);
     VkExtent3D imageExtent;
-    imageExtent.width = static_cast<uint32_t>(gridLength);
+    imageExtent.width  = static_cast<uint32_t>(gridLength);
     imageExtent.height = static_cast<uint32_t>(gridLength);
-    imageExtent.depth = 1;
+    imageExtent.depth  = 1;
 
     layers = (texWidth / gridLength) * (texHeight / gridLength);
 
     VkImageCreateInfo dimg_info = vkinit::image_create_info(VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, imageExtent);
-    dimg_info.imageType = VK_IMAGE_TYPE_2D;
-    dimg_info.arrayLayers = layers;
-    dimg_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    dimg_info.imageType         = VK_IMAGE_TYPE_2D;
+    dimg_info.arrayLayers       = layers;
+    dimg_info.tiling            = VK_IMAGE_TILING_OPTIMAL;
 
-    dimg_info.pNext = nullptr;
+    dimg_info.pNext         = nullptr;
     dimg_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     VmaAllocationCreateInfo dimg_allocinfo = {};
-    dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    dimg_allocinfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
 
     AllocatedImage newImage;
 
@@ -512,18 +512,18 @@ void Helper::create_texture_array(const char *fileAtlas, uint32_t gridLength, Al
 
     Helper::immediate_submit([&](VkCommandBuffer cmd) {
         VkImageSubresourceRange range;
-        range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        range.baseMipLevel = 0;
-        range.levelCount = 1;
+        range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        range.baseMipLevel   = 0;
+        range.levelCount     = 1;
         range.baseArrayLayer = 0;
-        range.layerCount = layers;
+        range.layerCount     = layers;
 
         VkImageMemoryBarrier imageBarrier_toTransfer = {};
-        imageBarrier_toTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        imageBarrier_toTransfer.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 
-        imageBarrier_toTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageBarrier_toTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        imageBarrier_toTransfer.image = newImage._image;
+        imageBarrier_toTransfer.oldLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageBarrier_toTransfer.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imageBarrier_toTransfer.image            = newImage._image;
         imageBarrier_toTransfer.subresourceRange = range;
 
         imageBarrier_toTransfer.srcAccessMask = 0;
@@ -533,18 +533,18 @@ void Helper::create_texture_array(const char *fileAtlas, uint32_t gridLength, Al
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toTransfer);
 
         VkBufferImageCopy copyRegion = {};
-        copyRegion.bufferOffset = 0;
-        copyRegion.bufferRowLength = 0;
+        copyRegion.bufferOffset      = 0;
+        copyRegion.bufferRowLength   = 0;
         copyRegion.bufferImageHeight = 0;
 
-        copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        copyRegion.imageSubresource.mipLevel = 0;
+        copyRegion.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        copyRegion.imageSubresource.mipLevel       = 0;
         copyRegion.imageSubresource.baseArrayLayer = 0;
-        copyRegion.imageSubresource.layerCount = layers;
-        copyRegion.imageExtent = imageExtent;
+        copyRegion.imageSubresource.layerCount     = layers;
+        copyRegion.imageExtent                     = imageExtent;
 
         // copy the buffer into the image
-        
+
         vkCmdCopyBufferToImage(cmd, stagingBuffer._buffer, newImage._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
         VkImageMemoryBarrier imageBarrier_toReadable = imageBarrier_toTransfer;
