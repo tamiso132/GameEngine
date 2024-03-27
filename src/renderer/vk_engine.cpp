@@ -258,7 +258,12 @@ void VulkanEngine::run() {
 void VulkanEngine::init_vulkan() {
     vkb::InstanceBuilder builder;
     // make the vulkan instance, with basic debug features
-    auto inst_ret = builder.set_app_name("Example Vulkan Application").request_validation_layers(bUseValidationLayers).use_default_debug_messenger().require_api_version(1, 3, 0).build();
+    auto inst_ret = builder.set_app_name("Example Vulkan Application")
+                        .request_validation_layers(bUseValidationLayers)
+                        .use_default_debug_messenger()
+                        .require_api_version(1, 3, 0)
+                        .enable_extension("VK_EXT_debug_utils")
+                        .build();
 
     vkb::Instance vkb_inst = inst_ret.value();
 
@@ -296,6 +301,9 @@ void VulkanEngine::init_vulkan() {
     vkb::DeviceBuilder deviceBuilder{physicalDevice};
     vkb::Device        vkbDevice = deviceBuilder.build().value();
     this->deviceFunctions        = vkbDevice.make_table();
+    this->deviceFunctions.setDebugUtilsObjectNameEXT();
+    auto d = this->deviceFunctions.fp_vkSetDebugUtilsObjectNameEXT;
+
     // Get the VkDevice handle used in the rest of a vulkan application
     _device    = vkbDevice.device;
     _chosenGPU = physicalDevice.physical_device;

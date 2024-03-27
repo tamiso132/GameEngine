@@ -38,37 +38,46 @@ namespace vkinit {
 
         return imageRegion;
     }
+    void debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, PFN_vkSetDebugUtilsObjectNameEXT setDebugName, VkDevice device) {
+        VkDebugUtilsObjectNameInfoEXT debugNameInfo = {};
+        debugNameInfo.sType                         = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+        debugNameInfo.objectType                    = type;
+        debugNameInfo.objectHandle                  = objectHandle;
+        debugNameInfo.pObjectName                   = name;
+
+        setDebugName(device, &debugNameInfo);
+    };
 } // namespace vkinit
 // define all descriptorlayoutbuilder
 /* void add_binding(uint32_t binding, VkDescriptorType type);
     void add_buffer(BufferHandle handle);
     void add_image(ImageHandle handle);
     void clear();*/
-void DescriptorLayoutBuilder::add_image(ImageHandle handle) {
+void DescriptorLayoutBuilder::add_image(ResourceIndex handle) {
     VkDescriptorSetLayoutBinding newbind{};
     newbind.binding         = ci_context.bindingCount;
     newbind.descriptorCount = 1;
 
     ci_context.bindings.push_back(newbind);
 
-    ci_context.imageBindings[ci_context.bindingCount] = handle;
+    ci_context.imageIndices[ci_context.bindingCount] = handle;
     ci_context.bindingCount++;
 }
 
-void DescriptorLayoutBuilder::add_buffer(BufferHandle handle) {
+void DescriptorLayoutBuilder::add_buffer(ResourceIndex handle) {
     VkDescriptorSetLayoutBinding newbind{};
     newbind.binding         = ci_context.bindingCount;
     newbind.descriptorCount = 1;
 
     ci_context.bindings.push_back(newbind);
 
-    ci_context.buffersBindings[ci_context.bindingCount] = handle;
+    ci_context.bufferIndices[ci_context.bindingCount] = handle;
     ci_context.bindingCount++;
 }
 
 void DescriptorLayoutBuilder::clear() {
-    ci_context.buffersBindings.clear();
-    ci_context.imageBindings.clear();
+    ci_context.bufferIndices.clear();
+    ci_context.imageIndices.clear();
     ci_context.bindings.clear();
 
     ci_context.bindingCount = 0;
