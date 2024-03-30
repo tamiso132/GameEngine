@@ -15,9 +15,8 @@
 #include <iostream>
 
 #include "VkBootstrap.h"
-#include "descriptor.h"
+#include "resource.h"
 #include "util/vk_initializers.h"
-#include "vk_create.h"
 #include "vk_mesh.h"
 #include "vk_types.h"
 
@@ -27,7 +26,6 @@
 #include "vk_mem_alloc.h"
 
 #include "object/mesh.h"
-#include "renderer.h"
 
 constexpr bool bUseValidationLayers = true;
 
@@ -56,9 +54,14 @@ void VulkanEngine::init() {
 
     init_sync_structures();
 
-    Helper::init(this->_device, this->_gpuProperties, this->_allocator, this->cmd, this->_graphicsQueue);
+    ci_resourceContext.init(_chosenGPU, _device, _instance, _transferQueue, _transferQueueFamily, deviceFunctions.fp_vkSetDebugUtilsObjectNameEXT);
 
-    init_mesh();
+    // Helper::init(this->_device, this->_gpuProperties, this->_allocator, this->cmd, this->_graphicsQueue);
+
+    ResourceBuilder meshBuilder = init_mesh();
+
+    ci_mesh_blueprint_index = ci_resourceContext.build_resource_blueprint(meshBuilder.get_blueprint());
+
     Block::init_texture();
 
     init_descriptors();
@@ -78,143 +81,143 @@ void VulkanEngine::init() {
 void VulkanEngine::cleanup() {}
 
 void VulkanEngine::draw_test() {
-    /*Camera*/
-    auto view = _cam.get_view();
-    //  camera projection
+    // /*Camera*/
+    // auto view = _cam.get_view();
+    // //  camera projection
 
-    glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
-    projection[1][1] *= -1;
+    // glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+    // projection[1][1] *= -1;
 
-    GPUCamera camData;
-    camData.camPos   = _cam.get_camera_position();
-    camData.viewproj = projection * view;
+    // GPUCamera camData;
+    // camData.camPos   = _cam.get_camera_position();
+    // camData.viewproj = projection * view;
 
-    void *data;
-    this->global.write_descriptor_set("camera", 0, this->_allocator, &camData, sizeof(GPUCamera));
+    // void *data;
+    // this->global.write_descriptor_set("camera", 0, this->_allocator, &camData, sizeof(GPUCamera));
 
-    glm::vec3              position = glm::vec3(0, 0, 0);
-    std::vector<GPUObject> objects;
-    for (int i = 0; i < MAX_OBJECTS; i++) {
-        position.x += 1;
-        glm::mat4 positionMatrix = glm::translate(glm::mat4(1.0f), position);
-        GPUObject object;
-        object.transformMatrix = positionMatrix;
+    // glm::vec3              position = glm::vec3(0, 0, 0);
+    // std::vector<GPUObject> objects;
+    // for (int i = 0; i < MAX_OBJECTS; i++) {
+    //     position.x += 1;
+    //     glm::mat4 positionMatrix = glm::translate(glm::mat4(1.0f), position);
+    //     GPUObject object;
+    //     object.transformMatrix = positionMatrix;
 
-        objects.push_back(object);
-    }
-    //     std::memcpy(dstData, srcData, srcSize);
-    //     vmaUnmapMemory(allocator, set.bindingsPointers[bindingIndex].value()._allocation);
-    DescriptorWriter writer;
-    // writer.write_buffer(0, objects, size_t size, size_t offset, VkDescriptorType type)
-    this->global.write_descriptor_set("object", 0, this->_allocator, objects.data(), sizeof(GPUObject) * MAX_OBJECTS);
+    //     objects.push_back(object);
+    // }
+    // //     std::memcpy(dstData, srcData, srcSize);
+    // //     vmaUnmapMemory(allocator, set.bindingsPointers[bindingIndex].value()._allocation);
+    // DescriptorWriter writer;
+    // // writer.write_buffer(0, objects, size_t size, size_t offset, VkDescriptorType type)
+    // this->global.write_descriptor_set("object", 0, this->_allocator, objects.data(), sizeof(GPUObject) * MAX_OBJECTS);
 
-    DescriptorSet cameraSet = global.get_descriptor_set("camera");
-    DescriptorSet objectSet = global.get_descriptor_set("object");
-    DescriptorSet cubemap   = global.get_descriptor_set("cubemap");
+    // DescriptorSet cameraSet = global.get_descriptor_set("camera");
+    // DescriptorSet objectSet = global.get_descriptor_set("object");
+    // DescriptorSet cubemap   = global.get_descriptor_set("cubemap");
 
-    vkCmdBindPipeline(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipeline);
+    // vkCmdBindPipeline(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipeline);
 
-    vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 0, 1, &cameraSet.descriptorSet, 0, nullptr);
+    // vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 0, 1, &cameraSet.descriptorSet, 0, nullptr);
 
-    vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 1, 1, &objectSet.descriptorSet, 0, nullptr);
-    vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 2, 1, &cubemap.descriptorSet, 0, nullptr);
-    VkDeviceSize offset         = 0;
-    auto         verticesBuffer = Cube::get_vertices_buffer()._buffer;
-    vkCmdBindVertexBuffers(this->cmd, 0, 1, &verticesBuffer, &offset);
+    // vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 1, 1, &objectSet.descriptorSet, 0, nullptr);
+    // vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 2, 1, &cubemap.descriptorSet, 0, nullptr);
+    // VkDeviceSize offset         = 0;
+    // auto         verticesBuffer = Cube::get_vertices_buffer()._buffer;
+    // vkCmdBindVertexBuffers(this->cmd, 0, 1, &verticesBuffer, &offset);
 
-    for (int i = 0; i < MAX_OBJECTS; i++) {
-        vkCmdDraw(this->cmd, Cube::get_vertices_size(), 1, 0, i);
-    }
+    // for (int i = 0; i < MAX_OBJECTS; i++) {
+    //     vkCmdDraw(this->cmd, Cube::get_vertices_size(), 1, 0, i);
+    // }
 }
 
 void VulkanEngine::draw() {
-    // // check if window is minimized and skip drawing
-    if (SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED)
-        return;
+    // // // check if window is minimized and skip drawing
+    // if (SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED)
+    //     return;
 
-    /*SYNC FRAME*/
-    VK_CHECK(vkWaitForFences(_device, 1, &this->fence_wait, true, 1000000000));
-    VK_CHECK(vkResetFences(_device, 1, &this->fence_wait));
+    // /*SYNC FRAME*/
+    // VK_CHECK(vkWaitForFences(_device, 1, &this->fence_wait, true, 1000000000));
+    // VK_CHECK(vkResetFences(_device, 1, &this->fence_wait));
 
-    uint32_t swapchainImageIndex;
-    VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, this->present_semp, nullptr, &swapchainImageIndex));
+    // uint32_t swapchainImageIndex;
+    // VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, this->present_semp, nullptr, &swapchainImageIndex));
 
-    VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-    VK_CHECK(vkResetCommandBuffer(this->cmd, 0));
-    VK_CHECK(vkBeginCommandBuffer(this->cmd, &cmdBeginInfo));
+    // VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    // VK_CHECK(vkResetCommandBuffer(this->cmd, 0));
+    // VK_CHECK(vkBeginCommandBuffer(this->cmd, &cmdBeginInfo));
 
-    VkClearValue clearValue;
-    clearValue.color = {1.0f, 1.0f, 1.0f, 1.0f};
-    VkClearValue depthClear;
-    depthClear.depthStencil.depth = 1.f;
+    // VkClearValue clearValue;
+    // clearValue.color = {1.0f, 1.0f, 1.0f, 1.0f};
+    // VkClearValue depthClear;
+    // depthClear.depthStencil.depth = 1.f;
 
-    VkRenderingAttachmentInfo colorAttachment = {};
+    // VkRenderingAttachmentInfo colorAttachment = {};
 
-    colorAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachment.clearValue  = clearValue;
-    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
-    colorAttachment.imageView   = _swapchainImageViews[swapchainImageIndex];
-    colorAttachment.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+    // colorAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    // colorAttachment.clearValue  = clearValue;
+    // colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+    // colorAttachment.imageView   = _swapchainImageViews[swapchainImageIndex];
+    // colorAttachment.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    // colorAttachment.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
+    // colorAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
 
-    VkRenderingAttachmentInfo depthAttachment = {};
+    // VkRenderingAttachmentInfo depthAttachment = {};
 
-    depthAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.clearValue  = depthClear;
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    depthAttachment.imageView   = _depthImageView;
-    depthAttachment.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
+    // depthAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    // depthAttachment.clearValue  = depthClear;
+    // depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    // depthAttachment.imageView   = _depthImageView;
+    // depthAttachment.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    // depthAttachment.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
 
-    VkRenderingInfoKHR dynamicInfo   = {};
-    dynamicInfo.pNext                = nullptr;
-    dynamicInfo.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    dynamicInfo.colorAttachmentCount = 1;
-    dynamicInfo.pColorAttachments    = &colorAttachment;
-    dynamicInfo.pDepthAttachment     = &depthAttachment;
-    dynamicInfo.renderArea           = {{0, 0}, _windowExtent};
-    dynamicInfo.layerCount           = 1;
+    // VkRenderingInfoKHR dynamicInfo   = {};
+    // dynamicInfo.pNext                = nullptr;
+    // dynamicInfo.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    // dynamicInfo.colorAttachmentCount = 1;
+    // dynamicInfo.pColorAttachments    = &colorAttachment;
+    // dynamicInfo.pDepthAttachment     = &depthAttachment;
+    // dynamicInfo.renderArea           = {{0, 0}, _windowExtent};
+    // dynamicInfo.layerCount           = 1;
 
-    Helper::transition_image_layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, _swapchainImages[swapchainImageIndex], cmd);
+    // Helper::transition_image_layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, _swapchainImages[swapchainImageIndex], cmd);
 
-    deviceFunctions.cmdBeginRenderingKHR(cmd, &dynamicInfo);
+    // deviceFunctions.cmdBeginRenderingKHR(cmd, &dynamicInfo);
 
-    draw_test();
+    // draw_test();
 
-    deviceFunctions.cmdEndRenderingKHR(cmd);
+    // deviceFunctions.cmdEndRenderingKHR(cmd);
 
-    Helper::transition_image_layout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, _swapchainImages[swapchainImageIndex], cmd);
+    // Helper::transition_image_layout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, _swapchainImages[swapchainImageIndex], cmd);
 
-    VK_CHECK(vkEndCommandBuffer(cmd));
+    // VK_CHECK(vkEndCommandBuffer(cmd));
 
-    /*Submit Queue*/
-    VkSubmitInfo         submit    = vkinit::submit_info(&cmd);
-    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    // /*Submit Queue*/
+    // VkSubmitInfo         submit    = vkinit::submit_info(&cmd);
+    // VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-    submit.pWaitDstStageMask = &waitStage;
+    // submit.pWaitDstStageMask = &waitStage;
 
-    submit.waitSemaphoreCount = 1;
-    submit.pWaitSemaphores    = &this->present_semp;
+    // submit.waitSemaphoreCount = 1;
+    // submit.pWaitSemaphores    = &this->present_semp;
 
-    submit.signalSemaphoreCount = 1;
-    submit.pSignalSemaphores    = &this->render_semp;
+    // submit.signalSemaphoreCount = 1;
+    // submit.pSignalSemaphores    = &this->render_semp;
 
-    VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, this->fence_wait));
+    // VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, this->fence_wait));
 
-    VkPresentInfoKHR presentInfo = vkinit::present_info();
+    // VkPresentInfoKHR presentInfo = vkinit::present_info();
 
-    presentInfo.pSwapchains    = &_swapchain;
-    presentInfo.swapchainCount = 1;
+    // presentInfo.pSwapchains    = &_swapchain;
+    // presentInfo.swapchainCount = 1;
 
-    presentInfo.pWaitSemaphores    = &this->render_semp;
-    presentInfo.waitSemaphoreCount = 1;
+    // presentInfo.pWaitSemaphores    = &this->render_semp;
+    // presentInfo.waitSemaphoreCount = 1;
 
-    presentInfo.pImageIndices = &swapchainImageIndex;
+    // presentInfo.pImageIndices = &swapchainImageIndex;
 
-    VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
+    // VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
 
-    _frameNumber++;
+    // _frameNumber++;
 }
 
 void VulkanEngine::run() {
@@ -339,9 +342,9 @@ void VulkanEngine::init_swapchain() {
                                       .value();
 
     // store swapchain and its related images
-    _swapchain           = vkbSwapchain.swapchain;
-    _swapchainImages     = vkbSwapchain.get_images().value();
-    _swapchainImageViews = vkbSwapchain.get_image_views().value();
+    _swapchain             = vkbSwapchain.swapchain;
+    ci_swapchainImages     = vkbSwapchain.get_images().value();
+    ci_swapchainImageViews = vkbSwapchain.get_image_views().value();
 
     _swapchainImageFormat = vkbSwapchain.image_format;
 
@@ -394,8 +397,6 @@ void VulkanEngine::init_sync_structures() {
 void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule> &shaders) {
 
     std::unordered_map<std::string, VkShaderModule> shaderModules;
-    ResourceManager                                 d;
-    d.load_shaders();
 
     PipelineBuilder pipelineBuilder;
     /*SHADERS PUSH*/
@@ -551,41 +552,25 @@ void VulkanEngine::init_descriptors() {
 
     TextureHelper::load_texture_array("assets/texture_atlas_0.png", 64, _cubemap, &_cubeview);
 
-    VkDescriptorImageInfo imageBufferInfo;
-    imageBufferInfo.sampler     = blockySampler;
-    imageBufferInfo.imageView   = _cubeview;
-    imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    // DescriptorLayoutBuilder builder;
+    // builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    // c_objectLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT);
+    // builder.clear();
 
-    DescriptorLayoutBuilder builder;
-    builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-    c_objectLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT);
-    builder.clear();
+    // builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    // c_cameraLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT);
+    // builder.clear();
 
-    builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    c_cameraLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT);
-    builder.clear();
+    // builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    // builder.add_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    // c_textureLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    builder.add_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    c_textureLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT);
+    // c_textureSet = c_globalAllocator.allocate(_device, c_textureLayout);
 
-    c_textureSet = c_globalAllocator.allocate(_device, c_textureLayout);
+    // DescriptorWriter writer;
+    // writer.write_image(0, _cubeview, blockySampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    // writer.update_set(_device, c_textureSet);
 
-    DescriptorWriter writer;
-    writer.write_image(0, _cubeview, blockySampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    writer.update_set(_device, c_textureSet);
-
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.size        = sizeof(GPUObject) * MAX_OBJECTS;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    bufferInfo.usage       = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
-    allocInfo.requiredFlags           = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    vmaCreateBuffer(_allocator, const VkBufferCreateInfo *_Nonnull pBufferCreateInfo, &allocInfo, buffer, c_buffer, nullptr);
     // GlobalBuilder builder = this->global.begin_build_descriptor();
     // builder.bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::STORAGE, VK_SHADER_STAGE_VERTEX_BIT).update_descriptor(true).build("object");
 
@@ -603,28 +588,4 @@ void VulkanEngine::init_descriptors() {
 
     // GlobalBuilder builder4 = this->global.begin_build_descriptor();
     // builder4.bind_image(&hdrImageInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-}
-
-void VulkanEngine::copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-    VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-    VK_CHECK(vkResetCommandBuffer(this->cmd, 0));
-    VK_CHECK(vkBeginCommandBuffer(this->cmd, &cmdBeginInfo));
-
-    // Record the copy command
-    VkBufferCopy copyRegion = {};
-    copyRegion.srcOffset    = 0;
-    copyRegion.dstOffset    = 0;
-    copyRegion.size         = size;
-
-    vkCmdCopyBuffer(cmd, srcBuffer, dstBuffer, 1, &copyRegion);
-
-    vkEndCommandBuffer(cmd);
-
-    // End the command buffer recording
-
-    // Submit the command buffer for execution (Assuming you have a Vulkan queue)
-    VkSubmitInfo submit = vkinit::submit_info(&cmd);
-
-    VK_CHECK(vkQueueSubmit(this->_graphicsQueue, 1, &submit, VK_NULL_HANDLE));
-    VK_CHECK(vkQueueWaitIdle(this->_graphicsQueue)); // Optional: Wait for the transfer to complete
 }

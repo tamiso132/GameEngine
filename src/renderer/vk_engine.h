@@ -2,7 +2,7 @@
 // or project specific include files.
 
 #pragma once
-#include "descriptor.h"
+#include "resource.h"
 #include <cstdint>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -22,7 +22,6 @@
 #include "../camera/camera.h"
 #include "util/vk_descriptors.h"
 
-#include "vk_create.h"
 #include "vk_mesh.h"
 #include "vk_types.h"
 
@@ -74,15 +73,6 @@ class PipelineBuilder {
     VkPipeline                                   build_pipeline(VkDevice device, VkPipelineRenderingCreateInfoKHR renderInfo);
 };
 
-struct FrameData {
-    VkSemaphore                 c_swapchainSemphore, c_renderSemphore;
-    VkFence                     c_renderFence;
-    DescriptorAllocatorGrowable c_frameDescriptors;
-
-    VkCommandPool   c_cmdPool;
-    VkCommandBuffer c_mainCmd;
-};
-
 class VulkanEngine {
   public:
     vkb::DispatchTable deviceFunctions;
@@ -111,8 +101,8 @@ class VulkanEngine {
     VkSwapchainKHR _swapchain;
     VkFormat       _swapchainImageFormat;
 
-    std::vector<VkImage>     _swapchainImages;
-    std::vector<VkImageView> _swapchainImageViews;
+    std::vector<VkImage>     ci_swapchainImages;
+    std::vector<VkImageView> ci_swapchainImageViews;
 
     std::vector<AllocatedImage> hdrimages;
     std::vector<VkImageView>    hdrImageViews;
@@ -162,9 +152,6 @@ class VulkanEngine {
     AllocatedImage _cubemap;
     VkImageView    _cubeview;
 
-    std::vector<FrameData>      c_frames;
-    DescriptorAllocatorGrowable c_globalAllocator;
-
     VkDescriptorSetLayout c_objectLayout;
     VkDescriptorSetLayout c_cameraLayout;
     VkDescriptorSetLayout c_textureLayout;
@@ -172,6 +159,10 @@ class VulkanEngine {
     VkDescriptorSet c_textureSet;
 
     AllocatedBuffer c_buffer;
+
+    ResourceContext ci_resourceContext;
+
+    ResourceIndex ci_mesh_blueprint_index;
 
     void init();
 

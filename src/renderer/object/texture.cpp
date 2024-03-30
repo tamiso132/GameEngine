@@ -23,21 +23,21 @@ namespace Block {
         std::vector<GPUTexture> texture;
 
         GPUMaterial treeMaterial;
-        treeMaterial.ambient = glm::vec3(0.2f, 0.1f, 0.0f);  // Ambient color
-        treeMaterial.diffuse = glm::vec3(0.6f, 0.3f, 0.0f);  // Diffuse color
-        treeMaterial.specular = glm::vec3(0.3f, 0.2f, 0.1f); // Specular color
+        treeMaterial.ambient   = glm::vec3(0.2f, 0.1f, 0.0f); // Ambient color
+        treeMaterial.diffuse   = glm::vec3(0.6f, 0.3f, 0.0f); // Diffuse color
+        treeMaterial.specular  = glm::vec3(0.3f, 0.2f, 0.1f); // Specular color
         treeMaterial.shininess = 32.0f;
 
         GPUMaterial planksMaterial;
-        planksMaterial.ambient = glm::vec3(0.2f, 0.2f, 0.2f);  // Ambient color
-        planksMaterial.diffuse = glm::vec3(0.5f, 0.5f, 0.5f);  // Diffuse color
-        planksMaterial.specular = glm::vec3(1.0f, 1.0f, 1.0f); // Specular color (lower to reduce shininess)
+        planksMaterial.ambient   = glm::vec3(0.2f, 0.2f, 0.2f); // Ambient color
+        planksMaterial.diffuse   = glm::vec3(0.5f, 0.5f, 0.5f); // Diffuse color
+        planksMaterial.specular  = glm::vec3(1.0f, 1.0f, 1.0f); // Specular color (lower to reduce shininess)
         planksMaterial.shininess = 32.0f;
 
         GPUMaterial stoneMaterial;
-        stoneMaterial.ambient = glm::vec3(0.3f, 0.3f, 0.3f);  // Ambient color
-        stoneMaterial.diffuse = glm::vec3(0.6f, 0.6f, 0.6f);  // Diffuse color
-        stoneMaterial.specular = glm::vec3(0.1f, 0.1f, 0.1f); // Specular color (lower to reduce shininess)
+        stoneMaterial.ambient   = glm::vec3(0.3f, 0.3f, 0.3f); // Ambient color
+        stoneMaterial.diffuse   = glm::vec3(0.6f, 0.6f, 0.6f); // Diffuse color
+        stoneMaterial.specular  = glm::vec3(0.1f, 0.1f, 0.1f); // Specular color (lower to reduce shininess)
         stoneMaterial.shininess = 8.0f;
 
         /*ACACIA_TREE*/
@@ -83,25 +83,26 @@ namespace TextureHelper {
 
         Helper::create_cube_map("assets/lost_empire-RGBA.png", 258, gridIndex, cubeMapImage);
 
-        VkImageViewCreateInfo viewInfo = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, cubeMapImage->_image, VK_IMAGE_ASPECT_COLOR_BIT);
-        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
-        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.pNext = nullptr;
+        VkImageViewCreateInfo viewInfo       = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, cubeMapImage->_image, VK_IMAGE_ASPECT_COLOR_BIT);
+        viewInfo.viewType                    = VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
+        viewInfo.sType                       = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.pNext                       = nullptr;
         viewInfo.subresourceRange.layerCount = 6 * gridIndex.size() / 6;
-        viewInfo.image = cubeMapImage->_image;
+        viewInfo.image                       = cubeMapImage->_image;
         vkCreateImageView(Helper::device, &viewInfo, nullptr, view);
     } // namespace CubeMap
 
     void load_texture_array(const char *filePath, uint32_t gridLength, AllocatedImage &textureArray, VkImageView *view) {
         uint32_t layers;
         Helper::create_texture_array(filePath, gridLength, textureArray, layers);
-
-        VkImageViewCreateInfo viewInfo = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, textureArray._image, VK_IMAGE_ASPECT_COLOR_BIT);
-        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.pNext = nullptr;
+        ResourceBuilder       builder;
+        
+        VkImageViewCreateInfo viewInfo       = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, textureArray._image, VK_IMAGE_ASPECT_COLOR_BIT);
+        viewInfo.viewType                    = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        viewInfo.sType                       = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.pNext                       = nullptr;
         viewInfo.subresourceRange.layerCount = layers;
-        viewInfo.image = textureArray._image;
+        viewInfo.image                       = textureArray._image;
 
         vkCreateImageView(Helper::device, &viewInfo, nullptr, view);
     }

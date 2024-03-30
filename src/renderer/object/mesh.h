@@ -4,12 +4,8 @@
 #include "../vk_types.h"
 #include <cstdint>
 
-void init_mesh();
+ResourceBuilder init_mesh();
 
-enum MeshType {
-    Mesh_Quad,
-    Mesh_Cube,
-};
 
 namespace Block {
 
@@ -29,16 +25,7 @@ namespace Block {
 
 } // namespace Block
 
-namespace Quad {
-    static AllocatedBuffer get_vertices();
-    AllocatedBuffer get_screen_vertices();
-} // namespace Quad
 
-namespace Cube {
-    AllocatedBuffer get_vertices();
-    uint32_t get_vertices_size();
-    const AllocatedBuffer get_vertices_buffer();
-} // namespace Cube
 
 namespace TextureHelper {
 
