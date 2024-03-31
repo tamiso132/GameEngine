@@ -4,11 +4,14 @@
 #include "util/helper.h"
 #include "util/vk_initializers.h"
 #include "vk_mem_alloc.h"
+#include "vk_mesh.h"
 #include "vk_types.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -113,16 +116,25 @@ struct ResourceBuilder {
         bool                    copy;
     };
 
-    struct ImageObjectCreateInfo {
-        uint8_t                 bindingNumber;
-        VmaAllocationCreateInfo allocInfo;
-        VkImageCreateInfo       imageInfo;
-        VkImageViewCreateInfo   imageViewInfo;
-        VkSampler               sampler;
-        std::string             name;
-        void                   *data;
-        size_t                  dataSize;
+    struct TextureObjectCreateInfo {
+        size_t texWidth;
+        size_t texHeight;
+        size_t pixelSize;
     };
+
+    struct ImageObjectCreateInfo {
+        uint8_t                                bindingNumber;
+        VmaAllocationCreateInfo                allocInfo;
+        VkImageCreateInfo                      imageInfo;
+        VkImageViewCreateInfo                  imageViewInfo;
+        std::optional<VkSampler>               sampler;
+        std::string                            name;
+        void                                  *data;
+        size_t                                 dataSize;
+        std::optional<TextureObjectCreateInfo> textureAtlas = std::nullopt;
+        bool                                   copy         = false;
+    };
+
     struct Blueprint {
         std::vector<BufferObjectCreateInfo> bufferInfos;
         std::vector<ImageObjectCreateInfo>  imageInfos;
@@ -133,109 +145,47 @@ struct ResourceBuilder {
     void add_image_with_view(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent, const char *objectName, VkImageAspectFlags aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT,
                              VkSampler _Nullable sampler = nullptr, void *data = nullptr, size_t dataSize = 0, size_t pixelSize = 4);
 
-    void add_image_array_with_view(VkFormat format, size_t pixelSize, size_t gridLength, int maxWidth, int maxHeight, void *data) {
+    void add_image_array_with_view(VkFormat format, size_t pixelSize, size_t gridLength, int maxWidth, int maxHeight, std::string name, uint8_t *pixels, bool copy_data = false,
+                                   VkSampler sampler = nullptr) {
 
         VkDeviceSize oneImageSize = pixelSize * gridLength * gridLength;
 
         VkDeviceSize imageSize = maxWidth * maxHeight * pixelSize;
 
-        uint32_t              maxGridX      = maxWidth / gridLength;
-        uint32_t              maxGridY      = maxHeight / gridLength;
-        AllocatedBuffer       stagingBuffer = Helper::create_buffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-        ImageObjectCreateInfo imageContext;
+        uint32_t maxGridX = maxWidth / gridLength;
+        uint32_t maxGridY = maxHeight / gridLength;
 
-        vmaMapMemory(Helper::allocator, stagingBuffer._allocation, (void **)&data);
-        uint32_t bufferOffset = 0;
+        TextureObjectCreateInfo atlasInfo;
+        atlasInfo.pixelSize = pixelSize;
+        atlasInfo.texHeight = maxHeight;
+        atlasInfo.texWidth  = maxWidth;
 
-        for (int y = 0; y < maxGridY; y++) {
-            uint32_t topLeftStart = y * maxGridX * gridLength * gridLength * pixelSize;
+        VmaAllocationCreateInfo allocInfo;
+        allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        allocInfo.usage         = VMA_MEMORY_USAGE_GPU_ONLY;
 
-            for (int x = 0; x < maxGridX; x++) {
-                uint32_t topLeftStartOffset = x * gridLength * pixelSize + topLeftStart;
+        VkImageCreateInfo vkImageInfo = vkinit::image_create_info(format, 0, VkExtent3D(gridLength, gridLength, 1));
+        vkImageInfo.arrayLayers       = (maxHeight / gridLength) * (maxWidth / gridLength);
 
-                for (int i = 0; i < gridLength; i++) {
-                    uint32_t totalOffset = topLeftStartOffset + i * texWidth * pixelSize;
+        VkImageViewCreateInfo viewInfo       = vkinit::imageview_create_info(format, nullptr, VK_IMAGE_ASPECT_COLOR_BIT);
+        viewInfo.viewType                    = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        viewInfo.sType                       = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.subresourceRange.layerCount = (maxHeight / gridLength) * (maxWidth / gridLength);
 
-                    memcpy(&data[bufferOffset], &pixels[totalOffset], gridLength * pixelSize);
-
-                    bufferOffset += gridLength * pixelSize;
-                }
-                int x_x = 5;
-            }
-        }
-
-        vmaUnmapMemory(Helper::allocator, stagingBuffer._allocation);
-
-        VkExtent3D imageExtent;
-        imageExtent.width  = static_cast<uint32_t>(gridLength);
-        imageExtent.height = static_cast<uint32_t>(gridLength);
-        imageExtent.depth  = 1;
-
-        auto layers = (maxWidth / gridLength) * (maxHeight / gridLength);
-
-        imageContext.imageInfo             = vkinit::image_create_info(format, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, imageExtent);
-        imageContext.imageInfo.imageType   = VK_IMAGE_TYPE_2D;
-        imageContext.imageInfo.arrayLayers = layers;
-
-        imageContext.allocInfo       = {};
-        imageContext.allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-        imageContext.bindingNumber = ci_bindingCounter;
-        AllocatedImage newImage;
-
-        // allocate and create the image
-
-        Helper::immediate_submit([&](VkCommandBuffer cmd) {
-            VkImageSubresourceRange range;
-            range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-            range.baseMipLevel   = 0;
-            range.levelCount     = 1;
-            range.baseArrayLayer = 0;
-            range.layerCount     = layers;
-
-            VkImageMemoryBarrier imageBarrier_toTransfer = {};
-            imageBarrier_toTransfer.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-
-            imageBarrier_toTransfer.oldLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
-            imageBarrier_toTransfer.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            imageBarrier_toTransfer.image            = newImage._image;
-            imageBarrier_toTransfer.subresourceRange = range;
-
-            imageBarrier_toTransfer.srcAccessMask = 0;
-            imageBarrier_toTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-            // barrier the image into the transfer-receive layout
-            vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toTransfer);
-
-            VkBufferImageCopy copyRegion = {};
-            copyRegion.bufferOffset      = 0;
-            copyRegion.bufferRowLength   = 0;
-            copyRegion.bufferImageHeight = 0;
-
-            copyRegion.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-            copyRegion.imageSubresource.mipLevel       = 0;
-            copyRegion.imageSubresource.baseArrayLayer = 0;
-            copyRegion.imageSubresource.layerCount     = layers;
-            copyRegion.imageExtent                     = imageExtent;
-
-            // copy the buffer into the image
-
-            vkCmdCopyBufferToImage(cmd, stagingBuffer._buffer, newImage._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-
-            VkImageMemoryBarrier imageBarrier_toReadable = imageBarrier_toTransfer;
-
-            imageBarrier_toReadable.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            imageBarrier_toReadable.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-            imageBarrier_toReadable.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            imageBarrier_toReadable.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-            // barrier the image into the shader readable layout
-            vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toReadable);
-        });
-
-        vmaDestroyBuffer(Helper::allocator, stagingBuffer._buffer, stagingBuffer._allocation);
-
-        imageArray = newImage;
+        ImageObjectCreateInfo imageInfo;
+        imageInfo.allocInfo     = allocInfo;
+        imageInfo.imageInfo     = vkImageInfo;
+        imageInfo.bindingNumber = ci_bindingCounter;
+        imageInfo.dataSize      = maxWidth * maxHeight * pixelSize;
+        imageInfo.sampler       = sampler ? std::optional(sampler) : std::nullopt;
+        imageInfo.name          = name;
+        imageInfo.imageViewInfo = viewInfo;
+        imageInfo.data          = copy_data ? new uint8_t[imageSize] : pixels;
+        imageInfo.textureAtlas  = std::optional(atlasInfo);
+        imageInfo.copy          = copy_data;
+        
+        ci_blueprint.imageInfos.push_back(imageInfo);
+        ci_bindingCounter++;
     }
     Blueprint get_blueprint();
 
@@ -262,13 +212,13 @@ struct ResourceContext {
 
     void write_to_image_from_cpu(ResourceIndex imageDstHandle, void *src, size_t sizeOfData, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer cmd = nullptr);
 
+    void write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext context);
+
     void build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator);
 
     ResourceIndex build_resource_blueprint(ResourceBuilder::Blueprint resourceContext);
 
   private:
-    void create_buffer(size_t allocSize, VkBufferUsageFlags usage);
-
     std::unordered_map<std::string, ResourceIndex>   ci_resourceIndex;
     std::unordered_map<ResourceIndex, BufferContext> ci_buffers;
     std::unordered_map<ResourceIndex, ImageContext>  ci_images;

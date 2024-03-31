@@ -1,5 +1,6 @@
 #include "resource.h"
 #include "util/helper.h"
+#include "util/vk_initializers.h"
 #include "vk_mem_alloc.h"
 #include "vk_types.h"
 #include <cstddef>
@@ -524,7 +525,105 @@ void ResourceContext::write_to_image_from_cpu(ResourceIndex imageDstHandle, void
         destroy_buffer(stagingIndex);
     }
 }
+void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext context) {
 
+    size_t   gridLength = atlasImageInfo.imageInfo.extent.height;
+    size_t   pixelSize  = atlasImageInfo.textureAtlas.value().pixelSize;
+    size_t   texWidth   = atlasImageInfo.textureAtlas.value().texWidth;
+    size_t   texHeight  = atlasImageInfo.textureAtlas.value().texHeight;
+    uint8_t *pixels     = (uint8_t *)atlasImageInfo.data;
+
+    VkDeviceSize oneImageSize = pixelSize * gridLength * gridLength;
+
+    VkDeviceSize imageSize = texWidth * texHeight * pixelSize;
+
+    uint32_t maxGridX = texWidth / gridLength;
+    uint32_t maxGridY = texHeight / gridLength;
+
+    auto stageInfo = vkinit::buffer_staging_info(atlasImageInfo.dataSize);
+
+    AllocatedBuffer stagingBuffer;
+    vmaCreateBuffer(ci_allocator, &stageInfo.bufferInfo, &stageInfo.allocInfo, &stagingBuffer._buffer, &stagingBuffer._allocation, nullptr);
+    uint32_t bufferOffset = 0;
+
+    char *data;
+    vmaMapMemory(ci_allocator, stagingBuffer._allocation, (void **)&data);
+
+    for (int y = 0; y < maxGridY; y++) {
+        uint32_t topLeftStart = y * maxGridX * gridLength * gridLength * pixelSize;
+
+        for (int x = 0; x < maxGridX; x++) {
+            uint32_t topLeftStartOffset = x * gridLength * pixelSize + topLeftStart;
+
+            for (int i = 0; i < gridLength; i++) {
+                uint32_t totalOffset = topLeftStartOffset + i * texWidth * pixelSize;
+
+                memcpy(&data[bufferOffset], &pixels[totalOffset], gridLength * pixelSize);
+
+                bufferOffset += gridLength * pixelSize;
+            }
+            int x_x = 5;
+        }
+    }
+
+    vmaUnmapMemory(Helper::allocator, stagingBuffer._allocation);
+
+    VmaAllocationCreateInfo dimg_allocinfo = {};
+    dimg_allocinfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    VkImageSubresourceRange range;
+    range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    range.baseMipLevel   = 0;
+    range.levelCount     = 1;
+    range.baseArrayLayer = 0;
+    range.layerCount     = atlasImageInfo.imageInfo.arrayLayers;
+
+    VkImageMemoryBarrier imageBarrier_toTransfer = {};
+    imageBarrier_toTransfer.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+
+    imageBarrier_toTransfer.oldLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageBarrier_toTransfer.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    imageBarrier_toTransfer.image            = context.alloc._image;
+    imageBarrier_toTransfer.subresourceRange = range;
+
+    imageBarrier_toTransfer.srcAccessMask = 0;
+    imageBarrier_toTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    // barrier the image into the transfer-receive layout
+    vkCmdPipelineBarrier(ci_cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toTransfer);
+
+    VkBufferImageCopy copyRegion = {};
+    copyRegion.bufferOffset      = 0;
+    copyRegion.bufferRowLength   = 0;
+    copyRegion.bufferImageHeight = 0;
+
+    copyRegion.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.imageSubresource.mipLevel       = 0;
+    copyRegion.imageSubresource.baseArrayLayer = 0;
+    copyRegion.imageSubresource.layerCount     = atlasImageInfo.imageInfo.arrayLayers;
+    copyRegion.imageExtent                     = atlasImageInfo.imageInfo.extent;
+
+    // copy the buffer into the image
+
+    vkCmdCopyBufferToImage(ci_cmd, stagingBuffer._buffer, context.alloc._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+    VkImageMemoryBarrier imageBarrier_toReadable = imageBarrier_toTransfer;
+
+    imageBarrier_toReadable.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    imageBarrier_toReadable.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    imageBarrier_toReadable.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    imageBarrier_toReadable.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    // barrier the image into the shader readable layout
+    vkCmdPipelineBarrier(ci_cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toReadable);
+
+    auto submitInfo = vkinit::submit_info(&ci_cmd);
+    vkQueueSubmit(ci_transferQueue, 1, &submitInfo, nullptr);
+    vkQueueWaitIdle(ci_transferQueue);
+
+    return vmaDestroyBuffer(Helper::allocator, stagingBuffer._buffer, stagingBuffer._allocation);
+}
 void ResourceContext::build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator) {
 
     VkDescriptorSetLayoutCreateInfo info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
@@ -624,11 +723,11 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
 
         VK_CHECK(vkCreateImageView(ci_device, &imageInfo.imageViewInfo, nullptr, &context.view));
 
-        context.sampler = imageInfo.sampler;
-
-        if (imageInfo.sampler == nullptr) {
+        if (!imageInfo.sampler.has_value()) {
             auto samplerInfo = vkinit::sampler_create_info(VK_FILTER_NEAREST);
             vkCreateSampler(ci_device, &samplerInfo, nullptr, &context.sampler);
+        } else {
+            context.sampler = imageInfo.sampler.value();
         }
 
         ResourceIndex resourceIndex = (imageInfo.bindingNumber << 56) | ci_resourceCounter;
@@ -639,7 +738,16 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
         vkinit::debug_object_set_name((uint64_t)ci_images[ci_resourceCounter].alloc._image, VK_OBJECT_TYPE_BUFFER, name.c_str(), this->vkSetDebugUtilsObjectNameEXT, ci_device);
 
         if (imageInfo.data != nullptr) {
-            write_to_image_from_cpu(resourceIndex, imageInfo.data, imageInfo.dataSize, imageInfo.imageInfo.initialLayout, imageInfo.imageInfo.initialLayout);
+            if (!imageInfo.textureAtlas.has_value()) {
+                write_to_image_from_cpu(resourceIndex, imageInfo.data, imageInfo.dataSize, imageInfo.imageInfo.initialLayout, imageInfo.imageInfo.initialLayout);
+            } else {
+                // create staging
+                write_to_texture_array(imageInfo, context);
+            }
+            
+            if (imageInfo.copy) {
+                delete imageInfo.data;
+            }
         }
     }
 

@@ -6,7 +6,6 @@
 
 ResourceBuilder init_mesh();
 
-
 namespace Block {
 
     enum Type {
@@ -19,16 +18,18 @@ namespace Block {
         FLOWER_RED,
     };
 
-    void init_texture();
+    void       init_texture();
     GPUTexture get_texture(Block::Type blockType);
-    uint32_t get_vertices_size();
+    uint32_t   get_vertices_size();
 
 } // namespace Block
 
-
+struct PNGContext {
+    size_t   texWidth, texHeight, pixelSize;
+    uint8_t *pixels;
+};
 
 namespace TextureHelper {
 
-    void load_texture_array(const char *filePath, uint32_t gridLength, AllocatedImage &textureArray, VkImageView *view);
-    void load_cube_map(AllocatedImage *cubeMapImage, VkImageView *view);
+    PNGContext load_png(const char *filePath);
 } // namespace TextureHelper

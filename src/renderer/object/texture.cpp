@@ -1,6 +1,7 @@
 #include "mesh.h"
 
 #include "../util/helper.h"
+#include <cstddef>
 #include <cstdint>
 #include <glm/fwd.hpp>
 #include <stb_image.h>
@@ -92,18 +93,25 @@ namespace TextureHelper {
         vkCreateImageView(Helper::device, &viewInfo, nullptr, view);
     } // namespace CubeMap
 
-    void load_texture_array(const char *filePath, uint32_t gridLength, AllocatedImage &textureArray, VkImageView *view) {
-        uint32_t layers;
-        Helper::create_texture_array(filePath, gridLength, textureArray, layers);
-        ResourceBuilder       builder;
-        
-        VkImageViewCreateInfo viewInfo       = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, textureArray._image, VK_IMAGE_ASPECT_COLOR_BIT);
-        viewInfo.viewType                    = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-        viewInfo.sType                       = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.pNext                       = nullptr;
-        viewInfo.subresourceRange.layerCount = layers;
-        viewInfo.image                       = textureArray._image;
+    struct PNGContext {
+        size_t   texWidth, texHeight, pixelSize;
+        uint8_t *pixels;
+    };
 
-        vkCreateImageView(Helper::device, &viewInfo, nullptr, view);
+    PNGContext load_png(const char *filePath) {
+
+        int texWidth, texHeight, texChannels;
+
+        auto fullpath = std::string(PROJECT_ROOT_PATH) + "/" + filePath;
+
+        stbi_uc *pixels = stbi_load(fullpath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+        if (!pixels) {
+            std::cout << "Failed to load texture atlas " << file << std::endl;
+            throw std::runtime_error("failed to load texture!");
+        }
+
+        return PNGContext{(size_t)texWidth, (size_t)texHeight, (size_t)texChannels, pixels};
     }
+
 } // namespace TextureHelper

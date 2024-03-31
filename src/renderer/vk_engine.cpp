@@ -59,9 +59,15 @@ void VulkanEngine::init() {
     // Helper::init(this->_device, this->_gpuProperties, this->_allocator, this->cmd, this->_graphicsQueue);
 
     ResourceBuilder meshBuilder = init_mesh();
+    ResourceBuilder textureBuilder;
+
+    auto pngContext = TextureHelper::load_png("assets/texture_atlas_0.png");
+
+    textureBuilder.add_image_array_with_view(VK_FORMAT_R8G8B8A8_SRGB, pngContext.pixelSize, 64, pngContext.texWidth, pngContext.texHeight, "texture_atlas_0", pngContext.pixels);
 
     ci_mesh_blueprint_index = ci_resourceContext.build_resource_blueprint(meshBuilder.get_blueprint());
-
+    ci_resourceContext.build_resource_blueprint(textureBuilder.get_blueprint());
+    
     Block::init_texture();
 
     init_descriptors();
@@ -526,7 +532,6 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineRenderingC
     }
 }
 
-void VulkanEngine::init_hdr() {}
 void VulkanEngine::init_descriptors() {
     // // new code abstract
 
@@ -549,7 +554,6 @@ void VulkanEngine::init_descriptors() {
     vkCreateSampler(_device, &sampler, nullptr, &blockySampler);
 
     _blockySampler = blockySampler;
-
     TextureHelper::load_texture_array("assets/texture_atlas_0.png", 64, _cubemap, &_cubeview);
 
     // DescriptorLayoutBuilder builder;
