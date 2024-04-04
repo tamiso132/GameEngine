@@ -14,22 +14,6 @@
 #include <unordered_map>
 #include <vulkan/vulkan_core.h>
 
-class ShaderContext {
-  public:
-    void init_all_shaders(VkDevice device) {
-        std::filesystem::path shader_path = PROJECT_ROOT_PATH + std::string("/shaders");
-
-        // Iterate over the files in the folder
-        for (const auto &entry : std::filesystem::directory_iterator(shader_path)) {
-            VkShaderModule module;
-            util::load_shader_module(device, entry.path().c_str(), &module);
-            ci_shaders[entry.path().filename()] = module;
-        }
-    }
-    std::unordered_map<std::string, VkShaderModule> ci_shaders;
-};
-
-
 struct VulkanContextGlobal {
     VkInstance               instance;
     VkDebugUtilsMessengerEXT debug_messenger;
@@ -116,8 +100,6 @@ class VulkanEngine {
     AllocatedBuffer c_buffer;
 
     ResourceContext ci_resourceContext;
-
-    ShaderContext ci_shaderContext;
 
     Mesh ci_meshes;
 

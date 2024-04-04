@@ -16,6 +16,7 @@
 #include <iostream>
 
 #include "VkBootstrap.h"
+#include "pipeline.h"
 #include "resource.h"
 #include "util/vk_initializers.h"
 #include "vk_types.h"
@@ -390,8 +391,6 @@ void VulkanEngine::init_sync_structures() {
     VK_CHECK(vkCreateSemaphore(this->ci_vulkanGlobal.device, &sempahoreInfo, nullptr, &this->render_semp));
 }
 
-
-
 void VulkanEngine::init_descriptors() {
     // // new code abstract
 
@@ -414,7 +413,7 @@ void VulkanEngine::init_descriptors() {
     vkCreateSampler(ci_vulkanGlobal.device, &sampler, nullptr, &blockySampler);
 
     _blockySampler = blockySampler;
-    TextureHelper::load_texture_array("assets/texture_atlas_0.png", 64, _cubemap, &_cubeview);
+    // TextureHelper::load_texture_array("assets/texture_atlas_0.png", 64, _cubemap, &_cubeview);
 
     // DescriptorLayoutBuilder builder;
     // builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
