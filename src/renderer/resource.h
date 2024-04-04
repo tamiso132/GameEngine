@@ -4,7 +4,6 @@
 #include "util/helper.h"
 #include "util/vk_initializers.h"
 #include "vk_mem_alloc.h"
-#include "vk_mesh.h"
 #include "vk_types.h"
 #include <cstddef>
 #include <cstdint>
@@ -183,7 +182,7 @@ struct ResourceBuilder {
         imageInfo.data          = copy_data ? new uint8_t[imageSize] : pixels;
         imageInfo.textureAtlas  = std::optional(atlasInfo);
         imageInfo.copy          = copy_data;
-        
+
         ci_blueprint.imageInfos.push_back(imageInfo);
         ci_bindingCounter++;
     }
@@ -198,9 +197,9 @@ struct ResourceContext {
 
     void init(VkPhysicalDevice physical, VkDevice device, VkInstance instance, VkQueue transferQueue, uint32_t transferQueueFamily, PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtil);
 
-    void get_resource_by_index(uint64_t blueprintNumber, uint8_t bindingNumber);
-
-    void get_resource_by_name(std::string resourceName);
+    ImageContext  get_image_by_index(uint64_t blueprintNumber, uint64_t bindingNumber);
+    BufferContext get_buffer_by_index(uint64_t blueprintNumber, uint64_t bindingNumber);
+    void          get_resource_by_name(std::string resourceName);
 
     void copy_to_buffer_visible(ResourceIndex dst, size_t size, const void *src);
 

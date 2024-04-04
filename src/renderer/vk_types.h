@@ -3,31 +3,58 @@
 
 #pragma once
 
-#include <vulkan/vulkan.h>
+#include <glm/fwd.hpp>
 #include <vk_mem_alloc.h>
+#include <vulkan/vulkan.h>
 
-#include <iostream>
 #include <fstream>
+#define GLM_ENABLE_EXPERIMENTAL
 
-struct AllocatedBuffer
-{
-	VkBuffer _buffer;
-	VmaAllocation _allocation;
+#include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
+#include <iostream>
+
+struct alignas(16) GPUObject {
+    glm::mat4 transformMatrix;
 };
 
-struct AllocatedImage
-{
-	VkImage _image;
-	VmaAllocation _allocation;
+struct alignas(16) GPUCamera {
+    glm::mat4 viewproj;
+    glm::vec3 camPos;
 };
 
-#define VK_CHECK(x)                                                     \
-	do                                                                  \
-	{                                                                   \
-		VkResult err = x;                                               \
-		if (err)                                                        \
-		{                                                               \
-			std::cout << "Detected Vulkan error: " << err << std::endl; \
-			abort();                                                    \
-		}                                                               \
-	} while (0)
+struct alignas(16) GPUMaterial {
+    glm::vec3    ambient;
+    glm::float32 shininess;
+    glm::vec3    diffuse;
+    char         padding2[4];
+    glm::vec3    specular;
+};
+
+struct alignas(16) GPUAlignedArrayElement {
+    uint32_t faceIndex;
+};
+
+struct alignas(16) GPUTexture {
+    GPUAlignedArrayElement faceIndices[6]; // 12-byte padding
+    GPUMaterial            material;
+};
+
+struct AllocatedBuffer {
+    VkBuffer      _buffer;
+    VmaAllocation _allocation;
+};
+
+struct AllocatedImage {
+    VkImage       _image;
+    VmaAllocation _allocation;
+};
+
+#define VK_CHECK(x)                                                                                                                                                                                    \
+    do {                                                                                                                                                                                               \
+        VkResult err = x;                                                                                                                                                                              \
+        if (err) {                                                                                                                                                                                     \
+            std::cout << "Detected Vulkan error: " << err << std::endl;                                                                                                                                \
+            abort();                                                                                                                                                                                   \
+        }                                                                                                                                                                                              \
+    } while (0)

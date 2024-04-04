@@ -14,8 +14,8 @@ class Helper {
     static size_t pad_uniform_buffer_size(size_t originalSize);
 
     static AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-    static bool load_shader_module(const char *filePath, VkShaderModule *outShaderModule);
-    static void immediate_submit(std::function<void(VkCommandBuffer cmd)> &&function);
+    static bool            load_shader_module(const char *filePath, VkShaderModule *outShaderModule);
+    static void            immediate_submit(std::function<void(VkCommandBuffer cmd)> &&function);
 
     static void transition_image_layout(VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, VkCommandBuffer cmd = Helper::main_cmd);
 
@@ -26,16 +26,20 @@ class Helper {
 
     void load_test_image(AllocatedImage &outImage);
 
-    static void copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    static void        copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     static std::string get_filename_from_path(const char *path);
     // TODO make getters
-    static VkDevice device;
+    static VkDevice                   device;
     static VkPhysicalDeviceProperties gpuProperties;
-    static VmaAllocator allocator;
-    static VkCommandBuffer main_cmd;
-    static VkQueue graphicQueue;
-    static void create_cube_map(const char *fileAtlas, uint32_t gridLength, std::vector<std::pair<uint32_t, uint32_t>> cubeMapping, AllocatedImage *cubeMap);
-    static void create_texture_array(const char *fileAtlas, uint32_t gridLength, AllocatedImage &imageArray, uint32_t &layers);
+    static VmaAllocator               allocator;
+    static VkCommandBuffer            main_cmd;
+    static VkQueue                    graphicQueue;
+    static void                       create_cube_map(const char *fileAtlas, uint32_t gridLength, std::vector<std::pair<uint32_t, uint32_t>> cubeMapping, AllocatedImage *cubeMap);
+    static void                       create_texture_array(const char *fileAtlas, uint32_t gridLength, AllocatedImage &imageArray, uint32_t &layers);
 
   private:
 };
+
+namespace util {
+    static bool load_shader_module(VkDevice device, const char *filePath, VkShaderModule *outShaderModule);
+}

@@ -680,6 +680,10 @@ void ResourceContext::build_descriptor_layout_blueprint(DescriptorLayoutBuilder:
     vkUpdateDescriptorSets(ci_device, writes.size(), writes.data(), 0, nullptr);
 }
 
+ImageContext ResourceContext::get_image_by_index(uint64_t blueprintNumber, uint64_t bindingNumber) { return ci_images[blueprintNumber | blueprintNumber >> 56]; }
+
+BufferContext ResourceContext::get_buffer_by_index(uint64_t blueprintNumber, uint64_t bindingNumber) { return ci_buffers[blueprintNumber | blueprintNumber >> 56]; }
+
 ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Blueprint resourceContext) {
     std::string counterTXT = get_valid_blueprint_counter_name(resourceContext, ci_resourceIndex);
 
@@ -744,7 +748,7 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
                 // create staging
                 write_to_texture_array(imageInfo, context);
             }
-            
+
             if (imageInfo.copy) {
                 delete imageInfo.data;
             }

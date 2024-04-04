@@ -2,92 +2,47 @@
 // or project specific include files.
 
 #pragma once
-#include "resource.h"
-#include <cstdint>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
-
-#include <glm/fwd.hpp>
-#define GLM_ENABLE_EXPERIMENTAL
-
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_vulkan.h>
-
-#include <glm/glm.hpp>
-#include <glm/gtx/transform.hpp>
-#include <string>
-#include <unordered_map>
-#include <vector>
+#include "mesh.h"
 
 #include "../camera/camera.h"
-#include "util/vk_descriptors.h"
-
-#include "vk_mesh.h"
+#include "common/std_common.h"
+#include "util/helper.h"
 #include "vk_types.h"
-
 #include <VkBootstrap.h>
+#include <filesystem>
+#include <string>
+#include <unordered_map>
+#include <vulkan/vulkan_core.h>
 
-struct alignas(16) GPUObject {
-    glm::mat4 transformMatrix;
-};
-
-struct alignas(16) GPUCamera {
-    glm::mat4 viewproj;
-    glm::vec3 camPos;
-};
-
-struct alignas(16) GPUMaterial {
-    glm::vec3    ambient;
-    glm::float32 shininess;
-    glm::vec3    diffuse;
-    char         padding2[4];
-    glm::vec3    specular;
-};
-
-struct alignas(16) GPUAlignedArrayElement {
-    uint32_t faceIndex;
-};
-
-struct alignas(16) GPUTexture {
-    GPUAlignedArrayElement faceIndices[6]; // 12-byte padding
-    GPUMaterial            material;
-};
-
-struct Texture {
-    AllocatedImage image;
-    VkImageView    imageView;
-};
-
-class PipelineBuilder {
+class ShaderContext {
   public:
-    std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
-    VkPipelineVertexInputStateCreateInfo         _vertexInputInfo;
-    VkPipelineInputAssemblyStateCreateInfo       _inputAssembly;
-    VkViewport                                   _viewport;
-    VkRect2D                                     _scissor;
-    VkPipelineRasterizationStateCreateInfo       _rasterizer;
-    VkPipelineColorBlendAttachmentState          _colorBlendAttachment;
-    VkPipelineMultisampleStateCreateInfo         _multisampling;
-    VkPipelineLayout                             _pipelineLayout;
-    VkPipelineDepthStencilStateCreateInfo        _depthStencil;
-    VkPipeline                                   build_pipeline(VkDevice device, VkPipelineRenderingCreateInfoKHR renderInfo);
+    void init_all_shaders(VkDevice device) {
+        std::filesystem::path shader_path = PROJECT_ROOT_PATH + std::string("/shaders");
+
+        // Iterate over the files in the folder
+        for (const auto &entry : std::filesystem::directory_iterator(shader_path)) {
+            VkShaderModule module;
+            util::load_shader_module(device, entry.path().c_str(), &module);
+            ci_shaders[entry.path().filename()] = module;
+        }
+    }
+    std::unordered_map<std::string, VkShaderModule> ci_shaders;
 };
 
+
+struct VulkanContextGlobal {
+    VkInstance               instance;
+    VkDebugUtilsMessengerEXT debug_messenger;
+    VkPhysicalDevice         chosenGPU;
+    VkDevice                 device;
+    vkb::DispatchTable       deviceFunctions;
+    VkExtent2D               windowExtent{1700, 900};
+    struct SDL_Window       *window{nullptr};
+};
 class VulkanEngine {
   public:
-    vkb::DispatchTable deviceFunctions;
-    bool               _isInitialized{false};
-    int                _frameNumber{0};
-    int                _selectedShader{0};
-
-    VkExtent2D _windowExtent{1700, 900};
-
-    struct SDL_Window *_window{nullptr};
-
-    VkInstance               _instance;
-    VkDebugUtilsMessengerEXT _debug_messenger;
-    VkPhysicalDevice         _chosenGPU;
-    VkDevice                 _device;
+    bool                _isInitialized{false};
+    VulkanContextGlobal ci_vulkanGlobal;
 
     VkPhysicalDeviceProperties _gpuProperties;
 
@@ -162,7 +117,9 @@ class VulkanEngine {
 
     ResourceContext ci_resourceContext;
 
-    ResourceIndex ci_mesh_blueprint_index;
+    ShaderContext ci_shaderContext;
+
+    Mesh ci_meshes;
 
     void init();
 

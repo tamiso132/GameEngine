@@ -2,6 +2,7 @@
 
 #include <SDL_stdinc.h>
 #include <SDL_video.h>
+#include <SDL_vulkan.h>
 #include <cstdio>
 #include <filesystem>
 #include <glm/ext/matrix_clip_space.hpp>
@@ -17,15 +18,12 @@
 #include "VkBootstrap.h"
 #include "resource.h"
 #include "util/vk_initializers.h"
-#include "vk_mesh.h"
 #include "vk_types.h"
 
 #define VMA_IMPLEMENTATION
 #include "imgui_impl_sdl2.h"
 #include "util/helper.h"
 #include "vk_mem_alloc.h"
-
-#include "object/mesh.h"
 
 constexpr bool bUseValidationLayers = true;
 
@@ -44,7 +42,7 @@ void VulkanEngine::init() {
 
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
 
-    _window = SDL_CreateWindow("Vulkan Engine", 0, 0, _windowExtent.width, _windowExtent.height, window_flags);
+    ci_vulkanGlobal.window = SDL_CreateWindow("Vulkan Engine", 0, 0, ci_vulkanGlobal.windowExtent.width, ci_vulkanGlobal.windowExtent.height, window_flags);
 
     init_vulkan();
 
@@ -54,20 +52,18 @@ void VulkanEngine::init() {
 
     init_sync_structures();
 
-    ci_resourceContext.init(_chosenGPU, _device, _instance, _transferQueue, _transferQueueFamily, deviceFunctions.fp_vkSetDebugUtilsObjectNameEXT);
+    ci_resourceContext.init(ci_vulkanGlobal.chosenGPU, ci_vulkanGlobal.device, ci_vulkanGlobal.instance, _transferQueue, _transferQueueFamily,
+                            ci_vulkanGlobal.deviceFunctions.fp_vkSetDebugUtilsObjectNameEXT);
 
-    // Helper::init(this->_device, this->_gpuProperties, this->_allocator, this->cmd, this->_graphicsQueue);
-
-    ResourceBuilder meshBuilder = init_mesh();
+    // Helper::init(this->ci_vulkanGlobal.device, this->_gpuProperties, this->_allocator, this->cmd, this->_graphicsQueue);
+    ci_meshes.init_mesh(ci_resourceContext);
     ResourceBuilder textureBuilder;
 
     auto pngContext = TextureHelper::load_png("assets/texture_atlas_0.png");
 
     textureBuilder.add_image_array_with_view(VK_FORMAT_R8G8B8A8_SRGB, pngContext.pixelSize, 64, pngContext.texWidth, pngContext.texHeight, "texture_atlas_0", pngContext.pixels);
-
-    ci_mesh_blueprint_index = ci_resourceContext.build_resource_blueprint(meshBuilder.get_blueprint());
     ci_resourceContext.build_resource_blueprint(textureBuilder.get_blueprint());
-    
+
     Block::init_texture();
 
     init_descriptors();
@@ -76,7 +72,7 @@ void VulkanEngine::init() {
 
     // TODO, a check if more then 1 display
     SDL_Rect rect;
-    SDL_GetWindowSize(_window, &rect.w, &rect.h);
+    SDL_GetWindowSize(ci_vulkanGlobal.window, &rect.w, &rect.h);
     printf("WINDOW WIDTH: %d\n", rect.w);
     printf("WINDOW HEIGHT: %d\n", rect.h);
     // SDL_SetWindowPosition(_window, rect.x, rect.y);
@@ -142,11 +138,11 @@ void VulkanEngine::draw() {
     //     return;
 
     // /*SYNC FRAME*/
-    // VK_CHECK(vkWaitForFences(_device, 1, &this->fence_wait, true, 1000000000));
-    // VK_CHECK(vkResetFences(_device, 1, &this->fence_wait));
+    // VK_CHECK(vkWaitForFences(ci_vulkanGlobal.device, 1, &this->fence_wait, true, 1000000000));
+    // VK_CHECK(vkResetFences(ci_vulkanGlobal.device, 1, &this->fence_wait));
 
     // uint32_t swapchainImageIndex;
-    // VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, this->present_semp, nullptr, &swapchainImageIndex));
+    // VK_CHECK(vkAcquireNextImageKHR(ci_vulkanGlobal.device, _swapchain, 1000000000, this->present_semp, nullptr, &swapchainImageIndex));
 
     // VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     // VK_CHECK(vkResetCommandBuffer(this->cmd, 0));
@@ -182,7 +178,7 @@ void VulkanEngine::draw() {
     // dynamicInfo.colorAttachmentCount = 1;
     // dynamicInfo.pColorAttachments    = &colorAttachment;
     // dynamicInfo.pDepthAttachment     = &depthAttachment;
-    // dynamicInfo.renderArea           = {{0, 0}, _windowExtent};
+    // dynamicInfo.renderArea           = {{0, 0}, ci_vulkanGlobal.windowExtent};
     // dynamicInfo.layerCount           = 1;
 
     // Helper::transition_image_layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, _swapchainImages[swapchainImageIndex], cmd);
@@ -277,14 +273,10 @@ void VulkanEngine::init_vulkan() {
     vkb::Instance vkb_inst = inst_ret.value();
 
     // grab the instance
-    _instance        = vkb_inst.instance;
-    _debug_messenger = vkb_inst.debug_messenger;
+    ci_vulkanGlobal.instance        = vkb_inst.instance;
+    ci_vulkanGlobal.debug_messenger = vkb_inst.debug_messenger;
 
-    SDL_Vulkan_CreateSurface(_window, _instance, &_surface);
-    VkPhysicalDeviceDynamicRenderingLocalReadFeaturesKHR dynamicRendering;
-    dynamicRendering.pNext                     = nullptr;
-    dynamicRendering.sType                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_LOCAL_READ_FEATURES_KHR;
-    dynamicRendering.dynamicRenderingLocalRead = VK_TRUE;
+    SDL_Vulkan_CreateSurface(ci_vulkanGlobal.window, ci_vulkanGlobal.instance, &_surface);
 
     VkPhysicalDeviceFeatures features;
 
@@ -308,14 +300,12 @@ void VulkanEngine::init_vulkan() {
     // create the final vulkan device
 
     vkb::DeviceBuilder deviceBuilder{physicalDevice};
-    vkb::Device        vkbDevice = deviceBuilder.build().value();
-    this->deviceFunctions        = vkbDevice.make_table();
-    this->deviceFunctions.setDebugUtilsObjectNameEXT();
-    auto d = this->deviceFunctions.fp_vkSetDebugUtilsObjectNameEXT;
+    vkb::Device        vkbDevice    = deviceBuilder.build().value();
+    ci_vulkanGlobal.deviceFunctions = vkbDevice.make_table();
 
     // Get the VkDevice handle used in the rest of a vulkan application
-    _device    = vkbDevice.device;
-    _chosenGPU = physicalDevice.physical_device;
+    ci_vulkanGlobal.device    = vkbDevice.device;
+    ci_vulkanGlobal.chosenGPU = physicalDevice.physical_device;
 
     // use vkbootstrap to get a Graphics queue
     _graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
@@ -326,24 +316,24 @@ void VulkanEngine::init_vulkan() {
 
     // initialize the memory allocator
     VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.physicalDevice         = _chosenGPU;
-    allocatorInfo.device                 = _device;
-    allocatorInfo.instance               = _instance;
+    allocatorInfo.physicalDevice         = ci_vulkanGlobal.chosenGPU;
+    allocatorInfo.device                 = ci_vulkanGlobal.device;
+    allocatorInfo.instance               = ci_vulkanGlobal.instance;
     vmaCreateAllocator(&allocatorInfo, &_allocator);
 
-    vkGetPhysicalDeviceProperties(_chosenGPU, &_gpuProperties);
+    vkGetPhysicalDeviceProperties(ci_vulkanGlobal.chosenGPU, &_gpuProperties);
 
     std::cout << "The gpu has a minimum buffer alignement of " << _gpuProperties.limits.minUniformBufferOffsetAlignment << std::endl;
 }
 
 void VulkanEngine::init_swapchain() {
-    vkb::SwapchainBuilder swapchainBuilder{_chosenGPU, _device, _surface};
+    vkb::SwapchainBuilder swapchainBuilder{ci_vulkanGlobal.chosenGPU, ci_vulkanGlobal.device, _surface};
 
     vkb::Swapchain vkbSwapchain = swapchainBuilder
                                       .set_desired_format({VK_FORMAT_R16G16B16A16_SFLOAT, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
                                       // use vsync present mode
                                       .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-                                      .set_desired_extent(_windowExtent.width, _windowExtent.height)
+                                      .set_desired_extent(ci_vulkanGlobal.windowExtent.width, ci_vulkanGlobal.windowExtent.height)
                                       .build()
                                       .value();
 
@@ -355,7 +345,7 @@ void VulkanEngine::init_swapchain() {
     _swapchainImageFormat = vkbSwapchain.image_format;
 
     // depth image size will match the window
-    VkExtent3D depthImageExtent = {_windowExtent.width, _windowExtent.height, 1};
+    VkExtent3D depthImageExtent = {ci_vulkanGlobal.windowExtent.width, ci_vulkanGlobal.windowExtent.height, 1};
 
     // hardcoding the depth format to 32 bit float
     _depthFormat = VK_FORMAT_D32_SFLOAT;
@@ -375,7 +365,7 @@ void VulkanEngine::init_swapchain() {
     // build a image-view for the depth image to use for rendering
     VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(_depthFormat, _depthImage._image, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-    VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImageView));
+    VK_CHECK(vkCreateImageView(ci_vulkanGlobal.device, &dview_info, nullptr, &_depthImageView));
 }
 
 void VulkanEngine::init_commands() {
@@ -384,153 +374,23 @@ void VulkanEngine::init_commands() {
     // buffers
     VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(_graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
-    VK_CHECK(vkCreateCommandPool(this->_device, &commandPoolInfo, nullptr, &this->pool));
+    VK_CHECK(vkCreateCommandPool(this->ci_vulkanGlobal.device, &commandPoolInfo, nullptr, &this->pool));
     VkCommandBufferAllocateInfo bufferInfo = vkinit::command_buffer_allocate_info(this->pool, 1);
 
-    VK_CHECK(vkAllocateCommandBuffers(this->_device, &bufferInfo, &this->cmd));
+    VK_CHECK(vkAllocateCommandBuffers(this->ci_vulkanGlobal.device, &bufferInfo, &this->cmd));
 }
 
 void VulkanEngine::init_sync_structures() {
     VkFenceCreateInfo     fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
     VkSemaphoreCreateInfo sempahoreInfo   = vkinit::semaphore_create_info();
 
-    VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &this->fence_wait));
+    VK_CHECK(vkCreateFence(ci_vulkanGlobal.device, &fenceCreateInfo, nullptr, &this->fence_wait));
 
-    VK_CHECK(vkCreateSemaphore(this->_device, &sempahoreInfo, nullptr, &this->present_semp));
-    VK_CHECK(vkCreateSemaphore(this->_device, &sempahoreInfo, nullptr, &this->render_semp));
+    VK_CHECK(vkCreateSemaphore(this->ci_vulkanGlobal.device, &sempahoreInfo, nullptr, &this->present_semp));
+    VK_CHECK(vkCreateSemaphore(this->ci_vulkanGlobal.device, &sempahoreInfo, nullptr, &this->render_semp));
 }
 
-void VulkanEngine::init_pipelines(std::unordered_map<std::string, VkShaderModule> &shaders) {
 
-    std::unordered_map<std::string, VkShaderModule> shaderModules;
-
-    PipelineBuilder pipelineBuilder;
-    /*SHADERS PUSH*/
-    pipelineBuilder._shaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, d.get_shader("colored_triangle.vert.spv").shaderModule));
-    pipelineBuilder._shaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, d.get_shader("colored_triangle.frag.spv").shaderModule));
-
-    /*Layout PUSH*/
-    VkPipelineLayoutCreateInfo triangleLayoutInfo = vkinit::pipeline_layout_create_info();
-
-    VkDescriptorSetLayout layouts[]   = {c_cameraLayout, c_objectLayout, c_textureLayout};
-    triangleLayoutInfo.pSetLayouts    = layouts;
-    triangleLayoutInfo.setLayoutCount = sizeof(layouts) / sizeof(layouts[0]);
-
-    VK_CHECK(vkCreatePipelineLayout(this->_device, &triangleLayoutInfo, nullptr, &this->pipelineLayout));
-
-    /*Pipeline Settings*/
-    pipelineBuilder._vertexInputInfo = vkinit::vertex_input_state_create_info();
-    pipelineBuilder._pipelineLayout  = this->pipelineLayout;
-
-    pipelineBuilder._inputAssembly = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-
-    // /*VIEWPORT*/
-    // // build viewport and scissor from the swapchain extents
-    pipelineBuilder._viewport.x        = 0.0f;
-    pipelineBuilder._viewport.y        = 0.0f;
-    pipelineBuilder._viewport.width    = (float)_windowExtent.width;
-    pipelineBuilder._viewport.height   = (float)_windowExtent.height;
-    pipelineBuilder._viewport.minDepth = 0.0f;
-    pipelineBuilder._viewport.maxDepth = 1.0f;
-
-    pipelineBuilder._scissor.offset = {0, 0};
-    pipelineBuilder._scissor.extent = _windowExtent;
-
-    // /*Extra*/VkCullModeFlagBits
-    // // configure the rasterizer to draw filled triangles
-    pipelineBuilder._rasterizer          = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
-    pipelineBuilder._rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-
-    // // a single blend attachment with no blending and writing to RGBA
-    pipelineBuilder._colorBlendAttachment = vkinit::color_blend_attachment_state();
-
-    // // default depthtesting
-    pipelineBuilder._depthStencil = vkinit::depth_stencil_create_info(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
-
-    // /*Vertex Bindings*/
-
-    auto description = vertex_input_description();
-
-    pipelineBuilder._vertexInputInfo.pVertexAttributeDescriptions = description.attributes.data();
-    pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions   = description.bindings.data();
-
-    pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount = description.attributes.size();
-    pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount   = description.bindings.size();
-
-    VkPipelineRenderingCreateInfoKHR pipelineCreateInfo = {};
-    pipelineCreateInfo.sType                            = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    pipelineCreateInfo.pNext                            = nullptr;
-    pipelineCreateInfo.pColorAttachmentFormats          = &this->_swapchainImageFormat;
-    pipelineCreateInfo.colorAttachmentCount             = 1;
-    pipelineCreateInfo.depthAttachmentFormat            = _depthFormat;
-
-    this->pipeline = pipelineBuilder.build_pipeline(_device, pipelineCreateInfo);
-}
-
-VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineRenderingCreateInfoKHR pass) {
-    // make viewport state from our stored viewport and scissor.
-    // at the moment we wont support multiple viewports or scissors
-
-    VkPipelineViewportStateCreateInfo viewportState = {};
-    viewportState.sType                             = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.pNext                             = nullptr;
-
-    viewportState.viewportCount = 1;
-    viewportState.pViewports    = &_viewport;
-    viewportState.scissorCount  = 1;
-    viewportState.pScissors     = &_scissor;
-
-    // setup dummy color blending. We arent using transparent objects yet
-    // the blending is just "no blend", but we do write to the color attachment
-    VkPipelineColorBlendStateCreateInfo colorBlending = {};
-    colorBlending.sType                               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.pNext                               = nullptr;
-
-    colorBlending.logicOpEnable   = VK_FALSE;
-    colorBlending.logicOp         = VK_LOGIC_OP_COPY;
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments    = &_colorBlendAttachment;
-
-    // build the actual pipeline
-    // we now use all of the info structs we have been writing into into this
-    // one to create the pipeline
-
-    VkPipelineMultisampleStateCreateInfo multisampleInfo = {};
-    multisampleInfo.sType                                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampleInfo.flags                                = 0;
-    multisampleInfo.rasterizationSamples                 = VK_SAMPLE_COUNT_1_BIT;
-    multisampleInfo.sampleShadingEnable                  = VK_FALSE; // You can set this to VK_TRUE if you want to enable sample shading
-    multisampleInfo.pNext                                = nullptr;
-
-    VkGraphicsPipelineCreateInfo pipelineInfo = {};
-    pipelineInfo.sType                        = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext                        = &pass;
-    pipelineInfo.renderPass                   = nullptr;
-
-    pipelineInfo.pMultisampleState = &multisampleInfo;
-
-    pipelineInfo.stageCount          = _shaderStages.size();
-    pipelineInfo.pStages             = _shaderStages.data();
-    pipelineInfo.pVertexInputState   = &_vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &_inputAssembly;
-    pipelineInfo.pViewportState      = &viewportState;
-    pipelineInfo.pRasterizationState = &_rasterizer;
-    pipelineInfo.pColorBlendState    = &colorBlending;
-    pipelineInfo.pDepthStencilState  = &_depthStencil;
-    pipelineInfo.layout              = _pipelineLayout;
-    pipelineInfo.subpass             = 0;
-    pipelineInfo.basePipelineHandle  = VK_NULL_HANDLE;
-
-    // its easy to error out on create graphics pipeline, so we handle it a bit
-    // better than the common VK_CHECK case
-    VkPipeline newPipeline;
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS) {
-        std::cout << "failed to create pipline\n";
-        return VK_NULL_HANDLE; // failed to create graphics pipeline
-    } else {
-        return newPipeline;
-    }
-}
 
 void VulkanEngine::init_descriptors() {
     // // new code abstract
@@ -551,29 +411,29 @@ void VulkanEngine::init_descriptors() {
     sampler.maxLod       = 1.0f;
     sampler.borderColor  = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 
-    vkCreateSampler(_device, &sampler, nullptr, &blockySampler);
+    vkCreateSampler(ci_vulkanGlobal.device, &sampler, nullptr, &blockySampler);
 
     _blockySampler = blockySampler;
     TextureHelper::load_texture_array("assets/texture_atlas_0.png", 64, _cubemap, &_cubeview);
 
     // DescriptorLayoutBuilder builder;
     // builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-    // c_objectLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT);
+    // c_objectLayout = builder.build(ci_vulkanGlobal.device, VK_SHADER_STAGE_VERTEX_BIT);
     // builder.clear();
 
     // builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    // c_cameraLayout = builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT);
+    // c_cameraLayout = builder.build(ci_vulkanGlobal.device, VK_SHADER_STAGE_VERTEX_BIT);
     // builder.clear();
 
     // builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     // builder.add_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    // c_textureLayout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT);
+    // c_textureLayout = builder.build(ci_vulkanGlobal.device, VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    // c_textureSet = c_globalAllocator.allocate(_device, c_textureLayout);
+    // c_textureSet = c_globalAllocator.allocate(ci_vulkanGlobal.device, c_textureLayout);
 
     // DescriptorWriter writer;
     // writer.write_image(0, _cubeview, blockySampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    // writer.update_set(_device, c_textureSet);
+    // writer.update_set(ci_vulkanGlobal.device, c_textureSet);
 
     // GlobalBuilder builder = this->global.begin_build_descriptor();
     // builder.bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::STORAGE, VK_SHADER_STAGE_VERTEX_BIT).update_descriptor(true).build("object");
