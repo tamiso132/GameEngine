@@ -87,6 +87,7 @@ namespace vkinit {
 
         return imageRegion;
     }
+
     void debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, PFN_vkSetDebugUtilsObjectNameEXT setDebugName, VkDevice device) {
         VkDebugUtilsObjectNameInfoEXT debugNameInfo = {};
         debugNameInfo.sType                         = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
@@ -307,17 +308,22 @@ void DescriptorLayoutBuilder::clear() {
     ci_context.bufferIndices.clear();
     ci_context.imageIndices.clear();
     ci_context.bindings.clear();
-
+    ci_context.name         = "";
+    ci_context.shaderStage  = 0;
     ci_context.bindingCount = 0;
 }
+DescriptorLayoutBuilder::Blueprint DescriptorLayoutBuilder::get_blueprint() { return ci_context; }
 
 /*Resource Builder*/
 void ResourceBuilder::add_buffer(size_t allocSize, BufferType type, const char *objectName, MemoryType memory, const void *data, size_t dataSize, bool copy) {
     VkMemoryPropertyFlags memoryType;
+    VkBufferCreateInfo    bufferInfo = {};
 
-    if (memory == MemoryType::HostVisible || memory == MemoryType::GpuOnly) {
+    if (memory != MemoryType::BestFit) {
         memoryType = (VkMemoryPropertyFlags)memory;
-    } else {
+    }
+
+    else {
         memoryType = (VkMemoryPropertyFlags)MemoryType::HostVisible;
 
         switch (type) {
@@ -328,11 +334,14 @@ void ResourceBuilder::add_buffer(size_t allocSize, BufferType type, const char *
         }
     }
 
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.usage              = (VkBufferUsageFlags)type;
-    bufferInfo.size               = allocSize;
-    bufferInfo.sharingMode        = VK_SHARING_MODE_EXCLUSIVE;
-    bufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    if (memoryType == (VkMemoryPropertyFlags)MemoryType::GpuOnly) {
+        bufferInfo.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    }
+
+    bufferInfo.usage |= (VkBufferUsageFlags)type;
+    bufferInfo.size        = allocSize;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.requiredFlags           = memoryType;
@@ -431,6 +440,10 @@ void ResourceContext::init(VkPhysicalDevice physical, VkDevice device, VkInstanc
     poolRatios.push_back(poolRatio);
 
     VK_CHECK(vmaCreateAllocator(&allocatorInfo, &ci_allocator));
+
+    VkSamplerCreateInfo blockySampler = vkinit::sampler_create_info(VK_FILTER_NEAREST);
+
+    vkCreateSampler(device, &blockySampler, nullptr, &ci_default_sampler);
 };
 
 void ResourceContext::copy_to_buffer_visible(ResourceIndex dst, size_t size, const void *src) {
@@ -508,12 +521,12 @@ void ResourceContext::write_to_image_from_cpu(ResourceIndex imageDstHandle, void
 
     auto imageDst = ci_images[imageDstHandle];
 
-    transition_image_layout(cmd, oldLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageDstHandle);
+    transition_image_layout(cmd, oldLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageDst.alloc._image);
     auto copyRegion = vkinit::buffer_image_copy_info(ci_extents[ci_images[imageDstHandle].extentIndex]);
 
     vkCmdCopyBufferToImage(cmd, ci_buffers[stagingIndex].alloc._buffer, imageDst.alloc._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-    transition_image_layout(cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, newLayout, imageDstHandle);
+    transition_image_layout(cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, newLayout, imageDst.alloc._image);
 
     if (isImmediate) {
         // send it
@@ -523,6 +536,7 @@ void ResourceContext::write_to_image_from_cpu(ResourceIndex imageDstHandle, void
 
         vkQueueWaitIdle(ci_transferQueue);
         destroy_buffer(stagingIndex);
+        ci_resourceCounter--;
     }
 }
 void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext context) {
@@ -624,19 +638,23 @@ void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateI
 
     return vmaDestroyBuffer(Helper::allocator, stagingBuffer._buffer, stagingBuffer._allocation);
 }
-void ResourceContext::build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator) {
+VkDescriptorSetLayout ResourceContext::build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkDescriptorSetLayout layout) {
+    VkDescriptorSetLayout new_layout = layout;
 
-    VkDescriptorSetLayoutCreateInfo info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    info.pNext                           = nullptr;
+    if (new_layout == nullptr) {
+        VkDescriptorSetLayoutCreateInfo info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+        info.pNext                           = nullptr;
 
-    info.pBindings    = builderContext.bindings.data();
-    info.bindingCount = (uint32_t)builderContext.bindings.size();
-    info.flags        = builderContext.shaderStage;
+        info.pBindings    = builderContext.bindings.data();
+        info.bindingCount = (uint32_t)builderContext.bindings.size();
+        info.flags        = builderContext.shaderStage;
 
-    VkDescriptorSetLayout setLayout;
-    VK_CHECK(vkCreateDescriptorSetLayout(ci_device, &info, nullptr, &setLayout));
+        VkDescriptorSetLayout setLayout;
+        VK_CHECK(vkCreateDescriptorSetLayout(ci_device, &info, nullptr, &new_layout));
+    }
 
-    auto set = descAllocator.allocate(ci_device, setLayout);
+    auto set = descAllocator.allocate(ci_device, new_layout);
+    ci_layouts[new_layout].sets.push_back(set);
 
     std::vector<VkDescriptorImageInfo> imageInfos;
     std::vector<VkWriteDescriptorSet>  writes;
@@ -674,15 +692,22 @@ void ResourceContext::build_descriptor_layout_blueprint(DescriptorLayoutBuilder:
             write.pBufferInfo     = &info;
 
             writes.push_back(write);
+            bufferContext.observerMeta.push_back({new_layout, static_cast<size_t>(i)});
         }
     }
 
     vkUpdateDescriptorSets(ci_device, writes.size(), writes.data(), 0, nullptr);
+    return new_layout;
 }
 
+void on_resize(ResourceIndex index){
+
+};
 ImageContext ResourceContext::get_image_by_index(uint64_t blueprintNumber, uint64_t bindingNumber) { return ci_images[blueprintNumber | blueprintNumber >> 56]; }
 
 BufferContext ResourceContext::get_buffer_by_index(uint64_t blueprintNumber, uint64_t bindingNumber) { return ci_buffers[blueprintNumber | blueprintNumber >> 56]; }
+
+ResourceIndex ResourceContext::get_resource_by_name(std::string name) { return ci_resourceIndex[name]; }
 
 ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Blueprint resourceContext) {
     std::string counterTXT = get_valid_blueprint_counter_name(resourceContext, ci_resourceIndex);
@@ -693,12 +718,11 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
     for (auto &bufferInfo : resourceContext.bufferInfos) {
 
         BufferContext context;
-        context.usage = bufferInfo.bufferInfo.usage;
-
+        context.usage    = bufferInfo.bufferInfo.usage;
         std::string name = bufferInfo.name + counterTXT;
         vmaCreateBuffer(ci_allocator, &bufferInfo.bufferInfo, &bufferInfo.allocInfo, &context.alloc._buffer, &context.alloc._allocation, nullptr);
 
-        vkinit::debug_object_set_name((uint64_t)ci_buffers[ci_resourceCounter].alloc._buffer, VK_OBJECT_TYPE_BUFFER, name.c_str(), this->vkSetDebugUtilsObjectNameEXT, ci_device);
+        vkinit::debug_object_set_name((uint64_t)context.alloc._buffer, VK_OBJECT_TYPE_BUFFER, name.c_str(), this->vkSetDebugUtilsObjectNameEXT, ci_device);
 
         ResourceIndex resourceIndex = (bufferInfo.bindingNumber << 56) | ci_resourceCounter;
 
@@ -728,8 +752,7 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
         VK_CHECK(vkCreateImageView(ci_device, &imageInfo.imageViewInfo, nullptr, &context.view));
 
         if (!imageInfo.sampler.has_value()) {
-            auto samplerInfo = vkinit::sampler_create_info(VK_FILTER_NEAREST);
-            vkCreateSampler(ci_device, &samplerInfo, nullptr, &context.sampler);
+            context.sampler = ci_default_sampler;
         } else {
             context.sampler = imageInfo.sampler.value();
         }

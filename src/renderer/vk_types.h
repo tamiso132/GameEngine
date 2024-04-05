@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "VkBootstrapDispatch.h"
 #include <glm/fwd.hpp>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -13,6 +14,15 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <iostream>
+
+struct VulkanContextGlobal {
+    VkInstance               instance;
+    VkDebugUtilsMessengerEXT debug_messenger;
+    VkPhysicalDevice         chosenGPU;
+    VkDevice                 device;
+    VkExtent2D               windowExtent{1700, 900};
+    struct SDL_Window       *window{nullptr};
+};
 
 struct alignas(16) GPUObject {
     glm::mat4 transformMatrix;

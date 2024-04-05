@@ -9,6 +9,7 @@
 #include <glm/fwd.hpp>
 #include <imgui.h>
 #include <unordered_map>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 #include <cstddef>
@@ -16,6 +17,8 @@
 #include <iostream>
 
 #include "VkBootstrap.h"
+#include "VkBootstrapDispatch.h"
+#include "mesh.h"
 #include "pipeline.h"
 #include "resource.h"
 #include "util/vk_initializers.h"
@@ -36,48 +39,120 @@ std::vector<const char *> device_extensions = {"VK_KHR_dynamic_rendering"};
 
 const uint32_t MAX_OBJECTS = 20;
 
+const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+
+namespace util {
+    VkCommandBuffer create_cmd(VulkanContextGlobal context, uint32_t queueFamilyIndex, VkCommandPool pool) {
+        VkCommandBuffer cmd;
+
+        VkCommandBufferAllocateInfo bufferInfo = vkinit::command_buffer_allocate_info(pool, 1);
+        VK_CHECK(vkAllocateCommandBuffers(context.device, &bufferInfo, &cmd));
+
+        return cmd;
+    };
+
+    VkCommandPool create_pool(VulkanContextGlobal context, uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flag) {
+        VkCommandPool pool;
+
+        VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(queueFamilyIndex, flag);
+        VK_CHECK(vkCreateCommandPool(context.device, &commandPoolInfo, nullptr, &pool));
+
+        return pool;
+    }
+    VkFence create_fence(VulkanContextGlobal context) {
+        VkFence fence;
+
+        VkFenceCreateInfo fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
+        vkCreateFence(context.device, &fenceCreateInfo, nullptr, &fence);
+
+        return fence;
+    }
+    VkSemaphore create_semaphore(VulkanContextGlobal context) {
+        VkSemaphore semaphore;
+
+        VkSemaphoreCreateInfo semaphoreCreateInfo = vkinit::semaphore_create_info();
+        vkCreateSemaphore(context.device, &semaphoreCreateInfo, nullptr, &semaphore);
+
+        return semaphore;
+    }
+
+}; // namespace util
+
 void VulkanEngine::init() {
     // We initialize SDL and create a window with it.
-    unordered_map<std::string, VkShaderModule> shaderModules;
     SDL_Init(SDL_INIT_VIDEO);
 
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
 
     ci_vulkanGlobal.window = SDL_CreateWindow("Vulkan Engine", 0, 0, ci_vulkanGlobal.windowExtent.width, ci_vulkanGlobal.windowExtent.height, window_flags);
+    vkb::DispatchTable table;
 
-    init_vulkan();
-
-    init_swapchain();
-
-    init_commands();
-
-    init_sync_structures();
-
-    ci_resourceContext.init(ci_vulkanGlobal.chosenGPU, ci_vulkanGlobal.device, ci_vulkanGlobal.instance, _transferQueue, _transferQueueFamily,
-                            ci_vulkanGlobal.deviceFunctions.fp_vkSetDebugUtilsObjectNameEXT);
+    init_vulkan(table);
+    ci_resourceContext.init(ci_vulkanGlobal.chosenGPU, ci_vulkanGlobal.device, ci_vulkanGlobal.instance, _transferQueue, _transferQueueFamily, table.fp_vkSetDebugUtilsObjectNameEXT);
 
     // Helper::init(this->ci_vulkanGlobal.device, this->_gpuProperties, this->_allocator, this->cmd, this->_graphicsQueue);
     ci_meshes.init_mesh(ci_resourceContext);
-    ResourceBuilder textureBuilder;
 
-    auto pngContext = TextureHelper::load_png("assets/texture_atlas_0.png");
+    // pipelineBuilder.add_layout_sets(std::vector<VkDescriptorSetLayout> layoutSets);
 
-    textureBuilder.add_image_array_with_view(VK_FORMAT_R8G8B8A8_SRGB, pngContext.pixelSize, 64, pngContext.texWidth, pngContext.texHeight, "texture_atlas_0", pngContext.pixels);
-    ci_resourceContext.build_resource_blueprint(textureBuilder.get_blueprint());
+    auto pngContext = load_png("assets/texture_atlas_0.png");
 
-    Block::init_texture();
+    ResourceBuilder dynamicBuilder;
+    ResourceBuilder staticBuilder;
 
-    init_descriptors();
+    dynamicBuilder.add_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::Storage, "objects", MemoryType::HostVisible);
+    dynamicBuilder.add_buffer(sizeof(GPUCamera), BufferType::Uniform, "camera", MemoryType::HostVisible);
 
-    init_pipelines(shaderModules);
+    staticBuilder.add_image_array_with_view(VK_FORMAT_R8G8B8A8_SRGB, pngContext.pixelSize, 64, pngContext.texWidth, pngContext.texHeight, "texture_atlas_0", pngContext.pixels);
+    ResourceIndex textureIndex = ci_resourceContext.build_resource_blueprint(staticBuilder.get_blueprint());
 
-    // TODO, a check if more then 1 display
-    SDL_Rect rect;
-    SDL_GetWindowSize(ci_vulkanGlobal.window, &rect.w, &rect.h);
-    printf("WINDOW WIDTH: %d\n", rect.w);
-    printf("WINDOW HEIGHT: %d\n", rect.h);
-    // SDL_SetWindowPosition(_window, rect.x, rect.y);
-    // everything went fine
+    std::vector<FrameData> frames;
+
+    VkDescriptorSetLayout layout = nullptr;
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        FrameData frame;
+
+        ci_resourceContext.build_resource_blueprint(dynamicBuilder.get_blueprint());
+
+        frame.imageAquired = util::create_semaphore(ci_vulkanGlobal);
+        frame.presentReady = util::create_semaphore(ci_vulkanGlobal);
+        frame.queueDone    = util::create_fence(ci_vulkanGlobal);
+
+        frame.pool = util::create_pool(ci_vulkanGlobal, _graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+        frame.cmd  = util::create_cmd(ci_vulkanGlobal, _graphicsQueueFamily, frame.pool);
+
+        std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> ratios;
+        ratios.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1});
+        ratios.push_back({VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1});
+        ratios.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1});
+        frame.descriptorAllocator.init(ci_vulkanGlobal.device, 5, ratios);
+
+        auto cameraIndex  = ci_resourceContext.get_resource_by_name("camera" + i);
+        auto objectsIndex = ci_resourceContext.get_resource_by_name("objects" + i);
+
+        DescriptorLayoutBuilder layoutBuilder;
+
+        layoutBuilder.add_image(textureIndex);
+        layoutBuilder.add_buffer(cameraIndex);
+        layoutBuilder.add_buffer(objectsIndex);
+
+        layout = ci_resourceContext.build_descriptor_layout_blueprint(layoutBuilder.get_blueprint(), frame.descriptorAllocator, layout);
+    };
+
+    /*Pipeline Stuff*/
+
+    pipeline.init_pipeline(ci_vulkanGlobal.device);
+
+    PipelineBuilder pipelineBuilder = PipelineBuilder::default_pipeline_builder(ci_vulkanGlobal, "colored_triangle.vert", "colored_triangle.frag");
+
+    pipelineBuilder.add_attachments_formats({_swapchainImageFormat}, _depthFormat);
+    pipelineBuilder.add_depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL);
+    pipelineBuilder.add_cull_mode(VK_CULL_MODE_BACK_BIT);
+    pipelineBuilder.add_vertex_attribute(VertexBlock::vertex_input_description());
+    pipelineBuilder.add_layout_sets({layout});
+
+    pipeline.build_pipeline(pipelineBuilder, "main_pipeline");
     _isInitialized = true;
 }
 
@@ -261,7 +336,7 @@ void VulkanEngine::run() {
     }
 }
 
-void VulkanEngine::init_vulkan() {
+void VulkanEngine::init_vulkan(vkb::DispatchTable &table) {
     vkb::InstanceBuilder builder;
     // make the vulkan instance, with basic debug features
     auto inst_ret = builder.set_app_name("Example Vulkan Application")
@@ -301,8 +376,9 @@ void VulkanEngine::init_vulkan() {
     // create the final vulkan device
 
     vkb::DeviceBuilder deviceBuilder{physicalDevice};
-    vkb::Device        vkbDevice    = deviceBuilder.build().value();
-    ci_vulkanGlobal.deviceFunctions = vkbDevice.make_table();
+    vkb::Device        vkbDevice = deviceBuilder.build().value();
+
+    table = vkbDevice.make_table();
 
     // Get the VkDevice handle used in the rest of a vulkan application
     ci_vulkanGlobal.device    = vkbDevice.device;
@@ -325,9 +401,7 @@ void VulkanEngine::init_vulkan() {
     vkGetPhysicalDeviceProperties(ci_vulkanGlobal.chosenGPU, &_gpuProperties);
 
     std::cout << "The gpu has a minimum buffer alignement of " << _gpuProperties.limits.minUniformBufferOffsetAlignment << std::endl;
-}
 
-void VulkanEngine::init_swapchain() {
     vkb::SwapchainBuilder swapchainBuilder{ci_vulkanGlobal.chosenGPU, ci_vulkanGlobal.device, _surface};
 
     vkb::Swapchain vkbSwapchain = swapchainBuilder
@@ -367,88 +441,4 @@ void VulkanEngine::init_swapchain() {
     VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(_depthFormat, _depthImage._image, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     VK_CHECK(vkCreateImageView(ci_vulkanGlobal.device, &dview_info, nullptr, &_depthImageView));
-}
-
-void VulkanEngine::init_commands() {
-    // // create a command pool for commands submitted to the graphics queue.
-    // // we also want the pool to allow for resetting of individual command
-    // buffers
-    VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(_graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-
-    VK_CHECK(vkCreateCommandPool(this->ci_vulkanGlobal.device, &commandPoolInfo, nullptr, &this->pool));
-    VkCommandBufferAllocateInfo bufferInfo = vkinit::command_buffer_allocate_info(this->pool, 1);
-
-    VK_CHECK(vkAllocateCommandBuffers(this->ci_vulkanGlobal.device, &bufferInfo, &this->cmd));
-}
-
-void VulkanEngine::init_sync_structures() {
-    VkFenceCreateInfo     fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
-    VkSemaphoreCreateInfo sempahoreInfo   = vkinit::semaphore_create_info();
-
-    VK_CHECK(vkCreateFence(ci_vulkanGlobal.device, &fenceCreateInfo, nullptr, &this->fence_wait));
-
-    VK_CHECK(vkCreateSemaphore(this->ci_vulkanGlobal.device, &sempahoreInfo, nullptr, &this->present_semp));
-    VK_CHECK(vkCreateSemaphore(this->ci_vulkanGlobal.device, &sempahoreInfo, nullptr, &this->render_semp));
-}
-
-void VulkanEngine::init_descriptors() {
-    // // new code abstract
-
-    VkSamplerCreateInfo sampler = vkinit::sampler_create_info(VK_FILTER_NEAREST);
-
-    // TODO, fix minimapping
-    VkSampler blockySampler;
-    sampler.magFilter    = VK_FILTER_NEAREST;
-    sampler.minFilter    = VK_FILTER_NEAREST;
-    sampler.mipmapMode   = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-    sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler.mipLodBias   = 0.0f;
-    sampler.compareOp    = VK_COMPARE_OP_LESS_OR_EQUAL;
-    sampler.minLod       = 0.0f;
-    sampler.maxLod       = 1.0f;
-    sampler.borderColor  = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-
-    vkCreateSampler(ci_vulkanGlobal.device, &sampler, nullptr, &blockySampler);
-
-    _blockySampler = blockySampler;
-    // TextureHelper::load_texture_array("assets/texture_atlas_0.png", 64, _cubemap, &_cubeview);
-
-    // DescriptorLayoutBuilder builder;
-    // builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-    // c_objectLayout = builder.build(ci_vulkanGlobal.device, VK_SHADER_STAGE_VERTEX_BIT);
-    // builder.clear();
-
-    // builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    // c_cameraLayout = builder.build(ci_vulkanGlobal.device, VK_SHADER_STAGE_VERTEX_BIT);
-    // builder.clear();
-
-    // builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    // builder.add_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    // c_textureLayout = builder.build(ci_vulkanGlobal.device, VK_SHADER_STAGE_FRAGMENT_BIT);
-
-    // c_textureSet = c_globalAllocator.allocate(ci_vulkanGlobal.device, c_textureLayout);
-
-    // DescriptorWriter writer;
-    // writer.write_image(0, _cubeview, blockySampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    // writer.update_set(ci_vulkanGlobal.device, c_textureSet);
-
-    // GlobalBuilder builder = this->global.begin_build_descriptor();
-    // builder.bind_create_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::STORAGE, VK_SHADER_STAGE_VERTEX_BIT).update_descriptor(true).build("object");
-
-    // GlobalBuilder builder2 = this->global.begin_build_descriptor();
-    // builder2.bind_create_buffer(sizeof(GPUCamera), BufferType::UNIFORM, VK_SHADER_STAGE_VERTEX_BIT).update_descriptor(true).build("camera");
-
-    // GlobalBuilder builder3 = this->global.begin_build_descriptor();
-    // builder3
-    //     .bind_image(&imageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // yep
-    //     ->bind_create_buffer(sizeof(GPUTexture), BufferType::UNIFORM, VK_SHADER_STAGE_FRAGMENT_BIT)
-    //     .bind_image(&normalImageBufferInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-    //     ->update_descriptor(true)
-    //     .build("cubemap");
-    // GPUTexture textureIndices = Block::get_texture(Block::Type::ACACIA_TREE);
-
-    // GlobalBuilder builder4 = this->global.begin_build_descriptor();
-    // builder4.bind_image(&hdrImageInfo, ImageType::COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 }

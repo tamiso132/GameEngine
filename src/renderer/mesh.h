@@ -73,7 +73,4 @@ struct PNGContext {
     uint8_t *pixels;
 };
 
-namespace TextureHelper {
-
-    PNGContext load_png(const char *filePath);
-} // namespace TextureHelper
+PNGContext load_png(const char *filePath);

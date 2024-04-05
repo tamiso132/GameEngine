@@ -19,8 +19,14 @@
 // 56 bits for blueprint number
 // 8 bits for bindings
 typedef uint64_t ResourceIndex;
+class ResourceContext;
 
-void transition_image_layout(VkCommandBuffer cmd, VkImageLayout oldLayout, VkImageLayout newLayout, ResourceIndex image);
+class Observer {
+  public:
+    virtual void resize(ResourceIndex index) = 0;
+};
+
+void transition_image_layout(VkCommandBuffer cmd, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image);
 
 namespace vkinit {
     VkBufferImageCopy buffer_image_copy_info(VkExtent3D extent);
@@ -49,13 +55,23 @@ struct ImageContext {
     VkDescriptorType type;
 };
 
+struct ObserverMeta {
+    VkDescriptorSetLayout layout;
+    size_t                binding;
+};
+
 struct BufferContext {
     AllocatedBuffer    alloc;
     VkBufferUsageFlags usage;
     VkDescriptorType   type;
     size_t             size;
+
+    std::vector<ObserverMeta> observerMeta;
 };
 
+struct LayoutContext {
+    std::vector<VkDescriptorSet> sets;
+};
 struct DescriptorAllocatorGrowable {
   public:
     struct PoolSizeRatio {
@@ -82,7 +98,6 @@ struct DescriptorAllocatorGrowable {
 //> descriptor_layout
 struct DescriptorLayoutBuilder {
 
-    void add_binding(uint32_t binding, VkDescriptorType type);
     void add_buffer(ResourceIndex handle);
     void add_image(ResourceIndex handle);
     void clear();
@@ -101,6 +116,8 @@ struct DescriptorLayoutBuilder {
     Blueprint get_blueprint();
 
   private:
+    void add_binding(uint32_t binding, VkDescriptorType type);
+
     Blueprint ci_context;
 };
 
@@ -160,10 +177,9 @@ struct ResourceBuilder {
         atlasInfo.texWidth  = maxWidth;
 
         VmaAllocationCreateInfo allocInfo;
-        allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        allocInfo.usage         = VMA_MEMORY_USAGE_GPU_ONLY;
-
-        VkImageCreateInfo vkImageInfo = vkinit::image_create_info(format, 0, VkExtent3D(gridLength, gridLength, 1));
+        allocInfo.requiredFlags       = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        allocInfo.usage               = VMA_MEMORY_USAGE_GPU_ONLY;
+        VkImageCreateInfo vkImageInfo = vkinit::image_create_info(format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VkExtent3D(gridLength, gridLength, 1));
         vkImageInfo.arrayLayers       = (maxHeight / gridLength) * (maxWidth / gridLength);
 
         VkImageViewCreateInfo viewInfo       = vkinit::imageview_create_info(format, nullptr, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -197,10 +213,6 @@ struct ResourceContext {
 
     void init(VkPhysicalDevice physical, VkDevice device, VkInstance instance, VkQueue transferQueue, uint32_t transferQueueFamily, PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtil);
 
-    ImageContext  get_image_by_index(uint64_t blueprintNumber, uint64_t bindingNumber);
-    BufferContext get_buffer_by_index(uint64_t blueprintNumber, uint64_t bindingNumber);
-    void          get_resource_by_name(std::string resourceName);
-
     void copy_to_buffer_visible(ResourceIndex dst, size_t size, const void *src);
 
     void copy_to_buffer_non_visible(ResourceIndex dst, size_t size, const void *src);
@@ -213,21 +225,29 @@ struct ResourceContext {
 
     void write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext context);
 
-    void build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator);
+    VkDescriptorSetLayout build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkDescriptorSetLayout layout = nullptr);
 
     ResourceIndex build_resource_blueprint(ResourceBuilder::Blueprint resourceContext);
 
-  private:
-    std::unordered_map<std::string, ResourceIndex>   ci_resourceIndex;
-    std::unordered_map<ResourceIndex, BufferContext> ci_buffers;
-    std::unordered_map<ResourceIndex, ImageContext>  ci_images;
-    VmaAllocator                                     ci_allocator;
-    std::vector<VkExtent3D>                          ci_extents;
-    PFN_vkSetDebugUtilsObjectNameEXT                 vkSetDebugUtilsObjectNameEXT;
-    VkQueue                                          ci_transferQueue;
-    uint32_t                                         ci_transferQueueFamily;
+    ImageContext  get_image_by_index(uint64_t blueprintNumber, uint64_t bindingNumber);
+    BufferContext get_buffer_by_index(uint64_t blueprintNumber, uint64_t bindingNumber);
+    ResourceIndex get_resource_by_name(std::string resourceName);
 
-    VkDevice ci_device;
+  private:
+    VmaAllocator            ci_allocator;
+    std::vector<VkExtent3D> ci_extents;
+    VkQueue                 ci_transferQueue;
+    uint32_t                ci_transferQueueFamily;
+
+    std::unordered_map<std::string, ResourceIndex>           ci_resourceIndex;
+    std::unordered_map<ResourceIndex, BufferContext>         ci_buffers;
+    std::unordered_map<ResourceIndex, ImageContext>          ci_images;
+    std::unordered_map<VkDescriptorSetLayout, LayoutContext> ci_layouts;
+
+    PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
+
+    VkSampler ci_default_sampler;
+    VkDevice  ci_device;
 
     VkCommandBuffer ci_cmd;
     VkCommandPool   ci_pool;

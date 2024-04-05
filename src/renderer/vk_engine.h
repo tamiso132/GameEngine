@@ -2,10 +2,13 @@
 // or project specific include files.
 
 #pragma once
+#include "VkBootstrapDispatch.h"
 #include "mesh.h"
 
 #include "../camera/camera.h"
 #include "common/std_common.h"
+#include "pipeline.h"
+#include "resource.h"
 #include "util/helper.h"
 #include "vk_types.h"
 #include <VkBootstrap.h>
@@ -14,14 +17,15 @@
 #include <unordered_map>
 #include <vulkan/vulkan_core.h>
 
-struct VulkanContextGlobal {
-    VkInstance               instance;
-    VkDebugUtilsMessengerEXT debug_messenger;
-    VkPhysicalDevice         chosenGPU;
-    VkDevice                 device;
-    vkb::DispatchTable       deviceFunctions;
-    VkExtent2D               windowExtent{1700, 900};
-    struct SDL_Window       *window{nullptr};
+struct FrameData {
+    VkFence     queueDone;
+    VkSemaphore presentReady;
+    VkSemaphore imageAquired;
+
+    VkCommandPool   pool;
+    VkCommandBuffer cmd;
+
+    DescriptorAllocatorGrowable descriptorAllocator;
 };
 class VulkanEngine {
   public:
@@ -73,12 +77,6 @@ class VulkanEngine {
     VkCommandBuffer cmd;
     VkCommandPool   pool;
 
-    VkPipeline       pipeline;
-    VkPipelineLayout pipelineLayout;
-
-    VkPipeline       hdrPipeline;
-    VkPipelineLayout hdrLayout;
-
     VkFence fence_wait;
 
     VkSemaphore     present_semp;
@@ -103,6 +101,8 @@ class VulkanEngine {
 
     Mesh ci_meshes;
 
+    Pipeline pipeline;
+
     void init();
 
     // shuts down the engine
@@ -117,7 +117,7 @@ class VulkanEngine {
     void run();
 
   private:
-    void init_vulkan();
+    void init_vulkan(vkb::DispatchTable &table);
 
     void init_swapchain();
 

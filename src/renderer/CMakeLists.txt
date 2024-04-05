@@ -6,10 +6,12 @@ add_sources(
     vk_engine.h
     vk_engine.cpp
     vk_types.h
-    vk_mesh.cpp
-    vk_mesh.h
     mesh.cpp
     mesh.h
+    resource.cpp
+    resource.h
+    pipeline.cpp
+    pipeline.h
 )
 
 include_this()

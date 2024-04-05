@@ -1,4 +1,5 @@
 #include "mesh.h"
+#include <stb_image.h>
 
 namespace vkinit {
     VkVertexInputAttributeDescription vertex_attribute_input_info(size_t location, VkFormat format, size_t offset) {
@@ -145,4 +146,26 @@ void Mesh::init_mesh(ResourceContext &context) {
 MeshContext Mesh::get_mesh(MeshType type) {
     assert(ci_meshes.contains(type));
     return ci_meshes[type];
+}
+
+PNGContext load_png(const char *filePath) {
+    PNGContext context;
+
+    int texWidth, texHeight, texChannels;
+
+    auto fullpath = std::string(PROJECT_ROOT_PATH) + "/" + filePath;
+
+    stbi_uc *pixels = stbi_load(fullpath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+    if (pixels == nullptr) {
+        std::cout << "Failed to load texture file " << fullpath << std::endl;
+        throw std::runtime_error("failed to load texture!");
+    }
+
+    context.pixels    = pixels;
+    context.pixelSize = STBI_rgb_alpha;
+    context.texHeight = texHeight;
+    context.texWidth  = texWidth;
+
+    return context;
 }
