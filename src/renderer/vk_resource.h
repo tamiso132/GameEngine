@@ -219,7 +219,7 @@ struct ResourceContext {
 
     void write_to_image_from_cpu(ResourceIndex imageDstHandle, void *src, size_t sizeOfData, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer cmd = nullptr);
 
-    void                  write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext context);
+    void write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext context);
 
     VkDescriptorSetLayout build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkShaderStageFlags shaderFlag,
                                                             VkDescriptorSetLayout layout = nullptr);
@@ -231,7 +231,7 @@ struct ResourceContext {
     ResourceIndex get_resource_by_name(std::string resourceName);
 
   private:
-    VmaAllocator ci_allocator;
+    VmaAllocator            ci_allocator;
     std::vector<VkExtent3D> ci_extents;
 
     VulkanQueue ci_transferQueue;
