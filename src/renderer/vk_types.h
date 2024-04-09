@@ -15,12 +15,20 @@
 #include <glm/gtx/transform.hpp>
 #include <iostream>
 
+typedef uint64_t ResourceIndex;
+class ResourceContext;
+
+struct VulkanQueue {
+    VkQueue  queue;
+    uint32_t queueIndex;
+};
+
 struct VulkanContextGlobal {
     VkInstance               instance;
     VkDebugUtilsMessengerEXT debug_messenger;
     VkPhysicalDevice         chosenGPU;
     VkDevice                 device;
-    VkExtent2D               windowExtent{1700, 900};
+    VkExtent2D               windowExtent = {1700, 900};
     struct SDL_Window       *window{nullptr};
 };
 

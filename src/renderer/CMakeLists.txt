@@ -9,7 +9,7 @@ add_sources(
     mesh.cpp
     mesh.h
     resource.cpp
-    resource.h
+    vk_resource.h
     pipeline.cpp
     pipeline.h
 )

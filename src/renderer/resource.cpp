@@ -1,10 +1,11 @@
-#include "resource.h"
 #include "util/helper.h"
 #include "util/vk_initializers.h"
 #include "vk_mem_alloc.h"
+#include "vk_resource.h"
 #include "vk_types.h"
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -48,6 +49,10 @@ std::string get_valid_blueprint_counter_name(ResourceBuilder::Blueprint resource
 
     return extName;
 }
+
+static void create_layout(){
+
+};
 
 namespace vkinit {
     VkBufferImageCopy buffer_image_copy_info(VkExtent3D extent) {
@@ -144,7 +149,7 @@ namespace vkinit {
         bufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 
         VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.requiredFlags           = memoryType;
+        allocInfo.requiredFlags           = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 
         ResourceBuilder::BufferObjectCreateInfo info;
         info.allocInfo  = allocInfo;
@@ -309,7 +314,6 @@ void DescriptorLayoutBuilder::clear() {
     ci_context.imageIndices.clear();
     ci_context.bindings.clear();
     ci_context.name         = "";
-    ci_context.shaderStage  = 0;
     ci_context.bindingCount = 0;
 }
 DescriptorLayoutBuilder::Blueprint DescriptorLayoutBuilder::get_blueprint() { return ci_context; }
@@ -337,6 +341,19 @@ void ResourceBuilder::add_buffer(size_t allocSize, BufferType type, const char *
     if (memoryType == (VkMemoryPropertyFlags)MemoryType::GpuOnly) {
         bufferInfo.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     }
+    VkDescriptorType descriptorType = {};
+
+    switch (type) {
+    case BufferType::Storage:
+        descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        break;
+    case BufferType::Uniform:
+        descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        break;
+    }
+    if (descriptorType != 7 && descriptorType != 6) {
+        printf("DescriptorType: invalid for %s\n", objectName);
+    }
 
     bufferInfo.usage |= (VkBufferUsageFlags)type;
     bufferInfo.size        = allocSize;
@@ -349,11 +366,13 @@ void ResourceBuilder::add_buffer(size_t allocSize, BufferType type, const char *
     BufferObjectCreateInfo info = {};
     info.allocInfo              = allocInfo;
     info.bufferInfo             = bufferInfo;
-    info.name                   = std::string(objectName);
-    info.bindingNumber          = ci_bindingCounter;
+
+    info.name          = std::string(objectName);
+    info.bindingNumber = ci_bindingCounter;
+    info.type          = descriptorType;
 
     if (data != nullptr) {
-        size_t size   = dataSize ? dataSize : allocSize;
+        size_t size   = allocSize;
         info.data     = data;
         info.dataSize = size;
         if (copy) {
@@ -396,17 +415,19 @@ void ResourceBuilder::add_image_with_view(VkFormat format, VkImageUsageFlags usa
 ResourceBuilder::Blueprint ResourceBuilder::get_blueprint() { return ci_blueprint; }
 
 /*Resource Context*/
-void ResourceContext::init(VkPhysicalDevice physical, VkDevice device, VkInstance instance, VkQueue transferQueue, uint32_t transferQueueFamily, PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtil) {
+void ResourceContext::init(VkPhysicalDevice physical, VkDevice device, VkInstance instance, VulkanQueue transferQueue, VulkanQueue graphicQueue, VkCommandBuffer cmdGraphic,
+                           PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtil) {
 
-    ci_device              = device;
-    ci_transferQueueFamily = transferQueueFamily;
-    ci_transferQueue       = transferQueue;
+    ci_device        = device;
+    ci_transferQueue = transferQueue;
+    ci_graphicQueue  = graphicQueue;
+    ci_cmdGraphic    = cmdGraphic;
 
-    VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(ci_transferQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+    VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(ci_transferQueue.queueIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &ci_pool));
 
     VkCommandBufferAllocateInfo bufferInfo = vkinit::command_buffer_allocate_info(ci_pool, 1);
-    VK_CHECK(vkAllocateCommandBuffers(device, &bufferInfo, &ci_cmd));
+    VK_CHECK(vkAllocateCommandBuffers(device, &bufferInfo, &ci_cmdTransfer));
 
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.physicalDevice         = physical;
@@ -465,7 +486,7 @@ void ResourceContext::copy_to_buffer_non_visible(ResourceIndex dst, size_t size,
     memcpy(stagingData, src, size);
     vmaUnmapMemory(ci_allocator, stagingBuffer._allocation);
 
-    vkinit::copy_buffer(stagingBuffer._buffer, bufferDst.alloc._buffer, size, ci_cmd, ci_transferQueue);
+    vkinit::copy_buffer(stagingBuffer._buffer, bufferDst.alloc._buffer, size, ci_cmdTransfer, ci_transferQueue.queue);
 }
 
 void ResourceContext::destroy_buffer(ResourceIndex bufferHandle) {
@@ -480,12 +501,12 @@ void ResourceContext::copy_to_image(ResourceIndex imageSrc, ResourceIndex imageD
     if (cmd == nullptr) {
 
         VkCommandBufferBeginInfo beginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-        vkBeginCommandBuffer(ci_cmd, &beginInfo);
+        vkBeginCommandBuffer(ci_cmdTransfer, &beginInfo);
 
-        VkSubmitInfo submit = vkinit::submit_info(&ci_cmd);
-        VK_CHECK(vkQueueSubmit(ci_transferQueue, 1, &submit, nullptr));
+        VkSubmitInfo submit = vkinit::submit_info(&ci_cmdTransfer);
+        VK_CHECK(vkQueueSubmit(ci_transferQueue.queue, 1, &submit, nullptr));
 
-        vkQueueWaitIdle(ci_transferQueue);
+        vkQueueWaitIdle(ci_transferQueue.queue);
 
     } else {
         vkCmdCopyImage(cmd, ci_images[imageSrc].alloc._image, srcLayout, ci_images[imageDst].alloc._image, dstLayout, 1, &imageRegion);
@@ -514,7 +535,7 @@ void ResourceContext::write_to_image_from_cpu(ResourceIndex imageDstHandle, void
 
     if (cmd == nullptr) {
         isImmediate = true;
-        cmd         = ci_cmd;
+        cmd         = ci_cmdTransfer;
 
         vkBeginCommandBuffer(cmd, &beginInfo);
     }
@@ -532,9 +553,9 @@ void ResourceContext::write_to_image_from_cpu(ResourceIndex imageDstHandle, void
         // send it
         vkEndCommandBuffer(cmd);
         auto submitInfo = vkinit::submit_info(&cmd);
-        VK_CHECK(vkQueueSubmit(ci_transferQueue, 1, &submitInfo, nullptr));
+        VK_CHECK(vkQueueSubmit(ci_transferQueue.queue, 1, &submitInfo, nullptr));
 
-        vkQueueWaitIdle(ci_transferQueue);
+        vkQueueWaitIdle(ci_transferQueue.queue);
         destroy_buffer(stagingIndex);
         ci_resourceCounter--;
     }
@@ -580,7 +601,9 @@ void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateI
         }
     }
 
-    vmaUnmapMemory(Helper::allocator, stagingBuffer._allocation);
+    vmaUnmapMemory(ci_allocator, stagingBuffer._allocation);
+    VkCommandBufferBeginInfo beginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    vkBeginCommandBuffer(ci_cmdGraphic, &beginInfo);
 
     VmaAllocationCreateInfo dimg_allocinfo = {};
     dimg_allocinfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -604,7 +627,7 @@ void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateI
     imageBarrier_toTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
     // barrier the image into the transfer-receive layout
-    vkCmdPipelineBarrier(ci_cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toTransfer);
+    vkCmdPipelineBarrier(ci_cmdGraphic, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toTransfer);
 
     VkBufferImageCopy copyRegion = {};
     copyRegion.bufferOffset      = 0;
@@ -619,7 +642,7 @@ void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateI
 
     // copy the buffer into the image
 
-    vkCmdCopyBufferToImage(ci_cmd, stagingBuffer._buffer, context.alloc._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+    vkCmdCopyBufferToImage(ci_cmdGraphic, stagingBuffer._buffer, context.alloc._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
     VkImageMemoryBarrier imageBarrier_toReadable = imageBarrier_toTransfer;
 
@@ -630,52 +653,68 @@ void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateI
     imageBarrier_toReadable.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
     // barrier the image into the shader readable layout
-    vkCmdPipelineBarrier(ci_cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toReadable);
+    vkCmdPipelineBarrier(ci_cmdGraphic, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toReadable);
 
-    auto submitInfo = vkinit::submit_info(&ci_cmd);
-    vkQueueSubmit(ci_transferQueue, 1, &submitInfo, nullptr);
-    vkQueueWaitIdle(ci_transferQueue);
+    vkEndCommandBuffer(ci_cmdGraphic);
 
-    return vmaDestroyBuffer(Helper::allocator, stagingBuffer._buffer, stagingBuffer._allocation);
+    auto submitInfo = vkinit::submit_info(&ci_cmdGraphic);
+    vkQueueSubmit(ci_graphicQueue.queue, 1, &submitInfo, nullptr);
+    vkQueueWaitIdle(ci_graphicQueue.queue);
+
+    return vmaDestroyBuffer(ci_allocator, stagingBuffer._buffer, stagingBuffer._allocation);
 }
-VkDescriptorSetLayout ResourceContext::build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkDescriptorSetLayout layout) {
+VkDescriptorSetLayout ResourceContext::build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkShaderStageFlags shaderFlag,
+                                                                         VkDescriptorSetLayout layout) {
     VkDescriptorSetLayout new_layout = layout;
+    for (size_t i = 0; i < builderContext.bindings.size(); i++) {
+        builderContext.bindings[i].stageFlags = shaderFlag;
+    }
+
+    for (int i = 0; i < builderContext.bindings.size(); i++) {
+        auto binding = &builderContext.bindings[i];
+        if (builderContext.imageIndices.contains(i)) {
+            auto imageContext = ci_images[builderContext.imageIndices[i]];
+
+            binding->descriptorType = imageContext.type;
+        } else {
+            auto bufferContext      = ci_buffers[builderContext.bufferIndices[i]];
+            binding->descriptorType = bufferContext.type;
+        }
+    }
 
     if (new_layout == nullptr) {
         VkDescriptorSetLayoutCreateInfo info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
         info.pNext                           = nullptr;
+        info.pBindings                       = builderContext.bindings.data();
+        info.bindingCount                    = (uint32_t)builderContext.bindings.size();
 
-        info.pBindings    = builderContext.bindings.data();
-        info.bindingCount = (uint32_t)builderContext.bindings.size();
-        info.flags        = builderContext.shaderStage;
-
-        VkDescriptorSetLayout setLayout;
         VK_CHECK(vkCreateDescriptorSetLayout(ci_device, &info, nullptr, &new_layout));
     }
 
     auto set = descAllocator.allocate(ci_device, new_layout);
     ci_layouts[new_layout].sets.push_back(set);
 
-    std::vector<VkDescriptorImageInfo> imageInfos;
-    std::vector<VkWriteDescriptorSet>  writes;
+    std::vector<VkDescriptorImageInfo> imageInfos = {};
+    imageInfos.reserve(builderContext.imageIndices.size() + 1);
+
+    std::vector<VkWriteDescriptorSet> writes = {};
+    writes.reserve(builderContext.bindingCount);
 
     std::vector<VkDescriptorBufferInfo> bufferInfos;
+    bufferInfos.reserve(builderContext.bufferIndices.size() + 1);
 
     for (int i = 0; i < builderContext.bindings.size(); i++) {
         auto binding = builderContext.bindings[i];
 
         if (builderContext.imageIndices.contains(i)) {
             auto                  imageContext = ci_images[builderContext.imageIndices[i]];
-            VkDescriptorImageInfo info         = VkDescriptorImageInfo{.sampler = imageContext.sampler, .imageView = imageContext.view, .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED};
-
-            imageInfos.push_back(info);
-
-            VkWriteDescriptorSet write = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+            VkDescriptorImageInfo info  = imageInfos.emplace_back(VkDescriptorImageInfo{.sampler = imageContext.sampler, .imageView = imageContext.view, .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED});
+            VkWriteDescriptorSet  write = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 
             write.dstBinding      = i;
             write.dstSet          = set; // left empty for now until we need to write it
             write.descriptorCount = 1;
-            write.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write.descriptorType  = imageContext.type;
             write.pImageInfo      = &info;
 
             writes.push_back(write);
@@ -712,21 +751,21 @@ ResourceIndex ResourceContext::get_resource_by_name(std::string name) { return c
 ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Blueprint resourceContext) {
     std::string counterTXT = get_valid_blueprint_counter_name(resourceContext, ci_resourceIndex);
 
-    uint64_t blueprintNumber = ci_resourceCounter & 0x0FFFFFFFFFFFFFFF;
-    uint64_t bindingNumber;
-
     for (auto &bufferInfo : resourceContext.bufferInfos) {
 
         BufferContext context;
         context.usage    = bufferInfo.bufferInfo.usage;
+        context.type     = bufferInfo.type;
+        context.size     = bufferInfo.bufferInfo.size;
         std::string name = bufferInfo.name + counterTXT;
+
         vmaCreateBuffer(ci_allocator, &bufferInfo.bufferInfo, &bufferInfo.allocInfo, &context.alloc._buffer, &context.alloc._allocation, nullptr);
 
         vkinit::debug_object_set_name((uint64_t)context.alloc._buffer, VK_OBJECT_TYPE_BUFFER, name.c_str(), this->vkSetDebugUtilsObjectNameEXT, ci_device);
+        uint64_t      binding       = uint64_t(bufferInfo.bindingNumber) << 56;
+        ResourceIndex resourceIndex = binding | ci_resourceCounter;
 
-        ResourceIndex resourceIndex = (bufferInfo.bindingNumber << 56) | ci_resourceCounter;
-
-        ci_resourceIndex[name]    = ci_resourceCounter;
+        ci_resourceIndex[name]    = resourceIndex;
         ci_buffers[resourceIndex] = context;
 
         if (bufferInfo.data != nullptr) {
@@ -744,10 +783,11 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
 
     for (auto &imageInfo : resourceContext.imageInfos) {
 
-        ImageContext context;
-        std::string  name = imageInfo.name + counterTXT;
+        ImageContext context = {};
+        std::string  name    = imageInfo.name + counterTXT;
 
         VK_CHECK(vmaCreateImage(ci_allocator, &imageInfo.imageInfo, &imageInfo.allocInfo, &context.alloc._image, &context.alloc._allocation, nullptr));
+        imageInfo.imageViewInfo.image = context.alloc._image;
 
         VK_CHECK(vkCreateImageView(ci_device, &imageInfo.imageViewInfo, nullptr, &context.view));
 
@@ -757,12 +797,13 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
             context.sampler = imageInfo.sampler.value();
         }
 
-        ResourceIndex resourceIndex = (imageInfo.bindingNumber << 56) | ci_resourceCounter;
+        ResourceIndex resourceIndex = (uint64_t(imageInfo.bindingNumber) << 56) | ci_resourceCounter;
 
-        ci_resourceIndex[name]   = ci_resourceCounter;
+        ci_resourceIndex[name]   = resourceIndex;
         ci_images[resourceIndex] = context;
+        uint64_t objectHandle    = (uint64_t)context.alloc._image;
 
-        vkinit::debug_object_set_name((uint64_t)ci_images[ci_resourceCounter].alloc._image, VK_OBJECT_TYPE_BUFFER, name.c_str(), this->vkSetDebugUtilsObjectNameEXT, ci_device);
+        vkinit::debug_object_set_name(objectHandle, VK_OBJECT_TYPE_IMAGE, name.c_str(), this->vkSetDebugUtilsObjectNameEXT, ci_device);
 
         if (imageInfo.data != nullptr) {
             if (!imageInfo.textureAtlas.has_value()) {
@@ -781,3 +822,5 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
     ci_resourceCounter++;
     return ci_resourceCounter - 1;
 }
+
+void test_resource(ResourceContext &context, ResourceIndex imageHandle) {}

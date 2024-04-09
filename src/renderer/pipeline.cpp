@@ -1,6 +1,5 @@
 #include "pipeline.h"
 #include "mesh.h"
-#include "resource.h"
 #include "util/vk_initializers.h"
 #include "vk_engine.h"
 #include <filesystem>
@@ -155,7 +154,9 @@ PipelineBuilder &PipelineBuilder::add_viewport(VkExtent2D windowExtent) {
     _viewport.minDepth = 0.0f;
     _viewport.maxDepth = 1.0f;
     _scissor.offset    = {0, 0};
-    _scissor.extent    = windowExtent;
+    _scissor.extent    = {windowExtent.width, windowExtent.height};
+
+    return *this;
 }
 
 PipelineBuilder &PipelineBuilder::add_vertex_attribute(VertexInputDescription vertex_attributes) {
@@ -164,14 +165,28 @@ PipelineBuilder &PipelineBuilder::add_vertex_attribute(VertexInputDescription ve
 
     _vertexInputInfo.vertexAttributeDescriptionCount = vertex_attributes.attributes.size();
     _vertexInputInfo.vertexBindingDescriptionCount   = vertex_attributes.bindings.size();
+
+    return *this;
 }
-PipelineBuilder &PipelineBuilder::add_shader(VkShaderModule module, VkShaderStageFlagBits shaderStage) { _shaderStages.push_back({vkinit::pipeline_shader_stage_create_info(shaderStage, module)}); }
+PipelineBuilder &PipelineBuilder::add_shader(VkShaderModule module, VkShaderStageFlagBits shaderStage) {
+    _shaderStages.push_back({vkinit::pipeline_shader_stage_create_info(shaderStage, module)});
+    return *this;
+}
 
-PipelineBuilder &PipelineBuilder::add_layout_sets(std::vector<VkDescriptorSetLayout> layoutSets) { ci_layoutSets.insert(ci_layoutSets.end(), layoutSets.begin(), layoutSets.end()); }
+PipelineBuilder &PipelineBuilder::add_layout_sets(std::vector<VkDescriptorSetLayout> layoutSets) {
+    ci_layoutSets.insert(ci_layoutSets.end(), layoutSets.begin(), layoutSets.end());
+    return *this;
+}
 
-PipelineBuilder &PipelineBuilder::add_cull_mode(VkCullModeFlags cullMode) { _rasterizer.cullMode = cullMode; }
+PipelineBuilder &PipelineBuilder::add_cull_mode(VkCullModeFlags cullMode) {
+    _rasterizer.cullMode = cullMode;
+    return *this;
+}
 
-PipelineBuilder &PipelineBuilder::add_depth(bool bDepthTest, bool bDepthWrite, VkCompareOp compareOp) { _depthStencil = vkinit::depth_stencil_create_info(bDepthTest, bDepthWrite, compareOp); }
+PipelineBuilder &PipelineBuilder::add_depth(bool bDepthTest, bool bDepthWrite, VkCompareOp compareOp) {
+    _depthStencil = vkinit::depth_stencil_create_info(bDepthTest, bDepthWrite, compareOp);
+    return *this;
+}
 
 PipelineBuilder &PipelineBuilder::add_attachments_formats(std::vector<VkFormat> colorFormats, VkFormat depthFormat) {
     VkPipelineRenderingCreateInfoKHR pipelineCreateInfo = {};
@@ -181,6 +196,7 @@ PipelineBuilder &PipelineBuilder::add_attachments_formats(std::vector<VkFormat> 
     pipelineCreateInfo.colorAttachmentCount             = colorFormats.size();
     pipelineCreateInfo.depthAttachmentFormat            = depthFormat;
     this->ci_renderInfo                                 = {pipelineCreateInfo};
+    return *this;
 }
 
 PipelineBuilder PipelineBuilder::default_pipeline_builder(VulkanContextGlobal vulkanContext, std::string vertexShader, std::string fragmentShader) {
@@ -188,8 +204,7 @@ PipelineBuilder PipelineBuilder::default_pipeline_builder(VulkanContextGlobal vu
     pipelineBuilder._vertexInputInfo = vkinit::vertex_input_state_create_info();
     pipelineBuilder._inputAssembly   = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
-    pipelineBuilder.add_viewport(vulkanContext.windowExtent);
-    pipelineBuilder.add_vertex_attribute(VertexBlock::vertex_input_description());
+    pipelineBuilder = pipelineBuilder.add_viewport(vulkanContext.windowExtent).add_vertex_attribute(VertexBlock::vertex_input_description());
 
     pipelineBuilder.ci_vertexShader   = vertexShader;
     pipelineBuilder.ci_fragmentShader = fragmentShader;

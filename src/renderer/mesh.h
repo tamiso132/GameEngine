@@ -1,6 +1,6 @@
 #pragma once
 
-#include "resource.h"
+#include "vk_resource.h"
 #include "vk_types.h"
 #include <glm/fwd.hpp>
 #include <glm/vec2.hpp>

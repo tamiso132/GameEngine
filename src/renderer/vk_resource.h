@@ -1,7 +1,6 @@
 #pragma once
 
 #include "VkBootstrapDispatch.h"
-#include "util/helper.h"
 #include "util/vk_initializers.h"
 #include "vk_mem_alloc.h"
 #include "vk_types.h"
@@ -18,14 +17,6 @@
 #include <vulkan/vulkan_core.h>
 // 56 bits for blueprint number
 // 8 bits for bindings
-typedef uint64_t ResourceIndex;
-class ResourceContext;
-
-class Observer {
-  public:
-    virtual void resize(ResourceIndex index) = 0;
-};
-
 void transition_image_layout(VkCommandBuffer cmd, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image);
 
 namespace vkinit {
@@ -72,6 +63,7 @@ struct BufferContext {
 struct LayoutContext {
     std::vector<VkDescriptorSet> sets;
 };
+
 struct DescriptorAllocatorGrowable {
   public:
     struct PoolSizeRatio {
@@ -104,11 +96,10 @@ struct DescriptorLayoutBuilder {
 
     struct Blueprint {
 
-        uint32_t                                    bindingCount;
+        uint32_t                                    bindingCount = 0;
         std::vector<VkDescriptorSetLayoutBinding>   bindings;
         std::unordered_map<uint32_t, ResourceIndex> bufferIndices;
         std::unordered_map<uint32_t, ResourceIndex> imageIndices;
-        VkShaderStageFlags                          shaderStage;
         std::string                                 name;
     };
 
@@ -130,6 +121,7 @@ struct ResourceBuilder {
         const void             *data;
         size_t                  dataSize;
         bool                    copy;
+        VkDescriptorType        type;
     };
 
     struct TextureObjectCreateInfo {
@@ -171,16 +163,19 @@ struct ResourceBuilder {
         uint32_t maxGridX = maxWidth / gridLength;
         uint32_t maxGridY = maxHeight / gridLength;
 
-        TextureObjectCreateInfo atlasInfo;
-        atlasInfo.pixelSize = pixelSize;
-        atlasInfo.texHeight = maxHeight;
-        atlasInfo.texWidth  = maxWidth;
+        TextureObjectCreateInfo atlasInfo = {};
+        atlasInfo.pixelSize               = pixelSize;
+        atlasInfo.texHeight               = maxHeight;
+        atlasInfo.texWidth                = maxWidth;
 
-        VmaAllocationCreateInfo allocInfo;
-        allocInfo.requiredFlags       = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        allocInfo.usage               = VMA_MEMORY_USAGE_GPU_ONLY;
-        VkImageCreateInfo vkImageInfo = vkinit::image_create_info(format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VkExtent3D(gridLength, gridLength, 1));
-        vkImageInfo.arrayLayers       = (maxHeight / gridLength) * (maxWidth / gridLength);
+        VmaAllocationCreateInfo allocInfo = {};
+        allocInfo.requiredFlags           = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        allocInfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
+
+        VkImageCreateInfo vkImageInfo =
+            vkinit::image_create_info(format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VkExtent3D(gridLength, gridLength, 1));
+        vkImageInfo.arrayLayers = (maxHeight / gridLength) * (maxWidth / gridLength);
+        vkImageInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         VkImageViewCreateInfo viewInfo       = vkinit::imageview_create_info(format, nullptr, VK_IMAGE_ASPECT_COLOR_BIT);
         viewInfo.viewType                    = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
@@ -188,8 +183,8 @@ struct ResourceBuilder {
         viewInfo.subresourceRange.layerCount = (maxHeight / gridLength) * (maxWidth / gridLength);
 
         ImageObjectCreateInfo imageInfo;
-        imageInfo.allocInfo     = allocInfo;
-        imageInfo.imageInfo     = vkImageInfo;
+        imageInfo.allocInfo     = {allocInfo};
+        imageInfo.imageInfo     = {vkImageInfo};
         imageInfo.bindingNumber = ci_bindingCounter;
         imageInfo.dataSize      = maxWidth * maxHeight * pixelSize;
         imageInfo.sampler       = sampler ? std::optional(sampler) : std::nullopt;
@@ -206,12 +201,13 @@ struct ResourceBuilder {
 
   private:
     Blueprint ci_blueprint;
-    uint8_t   ci_bindingCounter;
+    uint8_t   ci_bindingCounter = 0;
 };
 
 struct ResourceContext {
 
-    void init(VkPhysicalDevice physical, VkDevice device, VkInstance instance, VkQueue transferQueue, uint32_t transferQueueFamily, PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtil);
+    void init(VkPhysicalDevice physical, VkDevice device, VkInstance instance, VulkanQueue transferQueue, VulkanQueue graphicQueue, VkCommandBuffer cmdGraphic,
+              PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtil);
 
     void copy_to_buffer_visible(ResourceIndex dst, size_t size, const void *src);
 
@@ -223,9 +219,10 @@ struct ResourceContext {
 
     void write_to_image_from_cpu(ResourceIndex imageDstHandle, void *src, size_t sizeOfData, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer cmd = nullptr);
 
-    void write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext context);
+    void                  write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext context);
 
-    VkDescriptorSetLayout build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkDescriptorSetLayout layout = nullptr);
+    VkDescriptorSetLayout build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkShaderStageFlags shaderFlag,
+                                                            VkDescriptorSetLayout layout = nullptr);
 
     ResourceIndex build_resource_blueprint(ResourceBuilder::Blueprint resourceContext);
 
@@ -234,10 +231,11 @@ struct ResourceContext {
     ResourceIndex get_resource_by_name(std::string resourceName);
 
   private:
-    VmaAllocator            ci_allocator;
+    VmaAllocator ci_allocator;
     std::vector<VkExtent3D> ci_extents;
-    VkQueue                 ci_transferQueue;
-    uint32_t                ci_transferQueueFamily;
+
+    VulkanQueue ci_transferQueue;
+    VulkanQueue ci_graphicQueue;
 
     std::unordered_map<std::string, ResourceIndex>           ci_resourceIndex;
     std::unordered_map<ResourceIndex, BufferContext>         ci_buffers;
@@ -249,7 +247,8 @@ struct ResourceContext {
     VkSampler ci_default_sampler;
     VkDevice  ci_device;
 
-    VkCommandBuffer ci_cmd;
+    VkCommandBuffer ci_cmdTransfer;
+    VkCommandBuffer ci_cmdGraphic;
     VkCommandPool   ci_pool;
-    uint32_t        ci_resourceCounter;
+    uint32_t        ci_resourceCounter = 0;
 };

@@ -8,6 +8,7 @@
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/fwd.hpp>
 #include <imgui.h>
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -20,7 +21,6 @@
 #include "VkBootstrapDispatch.h"
 #include "mesh.h"
 #include "pipeline.h"
-#include "resource.h"
 #include "util/vk_initializers.h"
 #include "vk_types.h"
 
@@ -88,12 +88,14 @@ void VulkanEngine::init() {
     vkb::DispatchTable table;
 
     init_vulkan(table);
-    ci_resourceContext.init(ci_vulkanGlobal.chosenGPU, ci_vulkanGlobal.device, ci_vulkanGlobal.instance, _transferQueue, _transferQueueFamily, table.fp_vkSetDebugUtilsObjectNameEXT);
 
-    // Helper::init(this->ci_vulkanGlobal.device, this->_gpuProperties, this->_allocator, this->cmd, this->_graphicsQueue);
+    pool = util::create_pool(ci_vulkanGlobal, _graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+    cmd  = util::create_cmd(ci_vulkanGlobal, _graphicsQueueFamily, pool);
+
+    ci_resourceContext.init(ci_vulkanGlobal.chosenGPU, ci_vulkanGlobal.device, ci_vulkanGlobal.instance, {_transferQueue, _transferQueueFamily}, {_graphicsQueue, _graphicsQueueFamily}, cmd,
+                            table.fp_vkSetDebugUtilsObjectNameEXT);
+
     ci_meshes.init_mesh(ci_resourceContext);
-
-    // pipelineBuilder.add_layout_sets(std::vector<VkDescriptorSetLayout> layoutSets);
 
     auto pngContext = load_png("assets/texture_atlas_0.png");
 
@@ -104,16 +106,13 @@ void VulkanEngine::init() {
     dynamicBuilder.add_buffer(sizeof(GPUCamera), BufferType::Uniform, "camera", MemoryType::HostVisible);
 
     staticBuilder.add_image_array_with_view(VK_FORMAT_R8G8B8A8_SRGB, pngContext.pixelSize, 64, pngContext.texWidth, pngContext.texHeight, "texture_atlas_0", pngContext.pixels);
-    ResourceIndex textureIndex = ci_resourceContext.build_resource_blueprint(staticBuilder.get_blueprint());
-
+    ResourceIndex          textureAtlasIndex = ci_resourceContext.build_resource_blueprint(staticBuilder.get_blueprint());
     std::vector<FrameData> frames;
 
     VkDescriptorSetLayout layout = nullptr;
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         FrameData frame;
-
-        ci_resourceContext.build_resource_blueprint(dynamicBuilder.get_blueprint());
 
         frame.imageAquired = util::create_semaphore(ci_vulkanGlobal);
         frame.presentReady = util::create_semaphore(ci_vulkanGlobal);
@@ -128,16 +127,26 @@ void VulkanEngine::init() {
         ratios.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1});
         frame.descriptorAllocator.init(ci_vulkanGlobal.device, 5, ratios);
 
-        auto cameraIndex  = ci_resourceContext.get_resource_by_name("camera" + i);
-        auto objectsIndex = ci_resourceContext.get_resource_by_name("objects" + i);
+        char c;
+        if (i == 0) {
+            c = '\0';
+        } else {
+            c = static_cast<char>(i-1);
+        }
+
+        ci_resourceContext.build_resource_blueprint(dynamicBuilder.get_blueprint());
+
+        auto cameraIndex  = ci_resourceContext.get_resource_by_name("camera" + c);
+        auto objectsIndex = ci_resourceContext.get_resource_by_name("objects" + c);
 
         DescriptorLayoutBuilder layoutBuilder;
 
-        layoutBuilder.add_image(textureIndex);
+        layoutBuilder.add_image(textureAtlasIndex);
         layoutBuilder.add_buffer(cameraIndex);
         layoutBuilder.add_buffer(objectsIndex);
 
-        layout = ci_resourceContext.build_descriptor_layout_blueprint(layoutBuilder.get_blueprint(), frame.descriptorAllocator, layout);
+        layout = ci_resourceContext.build_descriptor_layout_blueprint(layoutBuilder.get_blueprint(), frame.descriptorAllocator, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, layout);
+        frames.push_back(frame);
     };
 
     /*Pipeline Stuff*/

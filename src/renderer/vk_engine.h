@@ -8,8 +8,8 @@
 #include "../camera/camera.h"
 #include "common/std_common.h"
 #include "pipeline.h"
-#include "resource.h"
 #include "util/helper.h"
+#include "vk_resource.h"
 #include "vk_types.h"
 #include <VkBootstrap.h>
 #include <filesystem>
@@ -30,7 +30,7 @@ struct FrameData {
 class VulkanEngine {
   public:
     bool                _isInitialized{false};
-    VulkanContextGlobal ci_vulkanGlobal;
+    VulkanContextGlobal ci_vulkanGlobal = {};
 
     VkPhysicalDeviceProperties _gpuProperties;
 
@@ -97,7 +97,7 @@ class VulkanEngine {
 
     AllocatedBuffer c_buffer;
 
-    ResourceContext ci_resourceContext;
+    ResourceContext ci_resourceContext = {};
 
     Mesh ci_meshes;
 

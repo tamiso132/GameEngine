@@ -51,7 +51,7 @@ VertexInputDescription VertexQuadScreen::vertex_input_description() {
 }
 
 void Mesh::init_mesh(ResourceContext &context) {
-    ResourceBuilder builder;
+    ResourceBuilder builder = {};
 
     const std::vector<VertexBlock> quadVertices = {
         // Vertex 1

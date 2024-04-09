@@ -2,7 +2,7 @@
 
 #include "common/std_common.h"
 #include "mesh.h"
-#include "resource.h"
+#include "vk_resource.h"
 #include <string>
 #include <unordered_map>
 #include <vector>
