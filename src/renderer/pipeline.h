@@ -38,7 +38,6 @@ class PipelineBuilder {
 
   public:
     std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
-    VkPipelineVertexInputStateCreateInfo         _vertexInputInfo;
     VkPipelineInputAssemblyStateCreateInfo       _inputAssembly;
     VkViewport                                   _viewport;
     VkRect2D                                     _scissor;
@@ -52,6 +51,8 @@ class PipelineBuilder {
 
     std::string ci_vertexShader;
     std::string ci_fragmentShader;
+
+    VertexInputDescription ci_vertexInput;
 
     PipelineBuilder &add_viewport(VkExtent2D viewport);
     PipelineBuilder &add_vertex_attribute(VertexInputDescription vertex_attributes);

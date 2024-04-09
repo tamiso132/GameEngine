@@ -2,7 +2,10 @@
 #include "mesh.h"
 #include "util/vk_initializers.h"
 #include "vk_engine.h"
+#include <cstdint>
+#include <cstdio>
 #include <filesystem>
+#include <iostream>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -54,7 +57,7 @@ namespace util {
     }
 } // namespace util
 namespace vkinit {
-    VkPipelineColorBlendStateCreateInfo color_blend_info(std::vector<VkPipelineColorBlendAttachmentState> colorBlendStates) {
+    VkPipelineColorBlendStateCreateInfo color_blend_info(const std::vector<VkPipelineColorBlendAttachmentState> &colorBlendStates) {
         VkPipelineColorBlendStateCreateInfo colorBlending = {};
         colorBlending.sType                               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         colorBlending.pNext                               = nullptr;
@@ -86,20 +89,41 @@ namespace vkinit {
         multisampleInfo.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         multisampleInfo.rasterizationSamples = sample_count;
         multisampleInfo.sampleShadingEnable  = shadingSample; // You can set this to VK_TRUE if you want to enable sample shading
+
+        return multisampleInfo;
     }
 
 }; // namespace vkinit
 void ShaderContext::init_all_shaders(VkDevice device) {
-    std::filesystem::path shader_path = PROJECT_ROOT_PATH + std::string("/shaders");
+    auto relativeShaderPath = std::string("/shaders/spiv");
+
+    std::filesystem::path shader_path = PROJECT_ROOT_PATH + relativeShaderPath;
 
     // Iterate over the files in the folder
     for (const auto &entry : std::filesystem::directory_iterator(shader_path)) {
-        VkShaderModule module;
-        util::load_shader_module(device, entry.path().c_str(), &module);
-        ci_shaders[entry.path().filename()] = module;
+
+        if (entry.path().filename().extension() != ".spv") {
+            printf("extension: %s\n", entry.path().filename().extension().c_str());
+            continue;
+        }
+
+        VkShaderModule module        = nullptr;
+        std::string    relative_path = relativeShaderPath + "/" + entry.path().filename().c_str();
+        util::load_shader_module(device, relative_path.c_str(), &module);
+
+        if (module == nullptr) {
+            printf("Error reading shader file. %s\n", entry.path().c_str());
+        } else {
+
+            ci_shaders[entry.path().filename()] = module;
+        }
     }
 }
-void Pipeline::init_pipeline(VkDevice device) { ci_shaders.init_all_shaders(device); }
+void Pipeline::init_pipeline(VkDevice device) {
+    ci_shaders.init_all_shaders(device);
+    this->device = device;
+}
+
 void Pipeline::build_pipeline(PipelineBuilder builder, std::string name) {
     VkPipelineLayoutCreateInfo layoutInfo = vkinit::pipeline_layout_create_info();
 
@@ -108,12 +132,14 @@ void Pipeline::build_pipeline(PipelineBuilder builder, std::string name) {
 
     VK_CHECK(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &builder._pipelineLayout));
 
-    VkPipelineViewportStateCreateInfo    viewportState   = vkinit::viewport_state_info(&builder._viewport, &builder._scissor);
-    VkPipelineColorBlendStateCreateInfo  colorBlending   = vkinit::color_blend_info({builder._colorBlendAttachment});
+    VkPipelineViewportStateCreateInfo viewportState = vkinit::viewport_state_info(&builder._viewport, &builder._scissor);
+
     VkPipelineMultisampleStateCreateInfo multisampleInfo = vkinit::multi_sample_info(VK_SAMPLE_COUNT_1_BIT, VK_FALSE);
 
     builder.add_shader(ci_shaders.ci_shaders[builder.ci_vertexShader], VK_SHADER_STAGE_VERTEX_BIT);
     builder.add_shader(ci_shaders.ci_shaders[builder.ci_fragmentShader], VK_SHADER_STAGE_FRAGMENT_BIT);
+
+    VkPipelineColorBlendStateCreateInfo colorBlending = vkinit::color_blend_info({builder._colorBlendAttachment});
 
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType                        = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -122,18 +148,27 @@ void Pipeline::build_pipeline(PipelineBuilder builder, std::string name) {
 
     pipelineInfo.pMultisampleState = &multisampleInfo;
 
-    pipelineInfo.stageCount          = builder._shaderStages.size();
-    pipelineInfo.pStages             = builder._shaderStages.data();
-    pipelineInfo.pVertexInputState   = &builder._vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &builder._inputAssembly;
+    pipelineInfo.stageCount = builder._shaderStages.size();
+    pipelineInfo.pStages    = builder._shaderStages.data();
+
     pipelineInfo.pViewportState      = &viewportState;
     pipelineInfo.pRasterizationState = &builder._rasterizer;
     pipelineInfo.pColorBlendState    = &colorBlending;
     pipelineInfo.pDepthStencilState  = &builder._depthStencil;
     pipelineInfo.layout              = builder._pipelineLayout;
+    pipelineInfo.pInputAssemblyState = &builder._inputAssembly;
     pipelineInfo.subpass             = 0;
     pipelineInfo.basePipelineHandle  = VK_NULL_HANDLE;
 
+    VkPipelineVertexInputStateCreateInfo vertexInputState = vkinit::vertex_input_state_create_info();
+
+    vertexInputState.vertexAttributeDescriptionCount = builder.ci_vertexInput.attributes.size();
+    vertexInputState.vertexBindingDescriptionCount   = builder.ci_vertexInput.bindings.size();
+
+    vertexInputState.pVertexBindingDescriptions   = builder.ci_vertexInput.bindings.data();
+    vertexInputState.pVertexAttributeDescriptions = builder.ci_vertexInput.attributes.data();
+
+    pipelineInfo.pVertexInputState = &vertexInputState;
     // its easy to error out on create graphics pipeline, so we handle it a bit
     // better than the common VK_CHECK case
     VkPipeline newPipeline;
@@ -160,12 +195,7 @@ PipelineBuilder &PipelineBuilder::add_viewport(VkExtent2D windowExtent) {
 }
 
 PipelineBuilder &PipelineBuilder::add_vertex_attribute(VertexInputDescription vertex_attributes) {
-    _vertexInputInfo.pVertexAttributeDescriptions = vertex_attributes.attributes.data();
-    _vertexInputInfo.pVertexBindingDescriptions   = vertex_attributes.bindings.data();
-
-    _vertexInputInfo.vertexAttributeDescriptionCount = vertex_attributes.attributes.size();
-    _vertexInputInfo.vertexBindingDescriptionCount   = vertex_attributes.bindings.size();
-
+    ci_vertexInput = vertex_attributes;
     return *this;
 }
 PipelineBuilder &PipelineBuilder::add_shader(VkShaderModule module, VkShaderStageFlagBits shaderStage) {
@@ -195,14 +225,14 @@ PipelineBuilder &PipelineBuilder::add_attachments_formats(std::vector<VkFormat> 
     pipelineCreateInfo.pColorAttachmentFormats          = colorFormats.data();
     pipelineCreateInfo.colorAttachmentCount             = colorFormats.size();
     pipelineCreateInfo.depthAttachmentFormat            = depthFormat;
-    this->ci_renderInfo                                 = {pipelineCreateInfo};
+    ci_renderInfo                                       = {pipelineCreateInfo};
+
     return *this;
 }
 
 PipelineBuilder PipelineBuilder::default_pipeline_builder(VulkanContextGlobal vulkanContext, std::string vertexShader, std::string fragmentShader) {
     PipelineBuilder pipelineBuilder;
-    pipelineBuilder._vertexInputInfo = vkinit::vertex_input_state_create_info();
-    pipelineBuilder._inputAssembly   = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    pipelineBuilder._inputAssembly = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
     pipelineBuilder = pipelineBuilder.add_viewport(vulkanContext.windowExtent).add_vertex_attribute(VertexBlock::vertex_input_description());
 
