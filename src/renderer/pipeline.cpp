@@ -2,6 +2,7 @@
 #include "mesh.h"
 #include "util/vk_initializers.h"
 #include "vk_engine.h"
+#include "vk_resource.h"
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
@@ -93,6 +94,17 @@ namespace vkinit {
         return multisampleInfo;
     }
 
+    VkPipelineRenderingCreateInfoKHR pipeline_render_create_info_khr(VkFormat &colorFormat, VkFormat depthFormat) {
+        VkPipelineRenderingCreateInfoKHR pipelineCreateInfo = {};
+        pipelineCreateInfo.sType                            = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+        pipelineCreateInfo.pNext                            = nullptr;
+        pipelineCreateInfo.pColorAttachmentFormats          = &colorFormat;
+        pipelineCreateInfo.colorAttachmentCount             = 1;
+        pipelineCreateInfo.depthAttachmentFormat            = depthFormat;
+
+        return pipelineCreateInfo;
+    }
+
 }; // namespace vkinit
 void ShaderContext::init_all_shaders(VkDevice device) {
     auto relativeShaderPath = std::string("/shaders/spiv");
@@ -116,6 +128,7 @@ void ShaderContext::init_all_shaders(VkDevice device) {
         } else {
 
             ci_shaders[entry.path().filename()] = module;
+            util::debug_object_set_name((uint64_t)module, VK_OBJECT_TYPE_SHADER_MODULE, entry.path().filename().c_str(), device);
         }
     }
 }
@@ -129,7 +142,6 @@ void Pipeline::build_pipeline(PipelineBuilder builder, std::string name) {
 
     layoutInfo.pSetLayouts    = builder.ci_layoutSets.data();
     layoutInfo.setLayoutCount = builder.ci_layoutSets.size();
-
     VK_CHECK(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &builder._pipelineLayout));
 
     VkPipelineViewportStateCreateInfo viewportState = vkinit::viewport_state_info(&builder._viewport, &builder._scissor);
@@ -139,7 +151,14 @@ void Pipeline::build_pipeline(PipelineBuilder builder, std::string name) {
     builder.add_shader(ci_shaders.ci_shaders[builder.ci_vertexShader], VK_SHADER_STAGE_VERTEX_BIT);
     builder.add_shader(ci_shaders.ci_shaders[builder.ci_fragmentShader], VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    VkPipelineColorBlendStateCreateInfo colorBlending = vkinit::color_blend_info({builder._colorBlendAttachment});
+    VkPipelineColorBlendStateCreateInfo colorBlending = {};
+    colorBlending.sType                               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.pNext                               = nullptr;
+
+    colorBlending.logicOpEnable   = VK_FALSE;
+    colorBlending.logicOp         = VK_LOGIC_OP_COPY;
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments    = &builder._colorBlendAttachment;
 
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType                        = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -218,15 +237,9 @@ PipelineBuilder &PipelineBuilder::add_depth(bool bDepthTest, bool bDepthWrite, V
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::add_attachments_formats(std::vector<VkFormat> colorFormats, VkFormat depthFormat) {
-    VkPipelineRenderingCreateInfoKHR pipelineCreateInfo = {};
-    pipelineCreateInfo.sType                            = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    pipelineCreateInfo.pNext                            = nullptr;
-    pipelineCreateInfo.pColorAttachmentFormats          = colorFormats.data();
-    pipelineCreateInfo.colorAttachmentCount             = colorFormats.size();
-    pipelineCreateInfo.depthAttachmentFormat            = depthFormat;
-    ci_renderInfo                                       = {pipelineCreateInfo};
-
+PipelineBuilder &PipelineBuilder::add_attachments_formats(VkFormat format, VkFormat depthFormat) {
+    ci_swapchainFormat = format;
+    ci_renderInfo      = vkinit::pipeline_render_create_info_khr(ci_swapchainFormat, depthFormat);
     return *this;
 }
 
@@ -240,7 +253,7 @@ PipelineBuilder PipelineBuilder::default_pipeline_builder(VulkanContextGlobal vu
     pipelineBuilder.ci_fragmentShader = fragmentShader;
 
     pipelineBuilder._colorBlendAttachment = vkinit::color_blend_attachment_state();
-    pipelineBuilder._depthStencil         = vkinit::depth_stencil_create_info(false, false, VK_COMPARE_OP_NEVER);
+    pipelineBuilder._depthStencil         = vkinit::depth_stencil_create_info(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder._rasterizer           = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
     pipelineBuilder._rasterizer.cullMode  = VK_CULL_MODE_NONE;
 

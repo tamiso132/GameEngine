@@ -32,6 +32,8 @@ class VulkanEngine {
     bool                _isInitialized{false};
     VulkanContextGlobal ci_vulkanGlobal = {};
 
+    DescriptorAllocatorGrowable ci_globalDescriptorAllocator;
+
     VkPhysicalDeviceProperties _gpuProperties;
 
     VkQueue  _graphicsQueue;

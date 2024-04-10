@@ -10,29 +10,6 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-void transition_image_layout(VkCommandBuffer cmd, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image) {
-    const VkImageMemoryBarrier image_memory_barrier2{.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                                                     .srcAccessMask    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                                                     .oldLayout        = oldLayout,
-                                                     .newLayout        = newLayout,
-                                                     .image            = image,
-                                                     .subresourceRange = {
-                                                         .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-                                                         .baseMipLevel   = 0,
-                                                         .levelCount     = 1,
-                                                         .baseArrayLayer = 0,
-                                                         .layerCount     = 1,
-                                                     }};
-
-    vkCmdPipelineBarrier(cmd,
-                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // srcStageMask
-                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,          // dstStageMask
-                         0, 0, nullptr, 0, nullptr,
-                         1,                     // imageMemoryBarrierCount
-                         &image_memory_barrier2 // pImageMemoryBarriers
-    );
-}
-
 std::string get_valid_blueprint_counter_name(ResourceBuilder::Blueprint resourceContext, std::unordered_map<std::string, ResourceIndex> resource_index) {
     std::string extName = "";
     std::string nameCheck;
@@ -54,8 +31,95 @@ static void create_layout(){
 
 };
 
+namespace util {
+
+    static PFN_vkSetDebugUtilsObjectNameEXT setDebugName;
+
+    void debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, VkDevice device) {
+        VkDebugUtilsObjectNameInfoEXT debugNameInfo = {};
+        debugNameInfo.sType                         = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+        debugNameInfo.objectType                    = type;
+        debugNameInfo.objectHandle                  = objectHandle;
+        debugNameInfo.pObjectName                   = name;
+
+        setDebugName(device, &debugNameInfo);
+    };
+
+    void transition_image_layout(VkCommandBuffer cmd, VkImageLayout newLayout, ImageContext &imageContext) {
+
+        VkImageMemoryBarrier barrier = VkImageMemoryBarrier{.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                                                            .srcAccessMask    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                                                            .oldLayout        = imageContext.layout,
+                                                            .newLayout        = newLayout,
+                                                            .image            = imageContext.alloc._image,
+                                                            .subresourceRange = {
+                                                                .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                .baseMipLevel   = 0,
+                                                                .levelCount     = 1,
+                                                                .baseArrayLayer = 0,
+                                                                .layerCount     = imageContext.layerCount,
+                                                            }};
+
+        VkPipelineStageFlags srcStage;
+        VkPipelineStageFlags dstStage;
+
+        if (VK_IMAGE_LAYOUT_UNDEFINED == imageContext.layout && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+            // earliest stage of the pipeline
+            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+            // Transfer stage
+            dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        }
+
+        else if (VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL == imageContext.layout && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            // From a copying stage to...
+            srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+            // The fragment stage.
+            dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+        } else if (VK_IMAGE_LAYOUT_PRESENT_SRC_KHR == newLayout) {
+
+            // From color attachment to Present
+            barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+
+            // Write to swapchain stage
+            srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            // done with everything
+            dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        }
+
+        else if (imageContext.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+
+            // From Present back to Color attachment
+            barrier.srcAccessMask = VK_ACCESS_NONE_KHR;
+            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        }
+
+        vkCmdPipelineBarrier(cmd,
+                             srcStage, // srcStageMask
+                             dstStage, // dstStageMask
+                             0, 0, nullptr, 0, nullptr,
+                             1,       // imageMemoryBarrierCount
+                             &barrier // pImageMemoryBarriers
+        );
+        imageContext.layout = newLayout;
+    }
+} // namespace util
+
 namespace vkinit {
-    VkBufferImageCopy buffer_image_copy_info(VkExtent3D extent) {
+    VkBufferImageCopy buffer_image_copy_info(VkExtent3D extent, uint32_t layerCount) {
         VkBufferImageCopy copyRegion = {};
         copyRegion.bufferOffset      = 0;
         copyRegion.bufferRowLength   = 0;
@@ -64,7 +128,7 @@ namespace vkinit {
         copyRegion.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
         copyRegion.imageSubresource.mipLevel       = 0;
         copyRegion.imageSubresource.baseArrayLayer = 0;
-        copyRegion.imageSubresource.layerCount     = 1;
+        copyRegion.imageSubresource.layerCount     = layerCount;
         copyRegion.imageExtent                     = extent;
 
         return copyRegion;
@@ -92,16 +156,6 @@ namespace vkinit {
 
         return imageRegion;
     }
-
-    void debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, PFN_vkSetDebugUtilsObjectNameEXT setDebugName, VkDevice device) {
-        VkDebugUtilsObjectNameInfoEXT debugNameInfo = {};
-        debugNameInfo.sType                         = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-        debugNameInfo.objectType                    = type;
-        debugNameInfo.objectHandle                  = objectHandle;
-        debugNameInfo.pObjectName                   = name;
-
-        setDebugName(device, &debugNameInfo);
-    };
 
     ResourceBuilder::BufferObjectCreateInfo buffer_create_info(size_t allocSize, BufferType type, MemoryType memory = MemoryType::BestFit, const char *objectName = nullptr) {
         VkMemoryPropertyFlags memoryType;
@@ -289,8 +343,11 @@ VkDescriptorSet DescriptorAllocatorGrowable::allocate(VkDevice device, VkDescrip
 /*DescriptorLayout Builder*/
 void DescriptorLayoutBuilder::add_image(ResourceIndex handle) {
     VkDescriptorSetLayoutBinding newbind{};
+
     newbind.binding         = ci_context.bindingCount;
     newbind.descriptorCount = 1;
+    newbind.stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+    newbind.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
     ci_context.bindings.push_back(newbind);
 
@@ -298,10 +355,11 @@ void DescriptorLayoutBuilder::add_image(ResourceIndex handle) {
     ci_context.bindingCount++;
 }
 
-void DescriptorLayoutBuilder::add_buffer(ResourceIndex handle) {
+void DescriptorLayoutBuilder::add_buffer(ResourceIndex handle, VkShaderStageFlagBits shaderStage) {
     VkDescriptorSetLayoutBinding newbind{};
     newbind.binding         = ci_context.bindingCount;
     newbind.descriptorCount = 1;
+    newbind.stageFlags      = shaderStage;
 
     ci_context.bindings.push_back(newbind);
 
@@ -418,10 +476,11 @@ ResourceBuilder::Blueprint ResourceBuilder::get_blueprint() { return ci_blueprin
 void ResourceContext::init(VkPhysicalDevice physical, VkDevice device, VkInstance instance, VulkanQueue transferQueue, VulkanQueue graphicQueue, VkCommandBuffer cmdGraphic,
                            PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtil) {
 
-    ci_device        = device;
-    ci_transferQueue = transferQueue;
-    ci_graphicQueue  = graphicQueue;
-    ci_cmdGraphic    = cmdGraphic;
+    ci_device          = device;
+    ci_transferQueue   = transferQueue;
+    ci_graphicQueue    = graphicQueue;
+    ci_cmdGraphic      = cmdGraphic;
+    util::setDebugName = vkSetDebugUtil;
 
     VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(ci_transferQueue.queueIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &ci_pool));
@@ -434,7 +493,6 @@ void ResourceContext::init(VkPhysicalDevice physical, VkDevice device, VkInstanc
     allocatorInfo.device                 = device;
     allocatorInfo.instance               = instance;
 
-    this->vkSetDebugUtilsObjectNameEXT = vkSetDebugUtil;
     DescriptorAllocatorGrowable::PoolSizeRatio poolRatio;
 
     std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> poolRatios;
@@ -540,14 +598,14 @@ void ResourceContext::write_to_image_from_cpu(ResourceIndex imageDstHandle, void
         vkBeginCommandBuffer(cmd, &beginInfo);
     }
 
-    auto imageDst = ci_images[imageDstHandle];
+    ImageContext imageDst = ci_images[imageDstHandle];
 
-    transition_image_layout(cmd, oldLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageDst.alloc._image);
+    util::transition_image_layout(cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageDst);
     auto copyRegion = vkinit::buffer_image_copy_info(ci_extents[ci_images[imageDstHandle].extentIndex]);
 
     vkCmdCopyBufferToImage(cmd, ci_buffers[stagingIndex].alloc._buffer, imageDst.alloc._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-    transition_image_layout(cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, newLayout, imageDst.alloc._image);
+    util::transition_image_layout(cmd, newLayout, imageDst);
 
     if (isImmediate) {
         // send it
@@ -560,7 +618,7 @@ void ResourceContext::write_to_image_from_cpu(ResourceIndex imageDstHandle, void
         ci_resourceCounter--;
     }
 }
-void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext context) {
+void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext &context) {
 
     size_t   gridLength = atlasImageInfo.imageInfo.extent.height;
     size_t   pixelSize  = atlasImageInfo.textureAtlas.value().pixelSize;
@@ -608,52 +666,14 @@ void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateI
     VmaAllocationCreateInfo dimg_allocinfo = {};
     dimg_allocinfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    VkImageSubresourceRange range;
-    range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-    range.baseMipLevel   = 0;
-    range.levelCount     = 1;
-    range.baseArrayLayer = 0;
-    range.layerCount     = atlasImageInfo.imageInfo.arrayLayers;
-
-    VkImageMemoryBarrier imageBarrier_toTransfer = {};
-    imageBarrier_toTransfer.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-
-    imageBarrier_toTransfer.oldLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageBarrier_toTransfer.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    imageBarrier_toTransfer.image            = context.alloc._image;
-    imageBarrier_toTransfer.subresourceRange = range;
-
-    imageBarrier_toTransfer.srcAccessMask = 0;
-    imageBarrier_toTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-    // barrier the image into the transfer-receive layout
-    vkCmdPipelineBarrier(ci_cmdGraphic, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toTransfer);
-
-    VkBufferImageCopy copyRegion = {};
-    copyRegion.bufferOffset      = 0;
-    copyRegion.bufferRowLength   = 0;
-    copyRegion.bufferImageHeight = 0;
-
-    copyRegion.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-    copyRegion.imageSubresource.mipLevel       = 0;
-    copyRegion.imageSubresource.baseArrayLayer = 0;
-    copyRegion.imageSubresource.layerCount     = atlasImageInfo.imageInfo.arrayLayers;
-    copyRegion.imageExtent                     = atlasImageInfo.imageInfo.extent;
+    util::transition_image_layout(ci_cmdGraphic, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, context);
+    VkBufferImageCopy copyRegion = vkinit::buffer_image_copy_info(atlasImageInfo.imageInfo.extent);
 
     // copy the buffer into the image
 
     vkCmdCopyBufferToImage(ci_cmdGraphic, stagingBuffer._buffer, context.alloc._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-    VkImageMemoryBarrier imageBarrier_toReadable = imageBarrier_toTransfer;
-
-    imageBarrier_toReadable.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    imageBarrier_toReadable.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    imageBarrier_toReadable.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    imageBarrier_toReadable.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    // barrier the image into the shader readable layout
-    vkCmdPipelineBarrier(ci_cmdGraphic, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toReadable);
+    util::transition_image_layout(ci_cmdGraphic, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, context);
 
     vkEndCommandBuffer(ci_cmdGraphic);
 
@@ -663,12 +683,10 @@ void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateI
 
     return vmaDestroyBuffer(ci_allocator, stagingBuffer._buffer, stagingBuffer._allocation);
 }
+
 VkDescriptorSetLayout ResourceContext::build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkShaderStageFlags shaderFlag,
                                                                          VkDescriptorSetLayout layout) {
     VkDescriptorSetLayout new_layout = layout;
-    for (size_t i = 0; i < builderContext.bindings.size(); i++) {
-        builderContext.bindings[i].stageFlags = shaderFlag;
-    }
 
     for (int i = 0; i < builderContext.bindings.size(); i++) {
         auto binding = &builderContext.bindings[i];
@@ -708,8 +726,8 @@ VkDescriptorSetLayout ResourceContext::build_descriptor_layout_blueprint(Descrip
 
         if (builderContext.imageIndices.contains(i)) {
             auto                  imageContext = ci_images[builderContext.imageIndices[i]];
-            VkDescriptorImageInfo info  = imageInfos.emplace_back(VkDescriptorImageInfo{.sampler = imageContext.sampler, .imageView = imageContext.view, .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED});
-            VkWriteDescriptorSet  write = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+            VkDescriptorImageInfo info         = imageInfos.emplace_back(VkDescriptorImageInfo{.sampler = imageContext.sampler, .imageView = imageContext.view, .imageLayout = imageContext.layout});
+            VkWriteDescriptorSet  write        = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 
             write.dstBinding      = i;
             write.dstSet          = set; // left empty for now until we need to write it
@@ -761,7 +779,7 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
 
         vmaCreateBuffer(ci_allocator, &bufferInfo.bufferInfo, &bufferInfo.allocInfo, &context.alloc._buffer, &context.alloc._allocation, nullptr);
 
-        vkinit::debug_object_set_name((uint64_t)context.alloc._buffer, VK_OBJECT_TYPE_BUFFER, name.c_str(), this->vkSetDebugUtilsObjectNameEXT, ci_device);
+        util::debug_object_set_name((uint64_t)context.alloc._buffer, VK_OBJECT_TYPE_BUFFER, name.c_str(), ci_device);
         uint64_t      binding       = uint64_t(bufferInfo.bindingNumber) << 56;
         ResourceIndex resourceIndex = binding | ci_resourceCounter;
 
@@ -785,6 +803,9 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
 
         ImageContext context = {};
         std::string  name    = imageInfo.name + counterTXT;
+        context.type         = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        context.layout       = VK_IMAGE_LAYOUT_UNDEFINED;
+        context.layerCount   = imageInfo.imageInfo.arrayLayers;
 
         VK_CHECK(vmaCreateImage(ci_allocator, &imageInfo.imageInfo, &imageInfo.allocInfo, &context.alloc._image, &context.alloc._allocation, nullptr));
         imageInfo.imageViewInfo.image = context.alloc._image;
@@ -803,14 +824,14 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
         ci_images[resourceIndex] = context;
         uint64_t objectHandle    = (uint64_t)context.alloc._image;
 
-        vkinit::debug_object_set_name(objectHandle, VK_OBJECT_TYPE_IMAGE, name.c_str(), this->vkSetDebugUtilsObjectNameEXT, ci_device);
+        util::debug_object_set_name(objectHandle, VK_OBJECT_TYPE_IMAGE, name.c_str(), ci_device);
 
         if (imageInfo.data != nullptr) {
             if (!imageInfo.textureAtlas.has_value()) {
                 write_to_image_from_cpu(resourceIndex, imageInfo.data, imageInfo.dataSize, imageInfo.imageInfo.initialLayout, imageInfo.imageInfo.initialLayout);
             } else {
                 // create staging
-                write_to_texture_array(imageInfo, context);
+                write_to_texture_array(imageInfo, ci_images[resourceIndex]);
             }
 
             if (imageInfo.copy) {

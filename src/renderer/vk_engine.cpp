@@ -22,6 +22,7 @@
 #include "mesh.h"
 #include "pipeline.h"
 #include "util/vk_initializers.h"
+#include "vk_resource.h"
 #include "vk_types.h"
 
 #define VMA_IMPLEMENTATION
@@ -97,19 +98,37 @@ void VulkanEngine::init() {
 
     ci_meshes.init_mesh(ci_resourceContext);
 
-    auto pngContext = load_png("assets/texture_atlas_0.png");
+    auto pngContext   = load_png("assets/texture_atlas_0.png");
+    auto pngNormalMap = load_png("assets/texture_atlas_0_normalmap.png");
 
-    ResourceBuilder dynamicBuilder;
-    ResourceBuilder staticBuilder;
+    ResourceBuilder dynamicBuilder{};
+    ResourceBuilder staticBuilder{};
 
     dynamicBuilder.add_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::Storage, "objects", MemoryType::HostVisible);
     dynamicBuilder.add_buffer(sizeof(GPUCamera), BufferType::Uniform, "camera", MemoryType::HostVisible);
 
-    staticBuilder.add_image_array_with_view(VK_FORMAT_R8G8B8A8_SRGB, pngContext.pixelSize, 64, pngContext.texWidth, pngContext.texHeight, "texture_atlas_0", pngContext.pixels);
-    ResourceIndex          textureAtlasIndex = ci_resourceContext.build_resource_blueprint(staticBuilder.get_blueprint());
+    staticBuilder.add_image_array_with_view(VK_FORMAT_R8G8B8A8_SRGB, pngContext.pixelSize, 64, pngContext.texWidth, pngContext.texHeight, "texture_atlas", pngContext.pixels);
+    staticBuilder.add_image_array_with_view(VK_FORMAT_R8G8B8A8_SRGB, pngNormalMap.pixelSize, 64, pngNormalMap.texWidth, pngNormalMap.texHeight, "texture_atlas_normal", pngNormalMap.pixels);
+    staticBuilder.add_buffer(sizeof(GPUTexture) * 5, BufferType::Storage, "materials");
+
+    ResourceIndex textureAtlasIndex = ci_resourceContext.build_resource_blueprint(staticBuilder.get_blueprint());
+
     std::vector<FrameData> frames;
 
     VkDescriptorSetLayout layout = nullptr;
+
+    std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> ratios;
+    ratios.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1});
+    ratios.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1});
+
+    ci_globalDescriptorAllocator.init(ci_vulkanGlobal.device, 5, ratios);
+
+    DescriptorLayoutBuilder textureLayoutBuilder;
+    textureLayoutBuilder.add_image(ci_resourceContext.get_resource_by_name("texture_atlas"));
+    textureLayoutBuilder.add_image(ci_resourceContext.get_resource_by_name("texture_atlas_normal"));
+    textureLayoutBuilder.add_buffer(ci_resourceContext.get_resource_by_name("materials"), VK_SHADER_STAGE_FRAGMENT_BIT);
+
+    VkDescriptorSetLayout textureLayout = ci_resourceContext.build_descriptor_layout_blueprint(textureLayoutBuilder.get_blueprint(), ci_globalDescriptorAllocator, VK_SHADER_STAGE_FRAGMENT_BIT);
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         FrameData frame;
@@ -131,7 +150,7 @@ void VulkanEngine::init() {
         if (i == 0) {
             c = '\0';
         } else {
-            c = static_cast<char>(i-1);
+            c = static_cast<char>(i - 1);
         }
 
         ci_resourceContext.build_resource_blueprint(dynamicBuilder.get_blueprint());
@@ -141,11 +160,11 @@ void VulkanEngine::init() {
 
         DescriptorLayoutBuilder layoutBuilder;
 
-        layoutBuilder.add_image(textureAtlasIndex);
-        layoutBuilder.add_buffer(cameraIndex);
-        layoutBuilder.add_buffer(objectsIndex);
+        layoutBuilder.add_buffer(cameraIndex, VK_SHADER_STAGE_VERTEX_BIT);
+        layoutBuilder.add_buffer(objectsIndex, VK_SHADER_STAGE_VERTEX_BIT);
 
         layout = ci_resourceContext.build_descriptor_layout_blueprint(layoutBuilder.get_blueprint(), frame.descriptorAllocator, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, layout);
+
         frames.push_back(frame);
     };
 
@@ -153,13 +172,13 @@ void VulkanEngine::init() {
 
     pipeline.init_pipeline(ci_vulkanGlobal.device);
 
-    PipelineBuilder pipelineBuilder = PipelineBuilder::default_pipeline_builder(ci_vulkanGlobal, "colored_triangle.vert", "colored_triangle.frag");
+    PipelineBuilder pipelineBuilder = PipelineBuilder::default_pipeline_builder(ci_vulkanGlobal, "colored_triangle.vert.spv", "colored_triangle.frag.spv");
 
     pipelineBuilder.add_attachments_formats({_swapchainImageFormat}, _depthFormat);
     pipelineBuilder.add_depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.add_cull_mode(VK_CULL_MODE_BACK_BIT);
     pipelineBuilder.add_vertex_attribute(VertexBlock::vertex_input_description());
-    pipelineBuilder.add_layout_sets({layout});
+    pipelineBuilder.add_layout_sets({textureLayout, layout});
 
     pipeline.build_pipeline(pipelineBuilder, "main_pipeline");
     _isInitialized = true;

@@ -17,13 +17,15 @@
 #include <vulkan/vulkan_core.h>
 // 56 bits for blueprint number
 // 8 bits for bindings
-void transition_image_layout(VkCommandBuffer cmd, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image);
 
 namespace vkinit {
-    VkBufferImageCopy buffer_image_copy_info(VkExtent3D extent);
+    VkBufferImageCopy buffer_image_copy_info(VkExtent3D extent, uint32_t layerCount = 1);
     VkImageCopy       image_image_copy_info(VkExtent3D extent);
-    void              debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, PFN_vkSetDebugUtilsObjectNameEXT setDebugName, VkDevice device);
 } // namespace vkinit
+
+namespace util {
+    void debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, VkDevice device);
+} // namespace util
 
 enum class BufferType {
     Vertex  = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -44,6 +46,8 @@ struct ImageContext {
     AllocatedImage   alloc;
     uint8_t          extentIndex;
     VkDescriptorType type;
+    VkImageLayout    layout;
+    uint16_t         layerCount = 1;
 };
 
 struct ObserverMeta {
@@ -90,7 +94,7 @@ struct DescriptorAllocatorGrowable {
 //> descriptor_layout
 struct DescriptorLayoutBuilder {
 
-    void add_buffer(ResourceIndex handle);
+    void add_buffer(ResourceIndex handle, VkShaderStageFlagBits shaderStage);
     void add_image(ResourceIndex handle);
     void clear();
 
@@ -219,7 +223,7 @@ struct ResourceContext {
 
     void write_to_image_from_cpu(ResourceIndex imageDstHandle, void *src, size_t sizeOfData, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer cmd = nullptr);
 
-    void write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext context);
+    void write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext &context);
 
     VkDescriptorSetLayout build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkShaderStageFlags shaderFlag,
                                                             VkDescriptorSetLayout layout = nullptr);
@@ -241,8 +245,6 @@ struct ResourceContext {
     std::unordered_map<ResourceIndex, BufferContext>         ci_buffers;
     std::unordered_map<ResourceIndex, ImageContext>          ci_images;
     std::unordered_map<VkDescriptorSetLayout, LayoutContext> ci_layouts;
-
-    PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
 
     VkSampler ci_default_sampler;
     VkDevice  ci_device;

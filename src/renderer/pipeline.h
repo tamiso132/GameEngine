@@ -48,6 +48,7 @@ class PipelineBuilder {
     VkPipelineDepthStencilStateCreateInfo        _depthStencil;
     std::vector<VkDescriptorSetLayout>           ci_layoutSets;
     VkPipelineRenderingCreateInfoKHR             ci_renderInfo;
+    VkFormat                                     ci_swapchainFormat;
 
     std::string ci_vertexShader;
     std::string ci_fragmentShader;
@@ -60,7 +61,7 @@ class PipelineBuilder {
     PipelineBuilder &add_layout_sets(std::vector<VkDescriptorSetLayout> layoutSets);
     PipelineBuilder &add_depth(bool bDepthTest, bool bDepthWrite, VkCompareOp compareOp);
     PipelineBuilder &add_cull_mode(VkCullModeFlags cullMode);
-    PipelineBuilder &add_attachments_formats(std::vector<VkFormat> colorFormats, VkFormat depthFormat);
+    PipelineBuilder &add_attachments_formats(VkFormat colorFormats, VkFormat depthFormat);
 
     static PipelineBuilder default_pipeline_builder(VulkanContextGlobal vulkanContext, std::string vertexShader, std::string fragmentShader);
 };

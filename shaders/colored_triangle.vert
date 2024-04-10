@@ -11,18 +11,23 @@ layout(location = 2) out uint outFaceIndex;
 layout(location = 3) out vec3 outFrag;
 layout(location = 4) out vec3 camPos;
 
-layout(set = 0, binding = 0) uniform CameraBuffer {
+
+
+
+struct ObjectData {
+    mat4 model;
+};
+
+layout(set = 1, binding = 0) uniform CameraBuffer {
     mat4 viewproj;
     vec3 camPos;
 
 }
 cameraData;
 
-struct ObjectData {
-    mat4 model;
-};
 
-layout(std140, set = 1, binding = 0) readonly buffer ObjectBuffer {
+
+layout(std140, set = 1, binding = 1) readonly buffer ObjectBuffer {
     ObjectData objects[]; // Declare as an array
 }
 objectBuffer;
