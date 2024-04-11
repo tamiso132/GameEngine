@@ -1,12 +1,6 @@
 #pragma once
 
-#include "common/std_common.h"
 #include "mesh.h"
-#include "vk_resource.h"
-#include <string>
-#include <unordered_map>
-#include <vector>
-#include <vulkan/vulkan_core.h>
 
 class PipelineBuilder;
 

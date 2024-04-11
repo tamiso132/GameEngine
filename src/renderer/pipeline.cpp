@@ -1,14 +1,8 @@
 #include "pipeline.h"
-#include "mesh.h"
 #include "util/vk_initializers.h"
-#include "vk_engine.h"
-#include "vk_resource.h"
-#include <cstdint>
-#include <cstdio>
+
 #include <filesystem>
-#include <iostream>
-#include <vector>
-#include <vulkan/vulkan_core.h>
+#include <fstream>
 
 namespace util {
     bool load_shader_module(VkDevice device, const char *filePath, VkShaderModule *outShaderModule) {

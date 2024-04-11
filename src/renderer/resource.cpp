@@ -1,14 +1,10 @@
-#include "util/helper.h"
-#include "util/vk_initializers.h"
-#include "vk_mem_alloc.h"
 #include "vk_resource.h"
-#include "vk_types.h"
-#include <cstddef>
-#include <cstdint>
-#include <cstdio>
+
 #include <cstring>
-#include <vector>
 #include <vulkan/vulkan_core.h>
+
+#include "util/vk_initializers.h"
+#include "vk_types.h"
 
 std::string get_valid_blueprint_counter_name(ResourceBuilder::Blueprint resourceContext, std::unordered_map<std::string, ResourceIndex> resource_index) {
     std::string extName = "";
@@ -27,10 +23,6 @@ std::string get_valid_blueprint_counter_name(ResourceBuilder::Blueprint resource
     return extName;
 }
 
-static void create_layout(){
-
-};
-
 namespace util {
 
     static PFN_vkSetDebugUtilsObjectNameEXT setDebugName;
@@ -44,6 +36,29 @@ namespace util {
 
         setDebugName(device, &debugNameInfo);
     };
+    void transition_image_present(VkCommandBuffer cmd, VkImage image) {
+
+        VkAccessFlags srcAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        VkAccessFlags dstAccess = VK_ACCESS_MEMORY_READ_BIT;
+
+        VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+
+        VkImageMemoryBarrier barrier = vkinit::image_barrier_info(image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, srcAccess, dstAccess);
+        vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    };
+
+    void transition_image_color_attachment(VkCommandBuffer cmd, VkImage image) {
+
+        VkAccessFlags srcAccess = VK_ACCESS_NONE_KHR;
+        VkAccessFlags dstAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+        VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+        VkImageMemoryBarrier barrier = vkinit::image_barrier_info(image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, srcAccess, dstAccess);
+        vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    }
 
     void transition_image_layout(VkCommandBuffer cmd, VkImageLayout newLayout, ImageContext &imageContext) {
 
@@ -119,6 +134,28 @@ namespace util {
 } // namespace util
 
 namespace vkinit {
+
+    VkImageMemoryBarrier image_barrier_info(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccess, VkAccessFlags dstAccess) {
+
+        VkImageSubresourceRange subresourceRange = {};
+
+        subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        subresourceRange.levelCount = 1;
+        subresourceRange.layerCount = 1;
+
+        VkImageMemoryBarrier barrier = {};
+
+        barrier.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout        = oldLayout;
+        barrier.newLayout        = newLayout;
+        barrier.image            = image;
+        barrier.srcAccessMask    = srcAccess;
+        barrier.dstAccessMask    = dstAccess;
+        barrier.subresourceRange = subresourceRange;
+
+        return barrier;
+    };
+
     VkBufferImageCopy buffer_image_copy_info(VkExtent3D extent, uint32_t layerCount) {
         VkBufferImageCopy copyRegion = {};
         copyRegion.bufferOffset      = 0;
@@ -211,6 +248,7 @@ namespace vkinit {
 
         return info;
     }
+
     void copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandBuffer cmd, VkQueue queue) {
         VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
         VK_CHECK(vkResetCommandBuffer(cmd, 0));
@@ -470,6 +508,50 @@ void ResourceBuilder::add_image_with_view(VkFormat format, VkImageUsageFlags usa
     ci_bindingCounter++;
 };
 
+void ResourceBuilder::add_image_array_with_view(VkFormat format, size_t pixelSize, size_t gridLength, int maxWidth, int maxHeight, std::string name, uint8_t *pixels, bool copy_data,
+                                                VkSampler sampler) {
+    VkDeviceSize oneImageSize = pixelSize * gridLength * gridLength;
+
+    VkDeviceSize imageSize = maxWidth * maxHeight * pixelSize;
+
+    uint32_t maxGridX = maxWidth / gridLength;
+    uint32_t maxGridY = maxHeight / gridLength;
+
+    TextureObjectCreateInfo atlasInfo = {};
+    atlasInfo.pixelSize               = pixelSize;
+    atlasInfo.texHeight               = maxHeight;
+    atlasInfo.texWidth                = maxWidth;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.requiredFlags           = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    allocInfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    VkImageCreateInfo vkImageInfo =
+        vkinit::image_create_info(format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VkExtent3D(gridLength, gridLength, 1));
+    vkImageInfo.arrayLayers = (maxHeight / gridLength) * (maxWidth / gridLength);
+    vkImageInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    VkImageViewCreateInfo viewInfo       = vkinit::imageview_create_info(format, nullptr, VK_IMAGE_ASPECT_COLOR_BIT);
+    viewInfo.viewType                    = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+    viewInfo.sType                       = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.subresourceRange.layerCount = (maxHeight / gridLength) * (maxWidth / gridLength);
+
+    ImageObjectCreateInfo imageInfo;
+    imageInfo.allocInfo     = {allocInfo};
+    imageInfo.imageInfo     = {vkImageInfo};
+    imageInfo.bindingNumber = ci_bindingCounter;
+    imageInfo.dataSize      = maxWidth * maxHeight * pixelSize;
+    imageInfo.sampler       = sampler ? std::optional(sampler) : std::nullopt;
+    imageInfo.name          = name;
+    imageInfo.imageViewInfo = viewInfo;
+    imageInfo.data          = copy_data ? new uint8_t[imageSize] : pixels;
+    imageInfo.textureAtlas  = std::optional(atlasInfo);
+    imageInfo.copy          = copy_data;
+
+    ci_blueprint.imageInfos.push_back(imageInfo);
+    ci_bindingCounter++;
+}
+
 ResourceBuilder::Blueprint ResourceBuilder::get_blueprint() { return ci_blueprint; }
 
 /*Resource Context*/
@@ -684,8 +766,7 @@ void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateI
     return vmaDestroyBuffer(ci_allocator, stagingBuffer._buffer, stagingBuffer._allocation);
 }
 
-VkDescriptorSetLayout ResourceContext::build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkShaderStageFlags shaderFlag,
-                                                                         VkDescriptorSetLayout layout) {
+VkDescriptorSetLayout ResourceContext::build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkDescriptorSetLayout layout) {
     VkDescriptorSetLayout new_layout = layout;
 
     for (int i = 0; i < builderContext.bindings.size(); i++) {

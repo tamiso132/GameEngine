@@ -2,21 +2,10 @@
 // or project specific include files.
 
 #pragma once
-
-#include "VkBootstrapDispatch.h"
-#include <glm/fwd.hpp>
-#include <vk_mem_alloc.h>
-#include <vulkan/vulkan.h>
-
-#include <fstream>
-#define GLM_ENABLE_EXPERIMENTAL
-
-#include <glm/glm.hpp>
-#include <glm/gtx/transform.hpp>
+#include "common/common_types.h"
 #include <iostream>
 
 typedef uint64_t ResourceIndex;
-class ResourceContext;
 
 struct VulkanQueue {
     VkQueue  queue;

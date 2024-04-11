@@ -9,17 +9,11 @@
 #include <glm/fwd.hpp>
 #include <imgui.h>
 #include <string>
-#include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#include <cstddef>
-#include <cstdint>
-#include <iostream>
-
 #include "VkBootstrap.h"
 #include "VkBootstrapDispatch.h"
-#include "mesh.h"
 #include "pipeline.h"
 #include "util/vk_initializers.h"
 #include "vk_resource.h"
@@ -27,7 +21,6 @@
 
 #define VMA_IMPLEMENTATION
 #include "imgui_impl_sdl2.h"
-#include "util/helper.h"
 #include "vk_mem_alloc.h"
 
 constexpr bool bUseValidationLayers = true;
@@ -41,6 +34,9 @@ std::vector<const char *> device_extensions = {"VK_KHR_dynamic_rendering"};
 const uint32_t MAX_OBJECTS = 20;
 
 const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+
+PFN_vkCmdBeginRenderingKHR cmdBeginRenderingKHR;
+PFN_vkCmdEndRenderingKHR   cmdEndRenderingKHR;
 
 namespace util {
     VkCommandBuffer create_cmd(VulkanContextGlobal context, uint32_t queueFamilyIndex, VkCommandPool pool) {
@@ -79,6 +75,36 @@ namespace util {
 
 }; // namespace util
 
+namespace vkinit {
+    VkRenderingAttachmentInfo render_attachment_info(VkClearValue clearValue, VkImageLayout layout, VkImageView view, VkAttachmentLoadOp loadOp, VkAttachmentStoreOp storeOp) {
+        VkRenderingAttachmentInfo attachment = {};
+
+        attachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        attachment.clearValue  = clearValue;
+        attachment.imageLayout = layout;
+        attachment.imageView   = view;
+        attachment.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachment.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
+        attachment.resolveMode = VK_RESOLVE_MODE_NONE;
+
+        return attachment;
+    }
+
+    VkRenderingInfoKHR render_info_khr(VkRenderingAttachmentInfo &colorAttachment, VkRenderingAttachmentInfo &depthAttachment, VkExtent2D windowExtent) {
+        VkRenderingInfoKHR dynamicInfo   = {};
+        dynamicInfo.pNext                = nullptr;
+        dynamicInfo.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        dynamicInfo.colorAttachmentCount = 1;
+        dynamicInfo.pColorAttachments    = &colorAttachment;
+        dynamicInfo.pDepthAttachment     = &depthAttachment;
+        dynamicInfo.renderArea           = {{0, 0}, windowExtent};
+        dynamicInfo.layerCount           = 1;
+
+        return dynamicInfo;
+    }
+
+} // namespace vkinit
+
 void VulkanEngine::init() {
     // We initialize SDL and create a window with it.
     SDL_Init(SDL_INIT_VIDEO);
@@ -89,6 +115,8 @@ void VulkanEngine::init() {
     vkb::DispatchTable table;
 
     init_vulkan(table);
+    cmdBeginRenderingKHR = table.fp_vkCmdBeginRenderingKHR;
+    cmdEndRenderingKHR   = table.fp_vkCmdEndRenderingKHR;
 
     pool = util::create_pool(ci_vulkanGlobal, _graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     cmd  = util::create_cmd(ci_vulkanGlobal, _graphicsQueueFamily, pool);
@@ -113,8 +141,6 @@ void VulkanEngine::init() {
 
     ResourceIndex textureAtlasIndex = ci_resourceContext.build_resource_blueprint(staticBuilder.get_blueprint());
 
-    std::vector<FrameData> frames;
-
     VkDescriptorSetLayout layout = nullptr;
 
     std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> ratios;
@@ -128,14 +154,14 @@ void VulkanEngine::init() {
     textureLayoutBuilder.add_image(ci_resourceContext.get_resource_by_name("texture_atlas_normal"));
     textureLayoutBuilder.add_buffer(ci_resourceContext.get_resource_by_name("materials"), VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    VkDescriptorSetLayout textureLayout = ci_resourceContext.build_descriptor_layout_blueprint(textureLayoutBuilder.get_blueprint(), ci_globalDescriptorAllocator, VK_SHADER_STAGE_FRAGMENT_BIT);
+    VkDescriptorSetLayout textureLayout = ci_resourceContext.build_descriptor_layout_blueprint(textureLayoutBuilder.get_blueprint(), ci_globalDescriptorAllocator);
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         FrameData frame;
 
-        frame.imageAquired = util::create_semaphore(ci_vulkanGlobal);
-        frame.presentReady = util::create_semaphore(ci_vulkanGlobal);
-        frame.queueDone    = util::create_fence(ci_vulkanGlobal);
+        frame.imageAquired   = util::create_semaphore(ci_vulkanGlobal);
+        frame.presentReady   = util::create_semaphore(ci_vulkanGlobal);
+        frame.queueDoneFence = util::create_fence(ci_vulkanGlobal);
 
         frame.pool = util::create_pool(ci_vulkanGlobal, _graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
         frame.cmd  = util::create_cmd(ci_vulkanGlobal, _graphicsQueueFamily, frame.pool);
@@ -163,9 +189,9 @@ void VulkanEngine::init() {
         layoutBuilder.add_buffer(cameraIndex, VK_SHADER_STAGE_VERTEX_BIT);
         layoutBuilder.add_buffer(objectsIndex, VK_SHADER_STAGE_VERTEX_BIT);
 
-        layout = ci_resourceContext.build_descriptor_layout_blueprint(layoutBuilder.get_blueprint(), frame.descriptorAllocator, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, layout);
+        layout = ci_resourceContext.build_descriptor_layout_blueprint(layoutBuilder.get_blueprint(), frame.descriptorAllocator, layout);
 
-        frames.push_back(frame);
+        ci_frames.push_back(frame);
     };
 
     /*Pipeline Stuff*/
@@ -238,92 +264,76 @@ void VulkanEngine::draw_test() {
 
 void VulkanEngine::draw() {
     // // // check if window is minimized and skip drawing
-    // if (SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED)
-    //     return;
+    FrameData frame = ci_frames[ci_currentFrame % ci_frames.size()];
+
+    
+
+    if (SDL_GetWindowFlags(ci_vulkanGlobal.window) & SDL_WINDOW_MINIMIZED)
+        return;
 
     // /*SYNC FRAME*/
-    // VK_CHECK(vkWaitForFences(ci_vulkanGlobal.device, 1, &this->fence_wait, true, 1000000000));
-    // VK_CHECK(vkResetFences(ci_vulkanGlobal.device, 1, &this->fence_wait));
+    VK_CHECK(vkWaitForFences(ci_vulkanGlobal.device, 1, &frame.queueDoneFence, true, 1000000000));
+    VK_CHECK(vkResetFences(ci_vulkanGlobal.device, 1, &frame.queueDoneFence));
 
-    // uint32_t swapchainImageIndex;
-    // VK_CHECK(vkAcquireNextImageKHR(ci_vulkanGlobal.device, _swapchain, 1000000000, this->present_semp, nullptr, &swapchainImageIndex));
+    uint32_t chainIndex;
+    VK_CHECK(vkAcquireNextImageKHR(ci_vulkanGlobal.device, _swapchain, 1000000000, frame.imageAquired, nullptr, &chainIndex));
 
-    // VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-    // VK_CHECK(vkResetCommandBuffer(this->cmd, 0));
-    // VK_CHECK(vkBeginCommandBuffer(this->cmd, &cmdBeginInfo));
+    VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    VK_CHECK(vkResetCommandBuffer(frame.cmd, 0));
+    VK_CHECK(vkBeginCommandBuffer(frame.cmd, &cmdBeginInfo));
 
-    // VkClearValue clearValue;
-    // clearValue.color = {1.0f, 1.0f, 1.0f, 1.0f};
-    // VkClearValue depthClear;
-    // depthClear.depthStencil.depth = 1.f;
+    VkClearValue clearValue;
+    clearValue.color = {1.0f, 1.0f, 1.0f, 1.0f};
+    VkClearValue depthClear;
+    depthClear.depthStencil.depth = 1.f;
 
-    // VkRenderingAttachmentInfo colorAttachment = {};
+    VkRenderingAttachmentInfo colorAttachment =
+        vkinit::render_attachment_info(clearValue, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR, ci_swapchainImageViews[chainIndex], VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
 
-    // colorAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    // colorAttachment.clearValue  = clearValue;
-    // colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
-    // colorAttachment.imageView   = _swapchainImageViews[swapchainImageIndex];
-    // colorAttachment.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    // colorAttachment.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
-    // colorAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+    VkRenderingAttachmentInfo depthAttachment =
+        vkinit::render_attachment_info(depthClear, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, _depthImageView, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
 
-    // VkRenderingAttachmentInfo depthAttachment = {};
+    VkRenderingInfoKHR dynamicInfo = vkinit::render_info_khr(colorAttachment, depthAttachment, ci_vulkanGlobal.windowExtent);
 
-    // depthAttachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    // depthAttachment.clearValue  = depthClear;
-    // depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    // depthAttachment.imageView   = _depthImageView;
-    // depthAttachment.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    // depthAttachment.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
+    util::transition_image_color_attachment(frame.cmd, ci_swapchainImages[chainIndex]);
 
-    // VkRenderingInfoKHR dynamicInfo   = {};
-    // dynamicInfo.pNext                = nullptr;
-    // dynamicInfo.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    // dynamicInfo.colorAttachmentCount = 1;
-    // dynamicInfo.pColorAttachments    = &colorAttachment;
-    // dynamicInfo.pDepthAttachment     = &depthAttachment;
-    // dynamicInfo.renderArea           = {{0, 0}, ci_vulkanGlobal.windowExtent};
-    // dynamicInfo.layerCount           = 1;
-
-    // Helper::transition_image_layout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, _swapchainImages[swapchainImageIndex], cmd);
-
-    // deviceFunctions.cmdBeginRenderingKHR(cmd, &dynamicInfo);
+    cmdBeginRenderingKHR(frame.cmd, &dynamicInfo);
 
     // draw_test();
 
-    // deviceFunctions.cmdEndRenderingKHR(cmd);
+    cmdEndRenderingKHR(frame.cmd);
 
-    // Helper::transition_image_layout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, _swapchainImages[swapchainImageIndex], cmd);
+    util::transition_image_present(frame.cmd, ci_swapchainImages[chainIndex]);
 
-    // VK_CHECK(vkEndCommandBuffer(cmd));
+    VK_CHECK(vkEndCommandBuffer(frame.cmd));
 
     // /*Submit Queue*/
-    // VkSubmitInfo         submit    = vkinit::submit_info(&cmd);
-    // VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkSubmitInfo         submit    = vkinit::submit_info(&frame.cmd);
+    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-    // submit.pWaitDstStageMask = &waitStage;
+    submit.pWaitDstStageMask = &waitStage;
 
-    // submit.waitSemaphoreCount = 1;
-    // submit.pWaitSemaphores    = &this->present_semp;
+    submit.waitSemaphoreCount = 1;
+    submit.pWaitSemaphores    = &frame.imageAquired;
 
-    // submit.signalSemaphoreCount = 1;
-    // submit.pSignalSemaphores    = &this->render_semp;
+    submit.signalSemaphoreCount = 1;
+    submit.pSignalSemaphores    = &frame.presentReady;
 
-    // VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, this->fence_wait));
+    VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, frame.queueDoneFence));
 
-    // VkPresentInfoKHR presentInfo = vkinit::present_info();
+    VkPresentInfoKHR presentInfo = vkinit::present_info();
 
-    // presentInfo.pSwapchains    = &_swapchain;
-    // presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains    = &_swapchain;
+    presentInfo.swapchainCount = 1;
 
-    // presentInfo.pWaitSemaphores    = &this->render_semp;
-    // presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores    = &frame.presentReady;
+    presentInfo.waitSemaphoreCount = 1;
 
-    // presentInfo.pImageIndices = &swapchainImageIndex;
+    presentInfo.pImageIndices = &chainIndex;
 
-    // VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
+    VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
 
-    // _frameNumber++;
+    ci_currentFrame++;
 }
 
 void VulkanEngine::run() {
@@ -425,10 +435,6 @@ void VulkanEngine::init_vulkan(vkb::DispatchTable &table) {
     allocatorInfo.device                 = ci_vulkanGlobal.device;
     allocatorInfo.instance               = ci_vulkanGlobal.instance;
     vmaCreateAllocator(&allocatorInfo, &_allocator);
-
-    vkGetPhysicalDeviceProperties(ci_vulkanGlobal.chosenGPU, &_gpuProperties);
-
-    std::cout << "The gpu has a minimum buffer alignement of " << _gpuProperties.limits.minUniformBufferOffsetAlignment << std::endl;
 
     vkb::SwapchainBuilder swapchainBuilder{ci_vulkanGlobal.chosenGPU, ci_vulkanGlobal.device, _surface};
 

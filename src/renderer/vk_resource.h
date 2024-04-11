@@ -1,30 +1,23 @@
 #pragma once
-
-#include "VkBootstrapDispatch.h"
-#include "util/vk_initializers.h"
-#include "vk_mem_alloc.h"
-#include "vk_types.h"
-#include <cstddef>
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
-#include <memory>
+#include "common/std_common.h"
 #include <optional>
 #include <span>
-#include <string>
-#include <unordered_map>
-#include <vector>
-#include <vulkan/vulkan_core.h>
+
+#include "vk_types.h"
+
 // 56 bits for blueprint number
 // 8 bits for bindings
 
 namespace vkinit {
-    VkBufferImageCopy buffer_image_copy_info(VkExtent3D extent, uint32_t layerCount = 1);
-    VkImageCopy       image_image_copy_info(VkExtent3D extent);
+    VkBufferImageCopy    buffer_image_copy_info(VkExtent3D extent, uint32_t layerCount = 1);
+    VkImageCopy          image_image_copy_info(VkExtent3D extent);
+    VkImageMemoryBarrier image_barrier_info(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccess, VkAccessFlags dstAccess);
 } // namespace vkinit
 
 namespace util {
     void debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, VkDevice device);
+    void transition_image_color_attachment(VkCommandBuffer cmd,VkImage image);
+    void transition_image_present(VkCommandBuffer cmd, VkImage image);
 } // namespace util
 
 enum class BufferType {
@@ -157,50 +150,8 @@ struct ResourceBuilder {
     void add_image_with_view(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent, const char *objectName, VkImageAspectFlags aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT,
                              VkSampler _Nullable sampler = nullptr, void *data = nullptr, size_t dataSize = 0, size_t pixelSize = 4);
 
-    void add_image_array_with_view(VkFormat format, size_t pixelSize, size_t gridLength, int maxWidth, int maxHeight, std::string name, uint8_t *pixels, bool copy_data = false,
-                                   VkSampler sampler = nullptr) {
-
-        VkDeviceSize oneImageSize = pixelSize * gridLength * gridLength;
-
-        VkDeviceSize imageSize = maxWidth * maxHeight * pixelSize;
-
-        uint32_t maxGridX = maxWidth / gridLength;
-        uint32_t maxGridY = maxHeight / gridLength;
-
-        TextureObjectCreateInfo atlasInfo = {};
-        atlasInfo.pixelSize               = pixelSize;
-        atlasInfo.texHeight               = maxHeight;
-        atlasInfo.texWidth                = maxWidth;
-
-        VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.requiredFlags           = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        allocInfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
-
-        VkImageCreateInfo vkImageInfo =
-            vkinit::image_create_info(format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VkExtent3D(gridLength, gridLength, 1));
-        vkImageInfo.arrayLayers = (maxHeight / gridLength) * (maxWidth / gridLength);
-        vkImageInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-        VkImageViewCreateInfo viewInfo       = vkinit::imageview_create_info(format, nullptr, VK_IMAGE_ASPECT_COLOR_BIT);
-        viewInfo.viewType                    = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-        viewInfo.sType                       = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.subresourceRange.layerCount = (maxHeight / gridLength) * (maxWidth / gridLength);
-
-        ImageObjectCreateInfo imageInfo;
-        imageInfo.allocInfo     = {allocInfo};
-        imageInfo.imageInfo     = {vkImageInfo};
-        imageInfo.bindingNumber = ci_bindingCounter;
-        imageInfo.dataSize      = maxWidth * maxHeight * pixelSize;
-        imageInfo.sampler       = sampler ? std::optional(sampler) : std::nullopt;
-        imageInfo.name          = name;
-        imageInfo.imageViewInfo = viewInfo;
-        imageInfo.data          = copy_data ? new uint8_t[imageSize] : pixels;
-        imageInfo.textureAtlas  = std::optional(atlasInfo);
-        imageInfo.copy          = copy_data;
-
-        ci_blueprint.imageInfos.push_back(imageInfo);
-        ci_bindingCounter++;
-    }
+    void      add_image_array_with_view(VkFormat format, size_t pixelSize, size_t gridLength, int maxWidth, int maxHeight, std::string name, uint8_t *pixels, bool copy_data = false,
+                                        VkSampler sampler = nullptr);
     Blueprint get_blueprint();
 
   private:
@@ -225,8 +176,7 @@ struct ResourceContext {
 
     void write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext &context);
 
-    VkDescriptorSetLayout build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkShaderStageFlags shaderFlag,
-                                                            VkDescriptorSetLayout layout = nullptr);
+    VkDescriptorSetLayout build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkDescriptorSetLayout layout = nullptr);
 
     ResourceIndex build_resource_blueprint(ResourceBuilder::Blueprint resourceContext);
 

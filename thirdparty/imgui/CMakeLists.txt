@@ -1,5 +1,3 @@
-file(GLOB IMGUI_SOURCES *.cpp)
-file(GLOB IMGUI_HEADERS *.h)
 
 find_package(SDL2 REQUIRED)
 

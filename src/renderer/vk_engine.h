@@ -8,17 +8,18 @@
 #include "../camera/camera.h"
 #include "common/std_common.h"
 #include "pipeline.h"
-#include "util/helper.h"
 #include "vk_resource.h"
 #include "vk_types.h"
 #include <VkBootstrap.h>
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <unordered_map>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 struct FrameData {
-    VkFence     queueDone;
+    VkFence     queueDoneFence;
     VkSemaphore presentReady;
     VkSemaphore imageAquired;
 
@@ -27,6 +28,7 @@ struct FrameData {
 
     DescriptorAllocatorGrowable descriptorAllocator;
 };
+
 class VulkanEngine {
   public:
     bool                _isInitialized{false};
@@ -34,7 +36,7 @@ class VulkanEngine {
 
     DescriptorAllocatorGrowable ci_globalDescriptorAllocator;
 
-    VkPhysicalDeviceProperties _gpuProperties;
+    std::vector<FrameData> ci_frames;
 
     VkQueue  _graphicsQueue;
     uint32_t _graphicsQueueFamily;
@@ -49,61 +51,30 @@ class VulkanEngine {
     std::vector<VkImage>     ci_swapchainImages;
     std::vector<VkImageView> ci_swapchainImageViews;
 
-    std::vector<AllocatedImage> hdrimages;
-    std::vector<VkImageView>    hdrImageViews;
-
     VmaAllocator _allocator; // vma lib allocator
 
     // depth resources
     VkImageView    _depthImageView;
     AllocatedImage _depthImage;
 
-    VkImageView    colorImageView;
-    AllocatedImage colorImage;
-
     VkFormat _depthFormat;
-
-    VkDescriptorSetLayout _globalSetLayout;
-    VkDescriptorSetLayout _objectSetLayout;
-    VkDescriptorSetLayout _singleTextureSetLayout;
-
-    AllocatedBuffer _sceneParameterBuffer;
 
     VkDescriptorPool _imgui_pool;
 
     Camera _cam;
 
-    VkSampler _blockySampler;
-    VkSampler hdrSampler;
-
     VkCommandBuffer cmd;
     VkCommandPool   pool;
 
-    VkFence fence_wait;
-
-    VkSemaphore     present_semp;
-    VkSemaphore     render_semp;
-    AllocatedBuffer vertexBuffer;
-    AllocatedBuffer indexBuffer;
-
-    VkSampler _blockSampler;
-
-    AllocatedImage _cubemap;
-    VkImageView    _cubeview;
-
-    VkDescriptorSetLayout c_objectLayout;
-    VkDescriptorSetLayout c_cameraLayout;
-    VkDescriptorSetLayout c_textureLayout;
-
     VkDescriptorSet c_textureSet;
-
-    AllocatedBuffer c_buffer;
 
     ResourceContext ci_resourceContext = {};
 
     Mesh ci_meshes;
 
     Pipeline pipeline;
+
+    uint64_t ci_currentFrame = 0;
 
     void init();
 

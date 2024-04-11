@@ -2,11 +2,6 @@
 
 #include "vk_resource.h"
 #include "vk_types.h"
-#include <glm/fwd.hpp>
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
-#include <unordered_map>
-#include <vector>
 
 enum class MeshType {
     CubeBlock,
