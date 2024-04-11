@@ -1,8 +1,11 @@
 ﻿#include "vk_engine.h"
 
+#define NDebug
+
 #include <SDL_stdinc.h>
 #include <SDL_video.h>
 #include <SDL_vulkan.h>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <glm/ext/matrix_clip_space.hpp>
@@ -14,17 +17,19 @@
 
 #include "VkBootstrap.h"
 #include "VkBootstrapDispatch.h"
-#include "pipeline.h"
+
+#include "util/mesh.h"
+#include "util/renderer.h"
 #include "util/vk_initializers.h"
-#include "vk_resource.h"
-#include "vk_types.h"
+#include "util/vk_resource.h"
+#include "util/vk_types.h"
+#include "util/vkutil.h"
 
 #define VMA_IMPLEMENTATION
 #include "imgui_impl_sdl2.h"
 #include "vk_mem_alloc.h"
 
 constexpr bool bUseValidationLayers = true;
-
 // we want to immediately abort when there is an error. In normal engines this
 // would give an error message to the user, or perform a dump of state.
 using namespace std;
@@ -38,93 +43,17 @@ const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 PFN_vkCmdBeginRenderingKHR cmdBeginRenderingKHR;
 PFN_vkCmdEndRenderingKHR   cmdEndRenderingKHR;
 
-namespace util {
-    VkCommandBuffer create_cmd(VulkanContextGlobal context, uint32_t queueFamilyIndex, VkCommandPool pool) {
-        VkCommandBuffer cmd;
-
-        VkCommandBufferAllocateInfo bufferInfo = vkinit::command_buffer_allocate_info(pool, 1);
-        VK_CHECK(vkAllocateCommandBuffers(context.device, &bufferInfo, &cmd));
-
-        return cmd;
-    };
-
-    VkCommandPool create_pool(VulkanContextGlobal context, uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flag) {
-        VkCommandPool pool;
-
-        VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(queueFamilyIndex, flag);
-        VK_CHECK(vkCreateCommandPool(context.device, &commandPoolInfo, nullptr, &pool));
-
-        return pool;
-    }
-    VkFence create_fence(VulkanContextGlobal context) {
-        VkFence fence;
-
-        VkFenceCreateInfo fenceCreateInfo = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
-        vkCreateFence(context.device, &fenceCreateInfo, nullptr, &fence);
-
-        return fence;
-    }
-    VkSemaphore create_semaphore(VulkanContextGlobal context) {
-        VkSemaphore semaphore;
-
-        VkSemaphoreCreateInfo semaphoreCreateInfo = vkinit::semaphore_create_info();
-        vkCreateSemaphore(context.device, &semaphoreCreateInfo, nullptr, &semaphore);
-
-        return semaphore;
-    }
-
-}; // namespace util
-
-namespace vkinit {
-    VkRenderingAttachmentInfo render_attachment_info(VkClearValue clearValue, VkImageLayout layout, VkImageView view, VkAttachmentLoadOp loadOp, VkAttachmentStoreOp storeOp) {
-        VkRenderingAttachmentInfo attachment = {};
-
-        attachment.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-        attachment.clearValue  = clearValue;
-        attachment.imageLayout = layout;
-        attachment.imageView   = view;
-        attachment.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        attachment.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
-        attachment.resolveMode = VK_RESOLVE_MODE_NONE;
-
-        return attachment;
-    }
-
-    VkRenderingInfoKHR render_info_khr(VkRenderingAttachmentInfo &colorAttachment, VkRenderingAttachmentInfo &depthAttachment, VkExtent2D windowExtent) {
-        VkRenderingInfoKHR dynamicInfo   = {};
-        dynamicInfo.pNext                = nullptr;
-        dynamicInfo.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;
-        dynamicInfo.colorAttachmentCount = 1;
-        dynamicInfo.pColorAttachments    = &colorAttachment;
-        dynamicInfo.pDepthAttachment     = &depthAttachment;
-        dynamicInfo.renderArea           = {{0, 0}, windowExtent};
-        dynamicInfo.layerCount           = 1;
-
-        return dynamicInfo;
-    }
-
-} // namespace vkinit
+// Initilizes all the basic things for renderer
 
 void VulkanEngine::init() {
     // We initialize SDL and create a window with it.
-    SDL_Init(SDL_INIT_VIDEO);
 
-    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
-
-    ci_vulkanGlobal.window = SDL_CreateWindow("Vulkan Engine", 0, 0, ci_vulkanGlobal.windowExtent.width, ci_vulkanGlobal.windowExtent.height, window_flags);
     vkb::DispatchTable table;
 
-    init_vulkan(table);
+    Render::init(ci_vulkanGlobal, _allocator, table, ci_resourceContext, ci_meshes);
+
     cmdBeginRenderingKHR = table.fp_vkCmdBeginRenderingKHR;
     cmdEndRenderingKHR   = table.fp_vkCmdEndRenderingKHR;
-
-    pool = util::create_pool(ci_vulkanGlobal, _graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    cmd  = util::create_cmd(ci_vulkanGlobal, _graphicsQueueFamily, pool);
-
-    ci_resourceContext.init(ci_vulkanGlobal.chosenGPU, ci_vulkanGlobal.device, ci_vulkanGlobal.instance, {_transferQueue, _transferQueueFamily}, {_graphicsQueue, _graphicsQueueFamily}, cmd,
-                            table.fp_vkSetDebugUtilsObjectNameEXT);
-
-    ci_meshes.init_mesh(ci_resourceContext);
 
     auto pngContext   = load_png("assets/texture_atlas_0.png");
     auto pngNormalMap = load_png("assets/texture_atlas_0_normalmap.png");
@@ -159,12 +88,12 @@ void VulkanEngine::init() {
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         FrameData frame;
 
-        frame.imageAquired   = util::create_semaphore(ci_vulkanGlobal);
-        frame.presentReady   = util::create_semaphore(ci_vulkanGlobal);
-        frame.queueDoneFence = util::create_fence(ci_vulkanGlobal);
+        frame.imageAquired   = vkutil::create_semaphore(ci_vulkanGlobal);
+        frame.presentReady   = vkutil::create_semaphore(ci_vulkanGlobal);
+        frame.queueDoneFence = vkutil::create_fence(ci_vulkanGlobal);
 
-        frame.pool = util::create_pool(ci_vulkanGlobal, _graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-        frame.cmd  = util::create_cmd(ci_vulkanGlobal, _graphicsQueueFamily, frame.pool);
+        frame.pool = vkutil::create_pool(ci_vulkanGlobal, ci_vulkanGlobal.graphicQueue.queueIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+        frame.cmd  = vkutil::create_cmd(ci_vulkanGlobal, ci_vulkanGlobal.graphicQueue.queueIndex, frame.pool);
 
         std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> ratios;
         ratios.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1});
@@ -179,7 +108,7 @@ void VulkanEngine::init() {
             c = static_cast<char>(i - 1);
         }
 
-        ci_resourceContext.build_resource_blueprint(dynamicBuilder.get_blueprint());
+        frame.bufferIndex = ci_resourceContext.build_resource_blueprint(dynamicBuilder.get_blueprint());
 
         auto cameraIndex  = ci_resourceContext.get_resource_by_name("camera" + c);
         auto objectsIndex = ci_resourceContext.get_resource_by_name("objects" + c);
@@ -200,7 +129,7 @@ void VulkanEngine::init() {
 
     PipelineBuilder pipelineBuilder = PipelineBuilder::default_pipeline_builder(ci_vulkanGlobal, "colored_triangle.vert.spv", "colored_triangle.frag.spv");
 
-    pipelineBuilder.add_attachments_formats({_swapchainImageFormat}, _depthFormat);
+    pipelineBuilder.add_attachments_formats({ci_vulkanGlobal.swapchainImageFormat}, _depthFormat);
     pipelineBuilder.add_depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.add_cull_mode(VK_CULL_MODE_BACK_BIT);
     pipelineBuilder.add_vertex_attribute(VertexBlock::vertex_input_description());
@@ -266,21 +195,12 @@ void VulkanEngine::draw() {
     // // // check if window is minimized and skip drawing
     FrameData frame = ci_frames[ci_currentFrame % ci_frames.size()];
 
-    
-
     if (SDL_GetWindowFlags(ci_vulkanGlobal.window) & SDL_WINDOW_MINIMIZED)
         return;
 
-    // /*SYNC FRAME*/
-    VK_CHECK(vkWaitForFences(ci_vulkanGlobal.device, 1, &frame.queueDoneFence, true, 1000000000));
-    VK_CHECK(vkResetFences(ci_vulkanGlobal.device, 1, &frame.queueDoneFence));
+    uint32_t imageIndex;
 
-    uint32_t chainIndex;
-    VK_CHECK(vkAcquireNextImageKHR(ci_vulkanGlobal.device, _swapchain, 1000000000, frame.imageAquired, nullptr, &chainIndex));
-
-    VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-    VK_CHECK(vkResetCommandBuffer(frame.cmd, 0));
-    VK_CHECK(vkBeginCommandBuffer(frame.cmd, &cmdBeginInfo));
+    Render::prepare_frame(ci_vulkanGlobal, frame.cmd, frame.queueDoneFence, frame.imageAquired, imageIndex);
 
     VkClearValue clearValue;
     clearValue.color = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -288,14 +208,14 @@ void VulkanEngine::draw() {
     depthClear.depthStencil.depth = 1.f;
 
     VkRenderingAttachmentInfo colorAttachment =
-        vkinit::render_attachment_info(clearValue, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR, ci_swapchainImageViews[chainIndex], VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
+        vkinit::render_attachment_info(clearValue, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR, ci_vulkanGlobal.swapchainImageViews[imageIndex], VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
 
     VkRenderingAttachmentInfo depthAttachment =
         vkinit::render_attachment_info(depthClear, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, _depthImageView, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
 
     VkRenderingInfoKHR dynamicInfo = vkinit::render_info_khr(colorAttachment, depthAttachment, ci_vulkanGlobal.windowExtent);
 
-    util::transition_image_color_attachment(frame.cmd, ci_swapchainImages[chainIndex]);
+    vkutil::transition_image_color_attachment(frame.cmd, ci_vulkanGlobal.swapchainImages[imageIndex]);
 
     cmdBeginRenderingKHR(frame.cmd, &dynamicInfo);
 
@@ -303,35 +223,9 @@ void VulkanEngine::draw() {
 
     cmdEndRenderingKHR(frame.cmd);
 
-    util::transition_image_present(frame.cmd, ci_swapchainImages[chainIndex]);
+    vkutil::transition_image_present(frame.cmd, ci_vulkanGlobal.swapchainImages[imageIndex]);
 
-    VK_CHECK(vkEndCommandBuffer(frame.cmd));
-
-    // /*Submit Queue*/
-    VkSubmitInfo         submit    = vkinit::submit_info(&frame.cmd);
-    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-    submit.pWaitDstStageMask = &waitStage;
-
-    submit.waitSemaphoreCount = 1;
-    submit.pWaitSemaphores    = &frame.imageAquired;
-
-    submit.signalSemaphoreCount = 1;
-    submit.pSignalSemaphores    = &frame.presentReady;
-
-    VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, frame.queueDoneFence));
-
-    VkPresentInfoKHR presentInfo = vkinit::present_info();
-
-    presentInfo.pSwapchains    = &_swapchain;
-    presentInfo.swapchainCount = 1;
-
-    presentInfo.pWaitSemaphores    = &frame.presentReady;
-    presentInfo.waitSemaphoreCount = 1;
-
-    presentInfo.pImageIndices = &chainIndex;
-
-    VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
+    Render::end_frame(ci_vulkanGlobal, frame.cmd, frame.presentReady, frame.queueDoneFence, frame.imageAquired, imageIndex);
 
     ci_currentFrame++;
 }
@@ -372,107 +266,4 @@ void VulkanEngine::run() {
         }
         draw();
     }
-}
-
-void VulkanEngine::init_vulkan(vkb::DispatchTable &table) {
-    vkb::InstanceBuilder builder;
-    // make the vulkan instance, with basic debug features
-    auto inst_ret = builder.set_app_name("Example Vulkan Application")
-                        .request_validation_layers(bUseValidationLayers)
-                        .use_default_debug_messenger()
-                        .require_api_version(1, 3, 0)
-                        .enable_extension("VK_EXT_debug_utils")
-                        .build();
-
-    vkb::Instance vkb_inst = inst_ret.value();
-
-    // grab the instance
-    ci_vulkanGlobal.instance        = vkb_inst.instance;
-    ci_vulkanGlobal.debug_messenger = vkb_inst.debug_messenger;
-
-    SDL_Vulkan_CreateSurface(ci_vulkanGlobal.window, ci_vulkanGlobal.instance, &_surface);
-
-    VkPhysicalDeviceFeatures features;
-
-    features.imageCubeArray    = true;
-    features.samplerAnisotropy = true;
-    VkPhysicalDeviceVulkan11Features features_11;
-    features_11.shaderDrawParameters = true;
-    VkPhysicalDeviceVulkan13Features features_13;
-    features_13.dynamicRendering = true;
-
-    vkb::PhysicalDeviceSelector selector{vkb_inst};
-    vkb::PhysicalDevice         physicalDevice = selector.set_minimum_version(1, 3)
-                                             .set_required_features(features)
-                                             .set_required_features_11(features_11)
-                                             .set_required_features_13(features_13)
-                                             .add_required_extension(device_extensions[0])
-                                             .set_surface(_surface)
-                                             .select()
-                                             .value();
-
-    // create the final vulkan device
-
-    vkb::DeviceBuilder deviceBuilder{physicalDevice};
-    vkb::Device        vkbDevice = deviceBuilder.build().value();
-
-    table = vkbDevice.make_table();
-
-    // Get the VkDevice handle used in the rest of a vulkan application
-    ci_vulkanGlobal.device    = vkbDevice.device;
-    ci_vulkanGlobal.chosenGPU = physicalDevice.physical_device;
-
-    // use vkbootstrap to get a Graphics queue
-    _graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
-    _transferQueue = vkbDevice.get_queue(vkb::QueueType::transfer).value();
-
-    _graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
-    _transferQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::transfer).value();
-
-    // initialize the memory allocator
-    VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.physicalDevice         = ci_vulkanGlobal.chosenGPU;
-    allocatorInfo.device                 = ci_vulkanGlobal.device;
-    allocatorInfo.instance               = ci_vulkanGlobal.instance;
-    vmaCreateAllocator(&allocatorInfo, &_allocator);
-
-    vkb::SwapchainBuilder swapchainBuilder{ci_vulkanGlobal.chosenGPU, ci_vulkanGlobal.device, _surface};
-
-    vkb::Swapchain vkbSwapchain = swapchainBuilder
-                                      .set_desired_format({VK_FORMAT_R16G16B16A16_SFLOAT, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
-                                      // use vsync present mode
-                                      .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-                                      .set_desired_extent(ci_vulkanGlobal.windowExtent.width, ci_vulkanGlobal.windowExtent.height)
-                                      .build()
-                                      .value();
-
-    // store swapchain and its related images
-    _swapchain             = vkbSwapchain.swapchain;
-    ci_swapchainImages     = vkbSwapchain.get_images().value();
-    ci_swapchainImageViews = vkbSwapchain.get_image_views().value();
-
-    _swapchainImageFormat = vkbSwapchain.image_format;
-
-    // depth image size will match the window
-    VkExtent3D depthImageExtent = {ci_vulkanGlobal.windowExtent.width, ci_vulkanGlobal.windowExtent.height, 1};
-
-    // hardcoding the depth format to 32 bit float
-    _depthFormat = VK_FORMAT_D32_SFLOAT;
-
-    // the depth image will be a image with the format we selected and Depth
-    // Attachment usage flag
-    VkImageCreateInfo dimg_info = vkinit::image_create_info(_depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthImageExtent);
-
-    // for the depth image, we want to allocate it from gpu local memory
-    VmaAllocationCreateInfo dimg_allocinfo = {};
-    dimg_allocinfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
-    dimg_allocinfo.requiredFlags           = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    // allocate and create the image
-    vmaCreateImage(_allocator, &dimg_info, &dimg_allocinfo, &_depthImage._image, &_depthImage._allocation, nullptr);
-
-    // build a image-view for the depth image to use for rendering
-    VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(_depthFormat, _depthImage._image, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-    VK_CHECK(vkCreateImageView(ci_vulkanGlobal.device, &dview_info, nullptr, &_depthImageView));
 }

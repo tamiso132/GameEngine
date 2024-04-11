@@ -2,8 +2,10 @@
 // or project specific include files.
 
 #pragma once
-#include "common/common_types.h"
+#include "../common/common_types.h"
 #include <iostream>
+#include <vector>
+#include <vulkan/vulkan_core.h>
 
 typedef uint64_t ResourceIndex;
 
@@ -12,13 +14,59 @@ struct VulkanQueue {
     uint32_t queueIndex;
 };
 
+struct AllocatedBuffer {
+    VkBuffer      _buffer;
+    VmaAllocation _allocation;
+};
+
+struct AllocatedImage {
+    VkImage       _image;
+    VmaAllocation _allocation;
+};
+
+struct TImage {
+    VkSampler        sampler;
+    VkImageView      view;
+    VkFormat         format;
+    AllocatedImage   alloc;
+    uint8_t          extentIndex;
+    VkDescriptorType type;
+    VkImageLayout    layout;
+    uint16_t         layerCount = 1;
+};
+
 struct VulkanContextGlobal {
-    VkInstance               instance;
+    VkInstance       instance;
+    VkPhysicalDevice chosenGPU;
+    VkDevice         device;
+    VkExtent2D       windowExtent = {1700, 900};
+    // queue used for draw operations
+    VulkanQueue graphicQueue;
+
+    // queue used for transfer data and layouts
+    VulkanQueue transferQueue;
+
+    // SDL Window
+    struct SDL_Window *window{nullptr};
+
+    VkSurfaceKHR   surface;
+    VkSwapchainKHR swapchain;
+
+    // our format used for displaying to screen
+    VkFormat swapchainImageFormat;
+
+    // images that can be presented to screen
+    std::vector<VkImage>     swapchainImages;
+    std::vector<VkImageView> swapchainImageViews;
+
+    TImage depthImage;
+
+    // global command buffer
+    VkCommandBuffer cmd;
+    // global pool buffer
+    VkCommandPool pool;
+
     VkDebugUtilsMessengerEXT debug_messenger;
-    VkPhysicalDevice         chosenGPU;
-    VkDevice                 device;
-    VkExtent2D               windowExtent = {1700, 900};
-    struct SDL_Window       *window{nullptr};
 };
 
 struct alignas(16) GPUObject {
@@ -45,16 +93,6 @@ struct alignas(16) GPUAlignedArrayElement {
 struct alignas(16) GPUTexture {
     GPUAlignedArrayElement faceIndices[6]; // 12-byte padding
     GPUMaterial            material;
-};
-
-struct AllocatedBuffer {
-    VkBuffer      _buffer;
-    VmaAllocation _allocation;
-};
-
-struct AllocatedImage {
-    VkImage       _image;
-    VmaAllocation _allocation;
 };
 
 #define VK_CHECK(x)                                                                                                                                                                                    \

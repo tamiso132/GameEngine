@@ -3,8 +3,10 @@
 #include <cstring>
 #include <vulkan/vulkan_core.h>
 
-#include "util/vk_initializers.h"
+#include "vk_initializers.h"
 #include "vk_types.h"
+
+#include "vkutil.h"
 
 std::string get_valid_blueprint_counter_name(ResourceBuilder::Blueprint resourceContext, std::unordered_map<std::string, ResourceIndex> resource_index) {
     std::string extName = "";
@@ -21,6 +23,61 @@ std::string get_valid_blueprint_counter_name(ResourceBuilder::Blueprint resource
     }
 
     return extName;
+}
+
+static ResourceBuilder::BufferObjectCreateInfo buffer_create_info(size_t allocSize, BufferType type, MemoryType memory = MemoryType::BestFit, const char *objectName = nullptr) {
+    VkMemoryPropertyFlags memoryType;
+
+    if (memory == MemoryType::HostVisible || memory == MemoryType::GpuOnly) {
+        memoryType = (VkMemoryPropertyFlags)memory;
+    } else {
+        memoryType = (VkMemoryPropertyFlags)MemoryType::HostVisible;
+
+        switch (type) {
+        case BufferType::Vertex:
+        case BufferType::Index:
+            memoryType = (VkMemoryPropertyFlags)MemoryType::GpuOnly;
+            break;
+        }
+    }
+
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.usage              = (VkBufferUsageFlags)type;
+    bufferInfo.size               = allocSize;
+    bufferInfo.sharingMode        = VK_SHARING_MODE_EXCLUSIVE;
+    bufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.requiredFlags           = memoryType;
+
+    ResourceBuilder::BufferObjectCreateInfo info;
+    info.allocInfo  = allocInfo;
+    info.bufferInfo = bufferInfo;
+    if (objectName != nullptr)
+        info.name = std::string(objectName);
+
+    return info;
+};
+
+static ResourceBuilder::BufferObjectCreateInfo buffer_staging_info(size_t allocSize) {
+    VkMemoryPropertyFlags memoryType;
+
+    memoryType = (VkMemoryPropertyFlags)MemoryType::HostVisible;
+
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.usage              = (VkBufferUsageFlags)VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufferInfo.size               = allocSize;
+    bufferInfo.sharingMode        = VK_SHARING_MODE_EXCLUSIVE;
+    bufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.requiredFlags           = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+
+    ResourceBuilder::BufferObjectCreateInfo info;
+    info.allocInfo  = allocInfo;
+    info.bufferInfo = bufferInfo;
+
+    return info;
 }
 
 namespace util {
@@ -60,7 +117,7 @@ namespace util {
         vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     }
 
-    void transition_image_layout(VkCommandBuffer cmd, VkImageLayout newLayout, ImageContext &imageContext) {
+    void transition_image_layout(VkCommandBuffer cmd, VkImageLayout newLayout, TImage &imageContext) {
 
         VkImageMemoryBarrier barrier = VkImageMemoryBarrier{.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
                                                             .srcAccessMask    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -133,144 +190,6 @@ namespace util {
     }
 } // namespace util
 
-namespace vkinit {
-
-    VkImageMemoryBarrier image_barrier_info(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccess, VkAccessFlags dstAccess) {
-
-        VkImageSubresourceRange subresourceRange = {};
-
-        subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        subresourceRange.levelCount = 1;
-        subresourceRange.layerCount = 1;
-
-        VkImageMemoryBarrier barrier = {};
-
-        barrier.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout        = oldLayout;
-        barrier.newLayout        = newLayout;
-        barrier.image            = image;
-        barrier.srcAccessMask    = srcAccess;
-        barrier.dstAccessMask    = dstAccess;
-        barrier.subresourceRange = subresourceRange;
-
-        return barrier;
-    };
-
-    VkBufferImageCopy buffer_image_copy_info(VkExtent3D extent, uint32_t layerCount) {
-        VkBufferImageCopy copyRegion = {};
-        copyRegion.bufferOffset      = 0;
-        copyRegion.bufferRowLength   = 0;
-        copyRegion.bufferImageHeight = 0;
-
-        copyRegion.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        copyRegion.imageSubresource.mipLevel       = 0;
-        copyRegion.imageSubresource.baseArrayLayer = 0;
-        copyRegion.imageSubresource.layerCount     = layerCount;
-        copyRegion.imageExtent                     = extent;
-
-        return copyRegion;
-    }
-
-    VkImageCopy image_image_copy_info(VkExtent3D extent) {
-        VkImageCopy imageRegion;
-
-        VkImageSubresourceLayers srcSub;
-        VkImageSubresourceLayers dstSub;
-
-        srcSub.baseArrayLayer = 0;
-        srcSub.mipLevel       = 0;
-        srcSub.layerCount     = 1;
-
-        dstSub.baseArrayLayer = 0;
-        dstSub.mipLevel       = 0;
-        dstSub.layerCount     = 1;
-        imageRegion.srcOffset = {0, 0, 0};
-        imageRegion.dstOffset = {0, 0, 0};
-        imageRegion.extent    = extent;
-
-        imageRegion.srcSubresource = srcSub;
-        imageRegion.dstSubresource = dstSub;
-
-        return imageRegion;
-    }
-
-    ResourceBuilder::BufferObjectCreateInfo buffer_create_info(size_t allocSize, BufferType type, MemoryType memory = MemoryType::BestFit, const char *objectName = nullptr) {
-        VkMemoryPropertyFlags memoryType;
-
-        if (memory == MemoryType::HostVisible || memory == MemoryType::GpuOnly) {
-            memoryType = (VkMemoryPropertyFlags)memory;
-        } else {
-            memoryType = (VkMemoryPropertyFlags)MemoryType::HostVisible;
-
-            switch (type) {
-            case BufferType::Vertex:
-            case BufferType::Index:
-                memoryType = (VkMemoryPropertyFlags)MemoryType::GpuOnly;
-                break;
-            }
-        }
-
-        VkBufferCreateInfo bufferInfo = {};
-        bufferInfo.usage              = (VkBufferUsageFlags)type;
-        bufferInfo.size               = allocSize;
-        bufferInfo.sharingMode        = VK_SHARING_MODE_EXCLUSIVE;
-        bufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-
-        VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.requiredFlags           = memoryType;
-
-        ResourceBuilder::BufferObjectCreateInfo info;
-        info.allocInfo  = allocInfo;
-        info.bufferInfo = bufferInfo;
-        if (objectName != nullptr)
-            info.name = std::string(objectName);
-
-        return info;
-    };
-
-    ResourceBuilder::BufferObjectCreateInfo buffer_staging_info(size_t allocSize) {
-        VkMemoryPropertyFlags memoryType;
-
-        memoryType = (VkMemoryPropertyFlags)MemoryType::HostVisible;
-
-        VkBufferCreateInfo bufferInfo = {};
-        bufferInfo.usage              = (VkBufferUsageFlags)VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        bufferInfo.size               = allocSize;
-        bufferInfo.sharingMode        = VK_SHARING_MODE_EXCLUSIVE;
-        bufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-
-        VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.requiredFlags           = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-
-        ResourceBuilder::BufferObjectCreateInfo info;
-        info.allocInfo  = allocInfo;
-        info.bufferInfo = bufferInfo;
-
-        return info;
-    }
-
-    void copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandBuffer cmd, VkQueue queue) {
-        VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-        VK_CHECK(vkResetCommandBuffer(cmd, 0));
-        VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
-
-        // Record the copy command
-        VkBufferCopy copyRegion = {};
-        copyRegion.srcOffset    = 0;
-        copyRegion.dstOffset    = 0;
-        copyRegion.size         = size;
-
-        vkCmdCopyBuffer(cmd, srcBuffer, dstBuffer, 1, &copyRegion);
-
-        vkEndCommandBuffer(cmd);
-
-        // Submit the command buffer for execution (Assuming you have a Vulkan queue)
-        VkSubmitInfo submit = vkinit::submit_info(&cmd);
-
-        VK_CHECK(vkQueueSubmit(queue, 1, &submit, VK_NULL_HANDLE));
-        VK_CHECK(vkQueueWaitIdle(queue)); // Optional: Wait for the transfer to complete
-    }
-} // namespace vkinit
 /*DescriptorAllocator*/
 void DescriptorAllocatorGrowable::init(VkDevice device, uint32_t maxSets, std::span<PoolSizeRatio> poolRatios) {
     ratios.clear();
@@ -555,25 +474,25 @@ void ResourceBuilder::add_image_array_with_view(VkFormat format, size_t pixelSiz
 ResourceBuilder::Blueprint ResourceBuilder::get_blueprint() { return ci_blueprint; }
 
 /*Resource Context*/
-void ResourceContext::init(VkPhysicalDevice physical, VkDevice device, VkInstance instance, VulkanQueue transferQueue, VulkanQueue graphicQueue, VkCommandBuffer cmdGraphic,
-                           PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtil) {
+void ResourceContext::init(VulkanContextGlobal vulkanContext, PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtil) {
 
-    ci_device          = device;
-    ci_transferQueue   = transferQueue;
-    ci_graphicQueue    = graphicQueue;
-    ci_cmdGraphic      = cmdGraphic;
+    ci_device        = vulkanContext.device;
+    ci_transferQueue = vulkanContext.transferQueue;
+    ci_graphicQueue  = vulkanContext.graphicQueue;
+    ci_cmdGraphic    = vulkanContext.cmd;
+
     util::setDebugName = vkSetDebugUtil;
 
     VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(ci_transferQueue.queueIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-    VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &ci_pool));
+    VK_CHECK(vkCreateCommandPool(ci_device, &commandPoolInfo, nullptr, &ci_pool));
 
     VkCommandBufferAllocateInfo bufferInfo = vkinit::command_buffer_allocate_info(ci_pool, 1);
-    VK_CHECK(vkAllocateCommandBuffers(device, &bufferInfo, &ci_cmdTransfer));
+    VK_CHECK(vkAllocateCommandBuffers(ci_device, &bufferInfo, &ci_cmdTransfer));
 
     VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.physicalDevice         = physical;
-    allocatorInfo.device                 = device;
-    allocatorInfo.instance               = instance;
+    allocatorInfo.physicalDevice         = vulkanContext.chosenGPU;
+    allocatorInfo.device                 = vulkanContext.device;
+    allocatorInfo.instance               = vulkanContext.instance;
 
     DescriptorAllocatorGrowable::PoolSizeRatio poolRatio;
 
@@ -601,10 +520,10 @@ void ResourceContext::init(VkPhysicalDevice physical, VkDevice device, VkInstanc
     poolRatios.push_back(poolRatio);
 
     VK_CHECK(vmaCreateAllocator(&allocatorInfo, &ci_allocator));
-
+    // TODO create DESCRIPTORALLOCATOR
     VkSamplerCreateInfo blockySampler = vkinit::sampler_create_info(VK_FILTER_NEAREST);
 
-    vkCreateSampler(device, &blockySampler, nullptr, &ci_default_sampler);
+    vkCreateSampler(vulkanContext.device, &blockySampler, nullptr, &ci_default_sampler);
 };
 
 void ResourceContext::copy_to_buffer_visible(ResourceIndex dst, size_t size, const void *src) {
@@ -616,7 +535,7 @@ void ResourceContext::copy_to_buffer_visible(ResourceIndex dst, size_t size, con
 
 void ResourceContext::copy_to_buffer_non_visible(ResourceIndex dst, size_t size, const void *src) {
     auto            bufferDst   = ci_buffers[dst];
-    auto            stagingInfo = vkinit::buffer_staging_info(size);
+    auto            stagingInfo = buffer_staging_info(size);
     AllocatedBuffer stagingBuffer;
 
     VK_CHECK(vmaCreateBuffer(ci_allocator, &stagingInfo.bufferInfo, &stagingInfo.allocInfo, &stagingBuffer._buffer, &stagingBuffer._allocation, nullptr));
@@ -626,7 +545,7 @@ void ResourceContext::copy_to_buffer_non_visible(ResourceIndex dst, size_t size,
     memcpy(stagingData, src, size);
     vmaUnmapMemory(ci_allocator, stagingBuffer._allocation);
 
-    vkinit::copy_buffer(stagingBuffer._buffer, bufferDst.alloc._buffer, size, ci_cmdTransfer, ci_transferQueue.queue);
+    vkutil::copy_buffer(stagingBuffer._buffer, bufferDst.alloc._buffer, size, ci_cmdTransfer, ci_transferQueue.queue);
 }
 
 void ResourceContext::destroy_buffer(ResourceIndex bufferHandle) {
@@ -658,7 +577,7 @@ void ResourceContext::write_to_image_from_cpu(ResourceIndex imageDstHandle, void
     bool               isImmediate;
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.usage;
-    auto          stagingInfo = vkinit::buffer_staging_info(sizeOfData);
+    auto          stagingInfo = buffer_staging_info(sizeOfData);
     BufferContext bufferContext;
     VK_CHECK(vmaCreateBuffer(ci_allocator, &stagingInfo.bufferInfo, &stagingInfo.allocInfo, &bufferContext.alloc._buffer, &bufferContext.alloc._allocation, nullptr));
 
@@ -680,7 +599,7 @@ void ResourceContext::write_to_image_from_cpu(ResourceIndex imageDstHandle, void
         vkBeginCommandBuffer(cmd, &beginInfo);
     }
 
-    ImageContext imageDst = ci_images[imageDstHandle];
+    TImage imageDst = ci_images[imageDstHandle];
 
     util::transition_image_layout(cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageDst);
     auto copyRegion = vkinit::buffer_image_copy_info(ci_extents[ci_images[imageDstHandle].extentIndex]);
@@ -700,7 +619,7 @@ void ResourceContext::write_to_image_from_cpu(ResourceIndex imageDstHandle, void
         ci_resourceCounter--;
     }
 }
-void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext &context) {
+void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, TImage &context) {
 
     size_t   gridLength = atlasImageInfo.imageInfo.extent.height;
     size_t   pixelSize  = atlasImageInfo.textureAtlas.value().pixelSize;
@@ -715,7 +634,7 @@ void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateI
     uint32_t maxGridX = texWidth / gridLength;
     uint32_t maxGridY = texHeight / gridLength;
 
-    auto stageInfo = vkinit::buffer_staging_info(atlasImageInfo.dataSize);
+    auto stageInfo = buffer_staging_info(atlasImageInfo.dataSize);
 
     AllocatedBuffer stagingBuffer;
     vmaCreateBuffer(ci_allocator, &stageInfo.bufferInfo, &stageInfo.allocInfo, &stagingBuffer._buffer, &stagingBuffer._allocation, nullptr);
@@ -841,7 +760,7 @@ VkDescriptorSetLayout ResourceContext::build_descriptor_layout_blueprint(Descrip
 void on_resize(ResourceIndex index){
 
 };
-ImageContext ResourceContext::get_image_by_index(uint64_t blueprintNumber, uint64_t bindingNumber) { return ci_images[blueprintNumber | blueprintNumber >> 56]; }
+TImage ResourceContext::get_image_by_index(uint64_t blueprintNumber, uint64_t bindingNumber) { return ci_images[blueprintNumber | blueprintNumber >> 56]; }
 
 BufferContext ResourceContext::get_buffer_by_index(uint64_t blueprintNumber, uint64_t bindingNumber) { return ci_buffers[blueprintNumber | blueprintNumber >> 56]; }
 
@@ -882,11 +801,11 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
 
     for (auto &imageInfo : resourceContext.imageInfos) {
 
-        ImageContext context = {};
-        std::string  name    = imageInfo.name + counterTXT;
-        context.type         = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        context.layout       = VK_IMAGE_LAYOUT_UNDEFINED;
-        context.layerCount   = imageInfo.imageInfo.arrayLayers;
+        TImage      context = {};
+        std::string name    = imageInfo.name + counterTXT;
+        context.type        = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        context.layout      = VK_IMAGE_LAYOUT_UNDEFINED;
+        context.layerCount  = imageInfo.imageInfo.arrayLayers;
 
         VK_CHECK(vmaCreateImage(ci_allocator, &imageInfo.imageInfo, &imageInfo.allocInfo, &context.alloc._image, &context.alloc._allocation, nullptr));
         imageInfo.imageViewInfo.image = context.alloc._image;

@@ -1,5 +1,5 @@
 #pragma once
-#include "common/std_common.h"
+#include "../common/std_common.h"
 #include <optional>
 #include <span>
 
@@ -7,18 +7,6 @@
 
 // 56 bits for blueprint number
 // 8 bits for bindings
-
-namespace vkinit {
-    VkBufferImageCopy    buffer_image_copy_info(VkExtent3D extent, uint32_t layerCount = 1);
-    VkImageCopy          image_image_copy_info(VkExtent3D extent);
-    VkImageMemoryBarrier image_barrier_info(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccess, VkAccessFlags dstAccess);
-} // namespace vkinit
-
-namespace util {
-    void debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, VkDevice device);
-    void transition_image_color_attachment(VkCommandBuffer cmd,VkImage image);
-    void transition_image_present(VkCommandBuffer cmd, VkImage image);
-} // namespace util
 
 enum class BufferType {
     Vertex  = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -31,16 +19,6 @@ enum class MemoryType {
     BestFit,
     GpuOnly     = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     HostVisible = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-};
-
-struct ImageContext {
-    VkSampler        sampler;
-    VkImageView      view;
-    AllocatedImage   alloc;
-    uint8_t          extentIndex;
-    VkDescriptorType type;
-    VkImageLayout    layout;
-    uint16_t         layerCount = 1;
 };
 
 struct ObserverMeta {
@@ -161,8 +139,7 @@ struct ResourceBuilder {
 
 struct ResourceContext {
 
-    void init(VkPhysicalDevice physical, VkDevice device, VkInstance instance, VulkanQueue transferQueue, VulkanQueue graphicQueue, VkCommandBuffer cmdGraphic,
-              PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtil);
+    void init(VulkanContextGlobal vulkanContext, PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtil);
 
     void copy_to_buffer_visible(ResourceIndex dst, size_t size, const void *src);
 
@@ -174,13 +151,13 @@ struct ResourceContext {
 
     void write_to_image_from_cpu(ResourceIndex imageDstHandle, void *src, size_t sizeOfData, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer cmd = nullptr);
 
-    void write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, ImageContext &context);
+    void write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, TImage &context);
 
     VkDescriptorSetLayout build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkDescriptorSetLayout layout = nullptr);
 
     ResourceIndex build_resource_blueprint(ResourceBuilder::Blueprint resourceContext);
 
-    ImageContext  get_image_by_index(uint64_t blueprintNumber, uint64_t bindingNumber);
+    TImage        get_image_by_index(uint64_t blueprintNumber, uint64_t bindingNumber);
     BufferContext get_buffer_by_index(uint64_t blueprintNumber, uint64_t bindingNumber);
     ResourceIndex get_resource_by_name(std::string resourceName);
 
@@ -193,7 +170,7 @@ struct ResourceContext {
 
     std::unordered_map<std::string, ResourceIndex>           ci_resourceIndex;
     std::unordered_map<ResourceIndex, BufferContext>         ci_buffers;
-    std::unordered_map<ResourceIndex, ImageContext>          ci_images;
+    std::unordered_map<ResourceIndex, TImage>                ci_images;
     std::unordered_map<VkDescriptorSetLayout, LayoutContext> ci_layouts;
 
     VkSampler ci_default_sampler;

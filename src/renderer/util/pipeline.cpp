@@ -1,105 +1,10 @@
 #include "pipeline.h"
-#include "util/vk_initializers.h"
+#include "vk_initializers.h"
+#include "vkutil.h"
 
 #include <filesystem>
 #include <fstream>
 
-namespace util {
-    bool load_shader_module(VkDevice device, const char *filePath, VkShaderModule *outShaderModule) {
-        std::string full_path = std::string(PROJECT_ROOT_PATH) + "/" + filePath;
-
-        // open the file. With cursor at the end
-        std::ifstream file(full_path, std::ios::ate | std::ios::binary);
-
-        if (!file.is_open()) {
-            return false;
-        }
-
-        // find what the size of the file is by looking up the location of the cursor
-        // because the cursor is at the end, it gives the size directly in bytes
-        size_t fileSize = (size_t)file.tellg();
-
-        // spirv expects the buffer to be on uint32, so make sure to reserve a int
-        // vector big enough for the entire file
-        std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
-
-        // put file cursor at beggining
-        file.seekg(0);
-
-        // load the entire file into the buffer
-        file.read((char *)buffer.data(), fileSize);
-
-        // now that the file is loaded into the buffer, we can close it
-        file.close();
-
-        // create a new shader module, using the buffer we loaded
-        VkShaderModuleCreateInfo createInfo = {};
-        createInfo.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        createInfo.pNext                    = nullptr;
-
-        // codeSize has to be in bytes, so multply the ints in the buffer by size of
-        // int to know the real size of the buffer
-        createInfo.codeSize = buffer.size() * sizeof(uint32_t);
-        createInfo.pCode    = buffer.data();
-
-        // check that the creation goes well.
-        VkShaderModule shaderModule;
-        if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-            return false;
-        }
-        *outShaderModule = shaderModule;
-        return true;
-    }
-} // namespace util
-namespace vkinit {
-    VkPipelineColorBlendStateCreateInfo color_blend_info(const std::vector<VkPipelineColorBlendAttachmentState> &colorBlendStates) {
-        VkPipelineColorBlendStateCreateInfo colorBlending = {};
-        colorBlending.sType                               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        colorBlending.pNext                               = nullptr;
-
-        colorBlending.logicOpEnable   = VK_FALSE;
-        colorBlending.logicOp         = VK_LOGIC_OP_COPY;
-        colorBlending.attachmentCount = colorBlendStates.size();
-        colorBlending.pAttachments    = colorBlendStates.data();
-        return colorBlending;
-    }
-
-    VkPipelineViewportStateCreateInfo viewport_state_info(VkViewport *viewport, VkRect2D *scissor) {
-
-        VkPipelineViewportStateCreateInfo viewportState = {};
-
-        viewportState.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-        viewportState.viewportCount = 1;
-        viewportState.pViewports    = viewport;
-        viewportState.scissorCount  = 1;
-        viewportState.pScissors     = scissor;
-
-        return viewportState;
-    }
-
-    VkPipelineMultisampleStateCreateInfo multi_sample_info(VkSampleCountFlagBits sample_count, VkBool32 shadingSample) {
-
-        VkPipelineMultisampleStateCreateInfo multisampleInfo = {};
-
-        multisampleInfo.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-        multisampleInfo.rasterizationSamples = sample_count;
-        multisampleInfo.sampleShadingEnable  = shadingSample; // You can set this to VK_TRUE if you want to enable sample shading
-
-        return multisampleInfo;
-    }
-
-    VkPipelineRenderingCreateInfoKHR pipeline_render_create_info_khr(VkFormat &colorFormat, VkFormat depthFormat) {
-        VkPipelineRenderingCreateInfoKHR pipelineCreateInfo = {};
-        pipelineCreateInfo.sType                            = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-        pipelineCreateInfo.pNext                            = nullptr;
-        pipelineCreateInfo.pColorAttachmentFormats          = &colorFormat;
-        pipelineCreateInfo.colorAttachmentCount             = 1;
-        pipelineCreateInfo.depthAttachmentFormat            = depthFormat;
-
-        return pipelineCreateInfo;
-    }
-
-}; // namespace vkinit
 void ShaderContext::init_all_shaders(VkDevice device) {
     auto relativeShaderPath = std::string("/shaders/spiv");
 
@@ -115,14 +20,14 @@ void ShaderContext::init_all_shaders(VkDevice device) {
 
         VkShaderModule module        = nullptr;
         std::string    relative_path = relativeShaderPath + "/" + entry.path().filename().c_str();
-        util::load_shader_module(device, relative_path.c_str(), &module);
+        vkutil::load_shader_module(device, relative_path.c_str(), &module);
 
         if (module == nullptr) {
             printf("Error reading shader file. %s\n", entry.path().c_str());
         } else {
 
             ci_shaders[entry.path().filename()] = module;
-            util::debug_object_set_name((uint64_t)module, VK_OBJECT_TYPE_SHADER_MODULE, entry.path().filename().c_str(), device);
+            vkutil::debug_object_set_name((uint64_t)module, VK_OBJECT_TYPE_SHADER_MODULE, entry.path().filename().c_str(), device);
         }
     }
 }

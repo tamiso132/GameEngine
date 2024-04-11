@@ -3,13 +3,13 @@
 
 #pragma once
 #include "VkBootstrapDispatch.h"
-#include "mesh.h"
+#include "util/mesh.h"
 
 #include "../camera/camera.h"
 #include "common/std_common.h"
-#include "pipeline.h"
-#include "vk_resource.h"
-#include "vk_types.h"
+#include "util/pipeline.h"
+#include "util/vk_resource.h"
+#include "util/vk_types.h"
 #include <VkBootstrap.h>
 #include <cstdint>
 #include <filesystem>
@@ -26,6 +26,8 @@ struct FrameData {
     VkCommandPool   pool;
     VkCommandBuffer cmd;
 
+    ResourceIndex bufferIndex;
+
     DescriptorAllocatorGrowable descriptorAllocator;
 };
 
@@ -38,19 +40,6 @@ class VulkanEngine {
 
     std::vector<FrameData> ci_frames;
 
-    VkQueue  _graphicsQueue;
-    uint32_t _graphicsQueueFamily;
-
-    VkQueue  _transferQueue;
-    uint32_t _transferQueueFamily;
-
-    VkSurfaceKHR   _surface;
-    VkSwapchainKHR _swapchain;
-    VkFormat       _swapchainImageFormat;
-
-    std::vector<VkImage>     ci_swapchainImages;
-    std::vector<VkImageView> ci_swapchainImageViews;
-
     VmaAllocator _allocator; // vma lib allocator
 
     // depth resources
@@ -62,11 +51,6 @@ class VulkanEngine {
     VkDescriptorPool _imgui_pool;
 
     Camera _cam;
-
-    VkCommandBuffer cmd;
-    VkCommandPool   pool;
-
-    VkDescriptorSet c_textureSet;
 
     ResourceContext ci_resourceContext = {};
 

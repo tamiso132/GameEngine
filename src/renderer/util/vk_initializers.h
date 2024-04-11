@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "../vk_types.h"
+#include "vk_types.h"
 
 namespace vkinit {
     VkCommandPoolCreateInfo command_pool_create_info(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags = 0);
@@ -51,4 +51,17 @@ namespace vkinit {
     VkWriteDescriptorSet write_descriptor_image(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorImageInfo *imageInfo, uint32_t binding);
 
     VkSamplerCreateInfo sampler_create_info(VkFilter filters, VkSamplerAddressMode samplerAdressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
+
+    VkRenderingInfoKHR render_info_khr(VkRenderingAttachmentInfo &colorAttachment, VkRenderingAttachmentInfo &depthAttachment, VkExtent2D windowExtent);
+
+    VkRenderingAttachmentInfo render_attachment_info(VkClearValue clearValue, VkImageLayout layout, VkImageView view, VkAttachmentLoadOp loadOp, VkAttachmentStoreOp storeOp);
+
+    VkBufferImageCopy    buffer_image_copy_info(VkExtent3D extent, uint32_t layerCount = 1);
+    VkImageCopy          image_image_copy_info(VkExtent3D extent);
+    VkImageMemoryBarrier image_barrier_info(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccess, VkAccessFlags dstAccess);
+
+    VkPipelineColorBlendStateCreateInfo  color_blend_info(const std::vector<VkPipelineColorBlendAttachmentState> &colorBlendStates);
+    VkPipelineViewportStateCreateInfo    viewport_state_info(VkViewport *viewport, VkRect2D *scissor);
+    VkPipelineMultisampleStateCreateInfo multi_sample_info(VkSampleCountFlagBits sample_count, VkBool32 shadingSample);
+    VkPipelineRenderingCreateInfoKHR     pipeline_render_create_info_khr(VkFormat &colorFormat, VkFormat depthFormat);
 } // namespace vkinit
