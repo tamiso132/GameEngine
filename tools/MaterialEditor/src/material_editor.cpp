@@ -3,6 +3,7 @@
 #include "util/renderer.h"
 #include "util/vk_initializers.h"
 #include "util/vkutil.h"
+#include <vulkan/vulkan_core.h>
 
 #define NDebug
 
@@ -66,10 +67,8 @@ void MaterialEditor::init() {
 
     DescriptorLayoutBuilder textureLayoutBuilder;
     textureLayoutBuilder.add_image(ci_resourceContext.get_resource_by_name("texture_atlas"));
-    textureLayoutBuilder.add_image(ci_resourceContext.get_resource_by_name("texture_atlas_normal"));
-    textureLayoutBuilder.add_buffer(ci_resourceContext.get_resource_by_name("materials"), VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    VkDescriptorSetLayout textureLayout = ci_resourceContext.build_descriptor_layout_blueprint(textureLayoutBuilder.get_blueprint(), ci_globalDescriptorAllocator);
+    ci_textureLayout = ci_resourceContext.build_descriptor_layout_blueprint(textureLayoutBuilder.get_blueprint(), ci_globalDescriptorAllocator);
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         FrameData frame;
@@ -119,7 +118,7 @@ void MaterialEditor::init() {
     pipelineBuilder.add_depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.add_cull_mode(VK_CULL_MODE_BACK_BIT);
     pipelineBuilder.add_vertex_attribute(VertexBlock::vertex_input_description());
-    pipelineBuilder.add_layout_sets({textureLayout, layout});
+    pipelineBuilder.add_layout_sets({ci_textureLayout, layout});
 
     pipeline.build_pipeline(pipelineBuilder, "main_pipeline");
     _isInitialized = true;
@@ -128,6 +127,7 @@ void MaterialEditor::init() {
 void MaterialEditor::cleanup() {}
 
 void MaterialEditor::draw_test() {
+
     // /*Camera*/
     // auto view = _cam.get_view();
     // //  camera projection
@@ -178,10 +178,12 @@ void MaterialEditor::draw_test() {
 }
 
 void MaterialEditor::draw() {
-
     Render::prepare_frame_imgui(ci_vulkanGlobal);
-    bool show = true;
-    ImGui::ShowDemoWindow(&show);
+    VkDescriptorSet imageDescriptor = ci_resourceContext.get_descriptor_sets_by_layout(ci_textureLayout).sets[0];
+
+    ImGui::Begin("Vulkan Texture Test");
+    ImGui::Image((ImTextureID)imageDescriptor, ImVec2(64, 64));
+    ImGui::End();
 
     Render::end_frame_imgui();
 

@@ -7,7 +7,22 @@
 #include "../camera/camera.h"
 #include "VkBootstrapDispatch.h"
 #include "util/pipeline.h"
+#include <cstdint>
 #include <vulkan/vulkan_core.h>
+
+struct TextureAtlasImage {
+    const char *name; // TODO, get a thumbnail
+};
+
+struct TextureAtlas {
+    uint8_t     id;
+    uint8_t     pixelSize;
+    uint16_t    width;
+    uint16_t    height;
+    const char *name;
+
+    std::vector<TextureAtlasImage> textureImages;
+};
 
 struct FrameData {
     VkFence     queueDoneFence;
@@ -44,6 +59,8 @@ class MaterialEditor {
     Mesh ci_meshes;
 
     Pipeline pipeline;
+
+    VkDescriptorSetLayout ci_textureLayout;
 
     uint64_t ci_currentFrame = 0;
 

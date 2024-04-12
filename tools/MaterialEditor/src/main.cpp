@@ -7,5 +7,6 @@
 int main(int argc, char *argv[]) {
     MaterialEditor engine{};
     engine.init();
+    
     engine.run();
 }
