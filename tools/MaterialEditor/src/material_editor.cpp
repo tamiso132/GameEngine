@@ -67,6 +67,8 @@ void MaterialEditor::init() {
 
     DescriptorLayoutBuilder textureLayoutBuilder;
     textureLayoutBuilder.add_image(ci_resourceContext.get_resource_by_name("texture_atlas"));
+    textureLayoutBuilder.add_image(ci_resourceContext.get_resource_by_name("texture_atlas_normal"));
+    textureLayoutBuilder.add_buffer(ci_resourceContext.get_resource_by_name("materials"), VK_SHADER_STAGE_FRAGMENT_BIT);
 
     ci_textureLayout = ci_resourceContext.build_descriptor_layout_blueprint(textureLayoutBuilder.get_blueprint(), ci_globalDescriptorAllocator);
 
@@ -121,6 +123,8 @@ void MaterialEditor::init() {
     pipelineBuilder.add_layout_sets({ci_textureLayout, layout});
 
     pipeline.build_pipeline(pipelineBuilder, "main_pipeline");
+
+    gui.init(ci_vulkanGlobal, ci_resourceContext, pipeline, ci_meshes);
     _isInitialized = true;
 }
 
@@ -178,14 +182,6 @@ void MaterialEditor::draw_test() {
 }
 
 void MaterialEditor::draw() {
-    Render::prepare_frame_imgui(ci_vulkanGlobal);
-    VkDescriptorSet imageDescriptor = ci_resourceContext.get_descriptor_sets_by_layout(ci_textureLayout).sets[0];
-
-    ImGui::Begin("Vulkan Texture Test");
-    ImGui::Image((ImTextureID)imageDescriptor, ImVec2(64, 64));
-    ImGui::End();
-
-    Render::end_frame_imgui();
 
     // // // check if window is minimized and skip drawing
     FrameData frame = ci_frames[ci_currentFrame % ci_frames.size()];
@@ -214,7 +210,7 @@ void MaterialEditor::draw() {
 
     cmdBeginRenderingKHR(frame.cmd, &dynamicInfo);
 
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame.cmd);
+     gui.draw_gui(frame.cmd);
 
     cmdEndRenderingKHR(frame.cmd);
 

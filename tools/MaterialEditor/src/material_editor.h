@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <vulkan/vulkan_core.h>
 
+#include "gui/gui.h"
+
 struct TextureAtlasImage {
     const char *name; // TODO, get a thumbnail
 };
@@ -63,6 +65,8 @@ class MaterialEditor {
     VkDescriptorSetLayout ci_textureLayout;
 
     uint64_t ci_currentFrame = 0;
+
+    TGui gui;
 
     void init();
     // shuts down the engine

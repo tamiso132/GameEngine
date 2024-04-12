@@ -20,6 +20,8 @@ class Pipeline {
     void init_pipeline(VkDevice device);
     void build_pipeline(PipelineBuilder builder, std::string name);
 
+    PipelineContext get_pipeline_layout(std::string name) { return pipelines[name]; }
+
   private:
     ShaderContext ci_shaders;
     VkDevice      device;

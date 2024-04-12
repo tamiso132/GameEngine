@@ -44,7 +44,7 @@ VertexInputDescription VertexQuadScreen::vertex_input_description() {
     mainBinding.stride                          = sizeof(VertexQuadScreen);
     mainBinding.inputRate                       = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    VkVertexInputAttributeDescription uvAttribute = vkinit::vertex_attribute_input_info(2, VK_FORMAT_R32G32_SFLOAT, offsetof(VertexQuadScreen, uv));
+    VkVertexInputAttributeDescription uvAttribute = vkinit::vertex_attribute_input_info(0, VK_FORMAT_R32G32_SFLOAT, offsetof(VertexQuadScreen, uv));
 
     description.attributes.push_back(uvAttribute);
     description.bindings.push_back(mainBinding);
