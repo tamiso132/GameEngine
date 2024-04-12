@@ -1,5 +1,4 @@
 
-# Define an initial list
 macro(add_sources)
     # Get the relative path from the project root to the current source directory
     file(RELATIVE_PATH RELATIVE_PATH_TO_PROJECT ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -20,11 +19,12 @@ endmacro()
 
 
 
-
 add_subdirectory(renderer)
 add_subdirectory(input)
 add_subdirectory(collision)
 add_subdirectory(camera)
+
+
 
 add_sources(
     main.cpp

@@ -11,6 +11,7 @@ PFN_vkSetDebugUtilsObjectNameEXT vkutil::cmdSetDebugUtilsObjectNameEXT;
 static const std::vector<const char *> device_extensions = {"VK_KHR_dynamic_rendering"};
 namespace Render {
     void init(VulkanContextGlobal &vulkanContext, VmaAllocator &allocator, vkb::DispatchTable &table, ResourceContext &resourceContext, Mesh &meshes) {
+        vulkanContext = {};
 
         SDL_Init(SDL_INIT_VIDEO);
 
@@ -72,7 +73,7 @@ namespace Render {
         vulkanContext.transferQueue.queue = vkbDevice.get_queue(vkb::QueueType::transfer).value();
 
         vulkanContext.graphicQueue.queueIndex = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
-        vulkanContext.graphicQueue.queueIndex = vkbDevice.get_queue_index(vkb::QueueType::transfer).value();
+        vulkanContext.transferQueue.queueIndex = vkbDevice.get_queue_index(vkb::QueueType::transfer).value();
 
         // initialize the memory allocator
         VmaAllocatorCreateInfo allocatorInfo = {};

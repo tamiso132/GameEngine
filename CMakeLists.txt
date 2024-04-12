@@ -27,12 +27,14 @@ set(SOURCES_FILES_GAME_ENGINE)
 set(INCLUDE_DIRECTORIES_ENGINE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
+
+
 add_subdirectory(thirdparty/imgui)
 add_subdirectory(thirdparty/simdjson)
 add_subdirectory(thirdparty/fastgltf)
 add_subdirectory(thirdparty/vk-bootstrap)
-add_subdirectory(thirdparty/tiny_obj)
 add_subdirectory(thirdparty/stb_image)
+add_subdirectory(thirdparty/vma)
 add_subdirectory(src)
 
 add_compile_options(-w)
@@ -41,9 +43,9 @@ add_compile_options(-w)
 add_executable(VulkanGuide ${SOURCES_FILES_GAME_ENGINE})
 
 
-target_include_directories(VulkanGuide PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS} thirdparty/vma)
+target_include_directories(VulkanGuide PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS})
 
-target_link_libraries(VulkanGuide PRIVATE imgui fastgltf ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES} ${CMAKE_DL_LIBS} vk-bootstrap fmt::fmt tinyobj stb_image)
+target_link_libraries(VulkanGuide PRIVATE imgui fastgltf ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES} ${CMAKE_DL_LIBS} vk-bootstrap fmt::fmt stb_image vma)
 
 target_include_directories(VulkanGuide PRIVATE ${INCLUDE_DIRECTORIES_ENGINE})
 target_include_directories(VulkanGuide PRIVATE thirdparty/stb_image thirdparty/fastgltf/include thirdparty/imgui)

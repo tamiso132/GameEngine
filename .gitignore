@@ -4,3 +4,5 @@
 /.VSCodeCounter
 /.cache
 /tools/AtlasGenerator/build
+/tools/MaterialEditor/build
+tools/MaterialEditor/.cache/clangd/index/main.cpp.128857011DFFB959.idx

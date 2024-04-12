@@ -5,7 +5,6 @@
 #include "../common/common_types.h"
 #include <iostream>
 #include <vector>
-#include <vulkan/vulkan_core.h>
 
 typedef uint64_t ResourceIndex;
 

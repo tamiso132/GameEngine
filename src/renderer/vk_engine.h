@@ -2,21 +2,11 @@
 // or project specific include files.
 
 #pragma once
-#include "VkBootstrapDispatch.h"
-#include "util/mesh.h"
+#include "common/std_common.h"
 
 #include "../camera/camera.h"
-#include "common/std_common.h"
+#include "VkBootstrapDispatch.h"
 #include "util/pipeline.h"
-#include "util/vk_resource.h"
-#include "util/vk_types.h"
-#include <VkBootstrap.h>
-#include <cstdint>
-#include <filesystem>
-#include <string>
-#include <unordered_map>
-#include <vector>
-#include <vulkan/vulkan_core.h>
 
 struct FrameData {
     VkFence     queueDoneFence;
@@ -43,10 +33,6 @@ class VulkanEngine {
     VmaAllocator _allocator; // vma lib allocator
 
     // depth resources
-    VkImageView    _depthImageView;
-    AllocatedImage _depthImage;
-
-    VkFormat _depthFormat;
 
     VkDescriptorPool _imgui_pool;
 

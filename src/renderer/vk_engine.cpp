@@ -1,22 +1,13 @@
 ﻿#include "vk_engine.h"
 
 #define NDebug
+#define VMA_IMPLEMENTATION
 
 #include <SDL_stdinc.h>
 #include <SDL_video.h>
 #include <SDL_vulkan.h>
-#include <cstdint>
-#include <cstdio>
-#include <filesystem>
-#include <glm/ext/matrix_clip_space.hpp>
 #include <glm/fwd.hpp>
 #include <imgui.h>
-#include <string>
-#include <vector>
-#include <vulkan/vulkan_core.h>
-
-#include "VkBootstrap.h"
-#include "VkBootstrapDispatch.h"
 
 #include "util/mesh.h"
 #include "util/renderer.h"
@@ -25,9 +16,9 @@
 #include "util/vk_types.h"
 #include "util/vkutil.h"
 
-#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
+
 #include "imgui_impl_sdl2.h"
-#include "vk_mem_alloc.h"
 
 constexpr bool bUseValidationLayers = true;
 // we want to immediately abort when there is an error. In normal engines this
@@ -129,7 +120,7 @@ void VulkanEngine::init() {
 
     PipelineBuilder pipelineBuilder = PipelineBuilder::default_pipeline_builder(ci_vulkanGlobal, "colored_triangle.vert.spv", "colored_triangle.frag.spv");
 
-    pipelineBuilder.add_attachments_formats({ci_vulkanGlobal.swapchainImageFormat}, _depthFormat);
+    pipelineBuilder.add_attachments_formats({ci_vulkanGlobal.swapchainImageFormat}, ci_vulkanGlobal.depthImage.format);
     pipelineBuilder.add_depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.add_cull_mode(VK_CULL_MODE_BACK_BIT);
     pipelineBuilder.add_vertex_attribute(VertexBlock::vertex_input_description());
@@ -211,7 +202,7 @@ void VulkanEngine::draw() {
         vkinit::render_attachment_info(clearValue, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR, ci_vulkanGlobal.swapchainImageViews[imageIndex], VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
 
     VkRenderingAttachmentInfo depthAttachment =
-        vkinit::render_attachment_info(depthClear, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, _depthImageView, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
+        vkinit::render_attachment_info(depthClear, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, ci_vulkanGlobal.depthImage.view, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
 
     VkRenderingInfoKHR dynamicInfo = vkinit::render_info_khr(colorAttachment, depthAttachment, ci_vulkanGlobal.windowExtent);
 
