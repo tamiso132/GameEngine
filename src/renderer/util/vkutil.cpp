@@ -1,6 +1,7 @@
 #include "vkutil.h"
 
 #include <fstream>
+#include <vulkan/vulkan_core.h>
 
 #include "vk_initializers.h"
 
@@ -205,7 +206,15 @@ namespace vkutil {
         *outShaderModule = shaderModule;
         return true;
     }
-    
+
+    VkPhysicalDeviceDynamicRenderingUnusedAttachmentsFeaturesEXT feature_dynamic_unusued_attachment_EXT() {
+        VkPhysicalDeviceDynamicRenderingUnusedAttachmentsFeaturesEXT info{};
+        info.dynamicRenderingUnusedAttachments = VK_TRUE;
+        info.sType                             = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_UNUSED_ATTACHMENTS_FEATURES_EXT;
+
+        return info;
+    }
+
 #if defined(NDebug)
     void debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, VkDevice device) {
         VkDebugUtilsObjectNameInfoEXT debugNameInfo = {};

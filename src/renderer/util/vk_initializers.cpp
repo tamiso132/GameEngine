@@ -322,13 +322,13 @@ namespace vkinit {
         return attachment;
     }
 
-    VkRenderingInfoKHR render_info_khr(VkRenderingAttachmentInfo &colorAttachment, VkRenderingAttachmentInfo &depthAttachment, VkExtent2D windowExtent) {
+    VkRenderingInfoKHR render_info_khr(VkRenderingAttachmentInfo &colorAttachment, VkRenderingAttachmentInfo *depthAttachment, VkExtent2D windowExtent) {
         VkRenderingInfoKHR dynamicInfo   = {};
         dynamicInfo.pNext                = nullptr;
         dynamicInfo.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;
         dynamicInfo.colorAttachmentCount = 1;
         dynamicInfo.pColorAttachments    = &colorAttachment;
-        dynamicInfo.pDepthAttachment     = &depthAttachment;
+        dynamicInfo.pDepthAttachment     = depthAttachment;
         dynamicInfo.renderArea           = {{0, 0}, windowExtent};
         dynamicInfo.layerCount           = 1;
 

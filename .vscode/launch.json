@@ -46,6 +46,29 @@
       "includePath": [
         "${workspaceFolder}/src",
       ]
+    },
+    {
+      "name": "MaterialEditor",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/tools/MaterialEditor/build/MaterialEditor",
+      "preLaunchTask": "MaterialEditorBuild",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/scripts",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "includePath": [
+        "${workspaceFolder}/src",
+      ]
     }
   ]
 }

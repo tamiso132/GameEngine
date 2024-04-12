@@ -52,7 +52,7 @@ namespace vkinit {
 
     VkSamplerCreateInfo sampler_create_info(VkFilter filters, VkSamplerAddressMode samplerAdressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
 
-    VkRenderingInfoKHR render_info_khr(VkRenderingAttachmentInfo &colorAttachment, VkRenderingAttachmentInfo &depthAttachment, VkExtent2D windowExtent);
+    VkRenderingInfoKHR render_info_khr(VkRenderingAttachmentInfo &colorAttachment, VkRenderingAttachmentInfo *depthAttachment, VkExtent2D windowExtent);
 
     VkRenderingAttachmentInfo render_attachment_info(VkClearValue clearValue, VkImageLayout layout, VkImageView view, VkAttachmentLoadOp loadOp, VkAttachmentStoreOp storeOp);
 

@@ -8,7 +8,7 @@ set (CMAKE_CXX_STANDARD 20)
 
 # Project name
 project(MaterialEditor)
-add_compile_definitions(PROJECT_ROOT_PATH="${CMAKE_SOURCE_DIR}")
+add_compile_definitions(PROJECT_ROOT_PATH="${CMAKE_SOURCE_DIR}/../..")
 
 find_package(Vulkan REQUIRED)
 
@@ -54,6 +54,7 @@ add_subdirectory(../../thirdparty/stb_image  ${CMAKE_CURRENT_SOURCE_DIR}/build/t
 
 add_subdirectory(../../src/renderer/common  ${CMAKE_SOURCE_DIR}/build/src/renderer/common)
 add_subdirectory(../../src/renderer/util  ${CMAKE_SOURCE_DIR}/build/src/renderer/util)
+add_subdirectory(../../src/camera  ${CMAKE_SOURCE_DIR}/build/src/camera)
 
 add_subdirectory(src)
 
@@ -62,7 +63,8 @@ add_compile_options(-w)
 add_executable(MaterialEditor ${SOURCES_FILES_GAME_ENGINE})
 
 
-target_include_directories(MaterialEditor PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS})
+target_include_directories(MaterialEditor PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS} ../../src/renderer/)
+
 
 target_link_libraries(MaterialEditor PRIVATE imgui fastgltf ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES} ${CMAKE_DL_LIBS} vk-bootstrap fmt::fmt stb_image vma)
 

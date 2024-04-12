@@ -21,4 +21,7 @@ namespace vkutil {
     bool load_shader_module(VkDevice device, const char *filePath, VkShaderModule *outShaderModule);
 
     void debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, VkDevice device);
+
+    /*Features*/
+    VkPhysicalDeviceDynamicRenderingUnusedAttachmentsFeaturesEXT feature_dynamic_unusued_attachment_EXT();
 } // namespace vkutil

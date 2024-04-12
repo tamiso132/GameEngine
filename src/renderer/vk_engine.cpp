@@ -204,7 +204,7 @@ void VulkanEngine::draw() {
     VkRenderingAttachmentInfo depthAttachment =
         vkinit::render_attachment_info(depthClear, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, ci_vulkanGlobal.depthImage.view, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
 
-    VkRenderingInfoKHR dynamicInfo = vkinit::render_info_khr(colorAttachment, depthAttachment, ci_vulkanGlobal.windowExtent);
+    VkRenderingInfoKHR dynamicInfo = vkinit::render_info_khr(colorAttachment, &depthAttachment, ci_vulkanGlobal.windowExtent);
 
     vkutil::transition_image_color_attachment(frame.cmd, ci_vulkanGlobal.swapchainImages[imageIndex]);
 

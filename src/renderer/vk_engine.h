@@ -45,8 +45,7 @@ class VulkanEngine {
     Pipeline pipeline;
 
     uint64_t ci_currentFrame = 0;
-
-    void init();
+    void     init();
 
     // shuts down the engine
     void cleanup();
