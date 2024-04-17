@@ -65,8 +65,12 @@ namespace Render {
         // create the final vulkan device
 
         vkb::DeviceBuilder deviceBuilder{physicalDevice};
-
-        vkb::Device vkbDevice = deviceBuilder.add_pNext(newFeatures).build().value();
+        vkb::Device        vkbDevice;
+        if (newFeatures != nullptr) {
+            vkbDevice = deviceBuilder.add_pNext(newFeatures).build().value();
+        } else {
+            vkbDevice = deviceBuilder.build().value();
+        }
 
         table = vkbDevice.make_table();
 

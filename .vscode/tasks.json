@@ -14,7 +14,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "bash ${workspaceFolder}/build.sh",
+            "command": "bash ${workspaceFolder}/run.sh 0 -b",
             "problemMatcher": [],
             "group": {
                 "kind": "build",
