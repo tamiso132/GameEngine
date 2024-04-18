@@ -210,7 +210,7 @@ void MaterialEditor::draw() {
 
     cmdBeginRenderingKHR(frame.cmd, &dynamicInfo);
 
-     gui.draw_gui(frame.cmd);
+    gui.draw_gui(frame.cmd);
 
     cmdEndRenderingKHR(frame.cmd);
 

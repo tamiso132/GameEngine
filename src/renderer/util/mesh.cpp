@@ -1,4 +1,6 @@
 #include "mesh.h"
+#include "vk_resource.h"
+#include <vector>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -52,6 +54,21 @@ VertexInputDescription VertexQuadScreen::vertex_input_description() {
     return description;
 }
 
+VertexInputDescription Vertex2DGui::vertex_input_description() {
+    VertexInputDescription description;
+
+    VkVertexInputBindingDescription mainBinding = {};
+    mainBinding.stride                          = sizeof(VertexQuadScreen);
+    mainBinding.inputRate                       = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription positionAttribute = vkinit::vertex_attribute_input_info(0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex2DGui, position));
+
+    description.attributes.push_back(positionAttribute);
+    description.bindings.push_back(mainBinding);
+
+    return description;
+}
+
 void Mesh::init_mesh(ResourceContext &context) {
     ResourceBuilder builder = {};
 
@@ -68,7 +85,6 @@ void Mesh::init_mesh(ResourceContext &context) {
         // Vertex 4
         {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1, 1}, 0},
     };
-
     const std::vector<VertexBlock> cubeVertices = {                                                             // Right face
                                                    {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, 0},   // Top left
                                                    {{0.5f, 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, 0},  // Top Right
@@ -131,18 +147,29 @@ void Mesh::init_mesh(ResourceContext &context) {
         {{1, 1}},
     };
 
+    const std::vector<Vertex2DGui> guiVertices = {
+        {{-0.5f, -0.5f, 0.0f}},
+        {{0.5f, -0.5f, 0.0f}},
+        {{-0.5f, 0.5f, 0.0f}},
+        {{0.5f, 0.5f, 0.0f}},
+    };
+
     builder.add_buffer(cubeVertices.size(), BufferType::Vertex, "v_cube", MemoryType::GpuOnly, cubeVertices.data(), quadScreenVertices.size());
     builder.add_buffer(quadScreenVertices.size(), BufferType::Vertex, "v_quad_screen", MemoryType::GpuOnly, quadScreenVertices.data(), quadVertices.size());
     builder.add_buffer(quadVertices.size(), BufferType::Vertex, "v_quad", MemoryType::GpuOnly, quadVertices.data(), quadVertices.size());
+    builder.add_buffer(guiVertices.size(), BufferType::Vertex, "v_gui_quad", MemoryType::GpuOnly, quadVertices.data(), quadVertices.size());
+
     ci_blueprintIndex = context.build_resource_blueprint(builder.get_blueprint());
 
     auto quadContext   = MeshContext(quadVertices.size(), context.get_buffer_by_index(ci_blueprintIndex, (uint64_t)MeshType::CubeBlock).alloc, VertexBlock::vertex_input_description);
     auto cubeContext   = MeshContext(cubeVertices.size(), context.get_buffer_by_index(ci_blueprintIndex, (uint64_t)MeshType::QuadBlock).alloc, VertexBlock::vertex_input_description);
-    auto screenContext = MeshContext(cubeVertices.size(), context.get_buffer_by_index(ci_blueprintIndex, (uint64_t)MeshType::QuadScreen).alloc, VertexQuadScreen::vertex_input_description);
+    auto screenContext = MeshContext(quadScreenVertices.size(), context.get_buffer_by_index(ci_blueprintIndex, (uint64_t)MeshType::QuadScreen).alloc, VertexQuadScreen::vertex_input_description);
+    auto guiContext    = MeshContext(guiVertices.size(), context.get_buffer_by_index(ci_blueprintIndex, (uint64_t)MeshType::GUI2DQuad).alloc, Vertex2DGui::vertex_input_description);
 
     ci_meshes.insert({MeshType::CubeBlock, cubeContext});
     ci_meshes.insert({MeshType::QuadBlock, quadContext});
     ci_meshes.insert({MeshType::QuadScreen, screenContext});
+    ci_meshes.insert({MeshType::GUI2DQuad, guiContext});
 }
 
 MeshContext Mesh::get_mesh(MeshType type) {

@@ -2,11 +2,13 @@
 
 #include "vk_resource.h"
 #include "vk_types.h"
+#include <glm/fwd.hpp>
 
 enum class MeshType {
     CubeBlock,
     QuadScreen,
     QuadBlock,
+    GUI2DQuad,
 };
 
 struct VertexInputDescription {
@@ -17,17 +19,26 @@ struct VertexInputDescription {
 };
 
 struct alignas(16) VertexBlock {
-    glm::vec3                     position;
-    glm::vec3                     normal;
-    glm::vec2                     uv;
-    uint32_t                      faceIndex;
+    glm::vec3 position;
+    glm::vec3 normal;
+    glm::vec2 uv;
+    uint32_t  faceIndex;
+
     static VertexInputDescription vertex_input_description();
 };
 
 struct alignas(16) VertexQuadScreen {
-    glm::vec2                     uv;
+    glm::vec2 uv;
+
     static VertexInputDescription vertex_input_description();
 };
+
+struct alignas(16) Vertex2DGui {
+    glm::vec3 position;
+
+    static VertexInputDescription vertex_input_description();
+};
+
 struct MeshContext {
     size_t          verticeSize;
     AllocatedBuffer verticeBuffer;
