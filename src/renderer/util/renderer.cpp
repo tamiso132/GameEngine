@@ -51,12 +51,18 @@ namespace Render {
         features.samplerAnisotropy = true;
         VkPhysicalDeviceVulkan11Features features_11;
         features_11.shaderDrawParameters = true;
+
         VkPhysicalDeviceVulkan13Features features_13;
         features_13.dynamicRendering = true;
+
+        VkPhysicalDeviceVulkan12Features features_12;
+        features_12.bufferDeviceAddress = true;
+
         vkb::PhysicalDeviceSelector selector{vkb_inst};
         vkb::PhysicalDevice         physicalDevice = selector.set_minimum_version(1, 3)
                                                  .set_required_features(features)
                                                  .set_required_features_11(features_11)
+                                                 .set_required_features_12(features_12)
                                                  .set_required_features_13(features_13)
                                                  .add_required_extension(device_extensions[0])
                                                  .set_surface(vulkanContext.surface)

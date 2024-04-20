@@ -28,8 +28,8 @@ struct TGui {
 
         glm::mat4 trans = glm::mat4(1.0f);
 
-        trans = glm::translate(trans, glm::vec3(x, y, 0.0f));
-        trans = glm::scale(trans, glm::vec3(width, height, 0.0f));
+        trans = glm::rotate(trans, glm::radians(90.0f), glm::vec3(0.0, 0.0, 1.0));
+        trans = glm::scale(trans, glm::vec3(0.5, 0.5, 0.5));
 
         return GPUObject{trans};
     };
@@ -61,9 +61,12 @@ struct TGui {
 
         /*Pipeline*/
         PipelineBuilder pipelineBuilder = PipelineBuilder::default_pipeline_builder(vulkanContext, "gui.vert.spv", "gui.frag.spv");
-        pipelineBuilder.add_vertex_attribute(Vertex2DGui::vertex_input_description())
+        pipelineBuilder
+            .add_vertex_attribute(Vertex2DGui::vertex_input_description()) // vertex description
             .add_attachments_formats(vulkanContext.swapchainImageFormat, vulkanContext.depthImage.format)
             .add_viewport(vulkanContext.windowExtent)
+            .add_cull_mode(VK_CULL_MODE_NONE)
+            .add_depth(false, false, VK_COMPARE_OP_NEVER)
             .add_layout_sets({ci_layout});
 
         pipeline.build_pipeline(pipelineBuilder, "gui_layout");
@@ -81,8 +84,6 @@ struct TGui {
 
         vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.verticeBuffer._buffer, &offset);
 
-        for (int i = 0; i < 3; i++) {
-            vkCmdDraw(cmd, mesh.verticeSize, 1, 0, i);
-        }
+        vkCmdDraw(cmd, mesh.verticeSize, 1, 0, 0);
     }
 };

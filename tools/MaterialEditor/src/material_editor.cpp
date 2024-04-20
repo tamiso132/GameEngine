@@ -33,10 +33,10 @@ void MaterialEditor::init() {
     // We initialize SDL and create a window with it.
 
     vkb::DispatchTable table;
+    auto               bufferExt      = vkutil::feature_buffer_device_adress();
+    auto               unused_feature = vkutil::feature_dynamic_unusued_attachment_EXT();
 
-    auto unused_feature = vkutil::feature_dynamic_unusued_attachment_EXT();
-
-    Render::init(ci_vulkanGlobal, _allocator, table, ci_resourceContext, ci_meshes, &unused_feature);
+    Render::init(ci_vulkanGlobal, _allocator, table, ci_resourceContext, ci_meshes);
     Render::add_imgui(ci_vulkanGlobal, ci_imguiPool);
 
     cmdBeginRenderingKHR = table.fp_vkCmdBeginRenderingKHR;

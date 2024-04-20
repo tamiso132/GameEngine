@@ -5,6 +5,7 @@
 
 #include "vk_initializers.h"
 
+#define NDebug
 namespace vkutil {
 
     VkCommandBuffer create_cmd(VulkanContextGlobal context, uint32_t queueFamilyIndex, VkCommandPool pool) {
@@ -211,6 +212,13 @@ namespace vkutil {
         VkPhysicalDeviceDynamicRenderingUnusedAttachmentsFeaturesEXT info{};
         info.dynamicRenderingUnusedAttachments = VK_TRUE;
         info.sType                             = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_UNUSED_ATTACHMENTS_FEATURES_EXT;
+
+        return info;
+    }
+
+    VkPhysicalDeviceBufferDeviceAddressFeatures feature_buffer_device_adress() {
+        VkPhysicalDeviceBufferDeviceAddressFeatures info{};
+        info.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
 
         return info;
     }

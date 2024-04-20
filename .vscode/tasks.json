@@ -34,7 +34,7 @@
         {
             "label": "MaterialEditorBuild",
             "type": "shell",
-            "command": "bash ${workspaceFolder}/scripts/build_editor.sh",
+            "command": "bash ${workspaceFolder}/run.sh 1 -b",
             "group": {
                 "kind": "build",
                 "isDefault": true

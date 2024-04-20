@@ -91,7 +91,7 @@ namespace util {
         debugNameInfo.objectHandle                  = objectHandle;
         debugNameInfo.pObjectName                   = name;
 
-        setDebugName(device, &debugNameInfo);
+        VK_CHECK(setDebugName(device, &debugNameInfo));
     };
     void transition_image_present(VkCommandBuffer cmd, VkImage image) {
 
@@ -375,6 +375,10 @@ void ResourceBuilder::add_buffer(size_t allocSize, BufferType type, const char *
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 
+    if (type == BufferType::Vertex) {
+        bufferInfo.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    }
+
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.requiredFlags           = memoryType;
 
@@ -493,6 +497,8 @@ void ResourceContext::init(VulkanContextGlobal vulkanContext, PFN_vkSetDebugUtil
     allocatorInfo.physicalDevice         = vulkanContext.chosenGPU;
     allocatorInfo.device                 = vulkanContext.device;
     allocatorInfo.instance               = vulkanContext.instance;
+
+    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
     DescriptorAllocatorGrowable::PoolSizeRatio poolRatio;
 
@@ -771,13 +777,13 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
 
     for (auto &bufferInfo : resourceContext.bufferInfos) {
 
-        BufferContext context;
+        BufferContext context{};
         context.usage    = bufferInfo.bufferInfo.usage;
         context.type     = bufferInfo.type;
         context.size     = bufferInfo.bufferInfo.size;
         std::string name = bufferInfo.name + counterTXT;
 
-        vmaCreateBuffer(ci_allocator, &bufferInfo.bufferInfo, &bufferInfo.allocInfo, &context.alloc._buffer, &context.alloc._allocation, nullptr);
+        VK_CHECK(vmaCreateBuffer(ci_allocator, &bufferInfo.bufferInfo, &bufferInfo.allocInfo, &context.alloc._buffer, &context.alloc._allocation, nullptr));
 
         util::debug_object_set_name((uint64_t)context.alloc._buffer, VK_OBJECT_TYPE_BUFFER, name.c_str(), ci_device);
         uint64_t      binding       = uint64_t(bufferInfo.bindingNumber) << 56;

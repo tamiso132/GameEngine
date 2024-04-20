@@ -18,8 +18,8 @@ objectBuffer;
 
 void main() {
     // Pass the vertex position to the fragment shader
-    fragTexCoord = vec2(0,0);
+    fragTexCoord = vec2(0.2f,0.2f);
     
     // Transform the vertex position
-    gl_Position = objectBuffer.objects[gl_BaseInstance].model* vec4(inPosition, 1.0); 
+    gl_Position = objectBuffer.objects[gl_BaseInstance].model * vec4(inPosition, 1.0f); 
 }

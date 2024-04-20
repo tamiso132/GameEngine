@@ -1,5 +1,6 @@
 #pragma once
 #include "../common/std_common.h"
+#include <cassert>
 #include <cstddef>
 #include <optional>
 #include <span>
@@ -154,7 +155,10 @@ struct ResourceContext {
 
     void write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, TImage &context);
 
-    LayoutContext get_descriptor_sets_by_layout(VkDescriptorSetLayout layout) { return ci_layouts[layout]; }
+    LayoutContext get_descriptor_sets_by_layout(VkDescriptorSetLayout layout) {
+        assert(ci_layouts.contains(layout));
+        return ci_layouts[layout];
+    }
 
     VkDescriptorSetLayout build_descriptor_layout_blueprint(DescriptorLayoutBuilder::Blueprint builderContext, DescriptorAllocatorGrowable descAllocator, VkDescriptorSetLayout layout = nullptr);
 

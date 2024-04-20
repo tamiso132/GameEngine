@@ -153,12 +153,12 @@ void Mesh::init_mesh(ResourceContext &context) {
         {{-0.5f, 0.5f, 0.0f}},
         {{0.5f, 0.5f, 0.0f}},
     };
-
-    builder.add_buffer(cubeVertices.size(), BufferType::Vertex, "v_cube", MemoryType::GpuOnly, cubeVertices.data(), quadScreenVertices.size());
-    builder.add_buffer(quadScreenVertices.size(), BufferType::Vertex, "v_quad_screen", MemoryType::GpuOnly, quadScreenVertices.data(), quadVertices.size());
-    builder.add_buffer(quadVertices.size(), BufferType::Vertex, "v_quad", MemoryType::GpuOnly, quadVertices.data(), quadVertices.size());
-    builder.add_buffer(guiVertices.size(), BufferType::Vertex, "v_gui_quad", MemoryType::GpuOnly, quadVertices.data(), quadVertices.size());
-
+    // clang-format off
+    builder.add_buffer(cubeVertices.size() * sizeof(VertexBlock), BufferType::Vertex, "v_cube", MemoryType::GpuOnly, cubeVertices.data(), quadScreenVertices.size() * sizeof(VertexBlock)); 
+    builder.add_buffer(quadScreenVertices.size() * sizeof(VertexQuadScreen), BufferType::Vertex, "v_quad_screen", MemoryType::GpuOnly, quadScreenVertices.data(),quadVertices.size() * sizeof(VertexQuadScreen)); 
+    builder.add_buffer(quadVertices.size() * sizeof(VertexBlock), BufferType::Vertex, "v_quad", MemoryType::GpuOnly, quadVertices.data(), quadVertices.size() * sizeof(VertexBlock)); 
+    builder.add_buffer(guiVertices.size() * sizeof(Vertex2DGui), BufferType::Vertex, "v_gui_quad", MemoryType::GpuOnly, quadVertices.data(), guiVertices.size() * sizeof(Vertex2DGui));
+    // clang-format on
     ci_blueprintIndex = context.build_resource_blueprint(builder.get_blueprint());
 
     auto quadContext   = MeshContext(quadVertices.size(), context.get_buffer_by_index(ci_blueprintIndex, (uint64_t)MeshType::CubeBlock).alloc, VertexBlock::vertex_input_description);

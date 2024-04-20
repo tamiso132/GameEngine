@@ -24,4 +24,5 @@ namespace vkutil {
 
     /*Features*/
     VkPhysicalDeviceDynamicRenderingUnusedAttachmentsFeaturesEXT feature_dynamic_unusued_attachment_EXT();
+    VkPhysicalDeviceBufferDeviceAddressFeatures                  feature_buffer_device_adress();
 } // namespace vkutil

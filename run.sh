@@ -105,7 +105,6 @@ done
 
 case "${applicationType}" in
     0)  
-        Run engine
         build_engine $buildType
         if ($run); then
         echo 'hey'
