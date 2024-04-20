@@ -6,6 +6,7 @@
 #include "vk_initializers.h"
 
 #define NDebug
+
 namespace vkutil {
 
     VkCommandBuffer create_cmd(VulkanContextGlobal context, uint32_t queueFamilyIndex, VkCommandPool pool) {
@@ -207,6 +208,32 @@ namespace vkutil {
         *outShaderModule = shaderModule;
         return true;
     }
+
+#if defined(FREETYPE_LIBRARY)
+    bool load_text_font() {
+        FT_Library ft;
+        if (FT_Init_FreeType(&ft)) {
+            // Handle error
+        }
+
+        // Load font file
+        FT_Face face;
+        auto    path = std::string(PROJECT_ROOT_PATH) + "/assets/CW_BITMP.ttf";
+
+        if (FT_New_Face(ft, path.c_str(), 0, &face)) {
+            // Handle error
+            FT_Done_FreeType(ft);
+        }
+
+        // Now you can use the face to access font properties and glyphs
+        // For example, you can retrieve glyph metrics or render text
+
+        // Remember to free resources when done
+        FT_Done_Face(face);
+        FT_Done_FreeType(ft);
+    }
+
+#endif
 
     VkPhysicalDeviceDynamicRenderingUnusedAttachmentsFeaturesEXT feature_dynamic_unusued_attachment_EXT() {
         VkPhysicalDeviceDynamicRenderingUnusedAttachmentsFeaturesEXT info{};

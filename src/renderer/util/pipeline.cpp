@@ -141,10 +141,15 @@ PipelineBuilder &PipelineBuilder::add_attachments_formats(VkFormat format, VkFor
     ci_renderInfo      = vkinit::pipeline_render_create_info_khr(ci_swapchainFormat, depthFormat);
     return *this;
 }
+PipelineBuilder &PipelineBuilder::add_input_assembly(VkPrimitiveTopology topology) {
+    _inputAssembly = vkinit::input_assembly_create_info(topology);
+    return *this;
+};
 
 PipelineBuilder PipelineBuilder::default_pipeline_builder(VulkanContextGlobal vulkanContext, std::string vertexShader, std::string fragmentShader) {
     PipelineBuilder pipelineBuilder;
-    pipelineBuilder._inputAssembly = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+
 
     pipelineBuilder = pipelineBuilder.add_viewport(vulkanContext.windowExtent).add_vertex_attribute(VertexBlock::vertex_input_description());
 

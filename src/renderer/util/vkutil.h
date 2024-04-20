@@ -19,6 +19,7 @@ namespace vkutil {
     void copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandBuffer cmd, VkQueue queue);
 
     bool load_shader_module(VkDevice device, const char *filePath, VkShaderModule *outShaderModule);
+    bool load_text_font();
 
     void debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, VkDevice device);
 

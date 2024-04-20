@@ -119,10 +119,11 @@ void MaterialEditor::init() {
     pipelineBuilder.add_attachments_formats({ci_vulkanGlobal.swapchainImageFormat}, ci_vulkanGlobal.depthImage.format);
     pipelineBuilder.add_depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.add_cull_mode(VK_CULL_MODE_BACK_BIT);
+    pipelineBuilder.add_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     pipelineBuilder.add_vertex_attribute(VertexBlock::vertex_input_description());
     pipelineBuilder.add_layout_sets({ci_textureLayout, layout});
 
-    pipeline.build_pipeline(pipelineBuilder, "main_pipeline");
+    pipeline.build_pipeline(pipelineBuilder, "object_pipeline");
 
     gui.init(ci_vulkanGlobal, ci_resourceContext, pipeline, ci_meshes);
     _isInitialized = true;

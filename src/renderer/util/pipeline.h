@@ -58,6 +58,7 @@ class PipelineBuilder {
     PipelineBuilder &add_depth(bool bDepthTest, bool bDepthWrite, VkCompareOp compareOp);
     PipelineBuilder &add_cull_mode(VkCullModeFlags cullMode);
     PipelineBuilder &add_attachments_formats(VkFormat colorFormats, VkFormat depthFormat);
+    PipelineBuilder &add_input_assembly(VkPrimitiveTopology topology);
 
     static PipelineBuilder default_pipeline_builder(VulkanContextGlobal vulkanContext, std::string vertexShader, std::string fragmentShader);
 };
