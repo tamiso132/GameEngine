@@ -24,6 +24,7 @@ struct AllocatedImage {
 };
 
 struct TImage {
+    std::string      name;
     VkSampler        sampler;
     VkImageView      view;
     VkFormat         format;
@@ -38,7 +39,7 @@ struct VulkanContextGlobal {
     VkInstance       instance;
     VkPhysicalDevice chosenGPU;
     VkDevice         device;
-    VkExtent2D       windowExtent = {1700, 900};
+    VkExtent2D       windowExtent = {1920, 1080};
     // queue used for draw operations
     VulkanQueue graphicQueue;
 
@@ -93,7 +94,7 @@ struct alignas(16) GPUTexture {
     GPUAlignedArrayElement faceIndices[6]; // 12-byte padding
     GPUMaterial            material;
 };
-
+#if defined(T_DEBUG)
 #define VK_CHECK(x)                                                                                                                                                                                    \
     do {                                                                                                                                                                                               \
         VkResult err = x;                                                                                                                                                                              \
@@ -102,3 +103,7 @@ struct alignas(16) GPUTexture {
             abort();                                                                                                                                                                                   \
         }                                                                                                                                                                                              \
     } while (0)
+
+#else
+#define VK_CHECK
+#endif

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <glm/fwd.hpp>
 
-glm::mat4x4 Camera::get_projection() { return glm::mat4x4(); }
+glm::mat4x4 Camera::get_projection() { return ci_projection; }
 
 glm::mat4x4 Camera::get_view() {
     glm::mat4 view;

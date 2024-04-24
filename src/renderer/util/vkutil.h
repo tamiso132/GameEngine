@@ -14,6 +14,8 @@ namespace vkutil {
 
     void transition_image_color_attachment(VkCommandBuffer cmd, VkImage image);
     void transition_image_present(VkCommandBuffer cmd, VkImage image);
+    void transition_image_layout_transfer(VkCommandBuffer cmd, TImage &imageContext);
+    void transition_image_layout_shader_only(VkCommandBuffer cmd, TImage &imageContext);
     void transition_image_layout(VkCommandBuffer cmd, VkImageLayout newLayout, TImage &imageContext);
 
     void copy_buffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandBuffer cmd, VkQueue queue);

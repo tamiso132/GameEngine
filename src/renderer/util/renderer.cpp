@@ -8,21 +8,41 @@
 #include "vkutil.h"
 
 #include <SDL.h>
+#include <SDL_video.h>
 #include <SDL_vulkan.h>
 #include <any>
+#include <cstdio>
 #include <memory>
 #include <vulkan/vulkan_core.h>
 
 PFN_vkSetDebugUtilsObjectNameEXT vkutil::cmdSetDebugUtilsObjectNameEXT;
 
+#if (defined(T_DEBUG))
+const bool validationLayer = true;
+#else
+const bool validationLayer = false;
+#endif
+
 static const std::vector<const char *> device_extensions = {"VK_KHR_dynamic_rendering"};
 namespace Render {
+
+    void wait_for_fence(VkDevice device, VkFence &fence) {
+        ZoneScoped;
+        VK_CHECK(vkWaitForFences(device, 1, &fence, true, 1000000000));
+        VK_CHECK(vkResetFences(device, 1, &fence));
+    };
+
     void init(VulkanContextGlobal &vulkanContext, VmaAllocator &allocator, vkb::DispatchTable &table, ResourceContext &resourceContext, Mesh &meshes, void *newFeatures) {
+
+        printf("Validation Layer: %B\n", validationLayer);
         vulkanContext = {};
 
         SDL_Init(SDL_INIT_VIDEO);
 
-        SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
+        SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_FULLSCREEN_DESKTOP);
+
+        SDL_DisplayMode mode;
+        SDL_GetDesktopDisplayMode(0, &mode);
 
         vulkanContext.window = SDL_CreateWindow("Vulkan Engine", 0, 0, vulkanContext.windowExtent.width, vulkanContext.windowExtent.height, window_flags);
 
@@ -33,7 +53,7 @@ namespace Render {
 
                             .require_api_version(1, 3, 0)
                             .enable_extension("VK_EXT_debug_utils")
-                            .request_validation_layers(true)
+                            .request_validation_layers(validationLayer)
                             .use_default_debug_messenger()
                             .build();
 
@@ -49,13 +69,13 @@ namespace Render {
 
         features.imageCubeArray    = true;
         features.samplerAnisotropy = true;
-        VkPhysicalDeviceVulkan11Features features_11;
+        VkPhysicalDeviceVulkan11Features features_11{};
         features_11.shaderDrawParameters = true;
 
-        VkPhysicalDeviceVulkan13Features features_13;
+        VkPhysicalDeviceVulkan13Features features_13{};
         features_13.dynamicRendering = true;
 
-        VkPhysicalDeviceVulkan12Features features_12;
+        VkPhysicalDeviceVulkan12Features features_12{};
         features_12.bufferDeviceAddress = true;
 
         vkb::PhysicalDeviceSelector selector{vkb_inst};
@@ -80,6 +100,8 @@ namespace Render {
 
         table = vkbDevice.make_table();
 
+        vkutil::cmdSetDebugUtilsObjectNameEXT = table.fp_vkSetDebugUtilsObjectNameEXT;
+
         // Get the VkDevice handle used in the rest of a vulkan application
         vulkanContext.device    = vkbDevice.device;
         vulkanContext.chosenGPU = physicalDevice.physical_device;
@@ -101,7 +123,7 @@ namespace Render {
         vkb::SwapchainBuilder swapchainBuilder{vulkanContext.chosenGPU, vulkanContext.device, vulkanContext.surface};
 
         vkb::Swapchain vkbSwapchain = swapchainBuilder
-                                          .set_desired_format({VK_FORMAT_R16G16B16A16_SFLOAT, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
+                                          .set_desired_format({VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
                                           // use vsync present mode
                                           .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
                                           .set_desired_extent(vulkanContext.windowExtent.width, vulkanContext.windowExtent.height)
@@ -142,9 +164,9 @@ namespace Render {
 
         resourceContext.init(vulkanContext, table.fp_vkSetDebugUtilsObjectNameEXT);
         meshes.init_mesh(resourceContext);
-
-        vkutil::cmdSetDebugUtilsObjectNameEXT = table.fp_vkSetDebugUtilsObjectNameEXT;
     }
+
+    void add_tracy(VulkanContextGlobal &vulkanContext){};
 
     void add_imgui(VulkanContextGlobal &vulkanContext, VkDescriptorPool &imguiDescriptorPool) {
 
@@ -218,11 +240,11 @@ namespace Render {
     }
 
     void prepare_frame(VulkanContextGlobal vulkanContext, VkCommandBuffer cmd, VkFence &queueIsDone, VkSemaphore imageIsAquired, uint32_t &imageIndex) {
+        ZoneScoped;
 
-        VK_CHECK(vkWaitForFences(vulkanContext.device, 1, &queueIsDone, true, 1000000000));
-        VK_CHECK(vkResetFences(vulkanContext.device, 1, &queueIsDone));
+        wait_for_fence(vulkanContext.device, queueIsDone);
 
-        VK_CHECK(vkAcquireNextImageKHR(vulkanContext.device, vulkanContext.swapchain, 1000000000, imageIsAquired, nullptr, &imageIndex));
+        VK_CHECK(vkAcquireNextImageKHR(vulkanContext.device, vulkanContext.swapchain, 100, imageIsAquired, nullptr, &imageIndex));
 
         VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
         VK_CHECK(vkResetCommandBuffer(cmd, 0));
@@ -233,6 +255,8 @@ namespace Render {
 
     void end_frame(const VulkanContextGlobal &vulkanContext, VkCommandBuffer cmd, VkSemaphore &renderIsDone, VkFence &queueIsDone, VkSemaphore &imageIsAquired, uint32_t &imageIndex) {
         // /*Submit Queue*/
+        ZoneScoped;
+
         VK_CHECK(vkEndCommandBuffer(cmd));
 
         VkSubmitInfo         submit    = vkinit::submit_info(&cmd);
@@ -259,5 +283,6 @@ namespace Render {
         presentInfo.pImageIndices = &imageIndex;
 
         VK_CHECK(vkQueuePresentKHR(vulkanContext.graphicQueue.queue, &presentInfo));
+        FrameMark;
     }
 } // namespace Render

@@ -1,6 +1,9 @@
 ﻿#include "vk_engine.h"
+#include <cstdint>
+#include <cstdio>
+#include <glm/ext/matrix_transform.hpp>
+#include <vulkan/vulkan_core.h>
 
-#define NDebug
 #define VMA_IMPLEMENTATION
 
 #include <SDL_stdinc.h>
@@ -27,7 +30,9 @@ using namespace std;
 
 std::vector<const char *> device_extensions = {"VK_KHR_dynamic_rendering"};
 
-const uint32_t MAX_OBJECTS = 20;
+const uint32_t MAX_OBJECTS = 16 * 16 * 256;
+
+static uint32_t objectsToRender = 0;
 
 const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -38,7 +43,6 @@ PFN_vkCmdEndRenderingKHR   cmdEndRenderingKHR;
 
 void VulkanEngine::init() {
     // We initialize SDL and create a window with it.
-
     vkb::DispatchTable table;
 
     Render::init(ci_vulkanGlobal, _allocator, table, ci_resourceContext, ci_meshes);
@@ -46,9 +50,8 @@ void VulkanEngine::init() {
     cmdBeginRenderingKHR = table.fp_vkCmdBeginRenderingKHR;
     cmdEndRenderingKHR   = table.fp_vkCmdEndRenderingKHR;
 
-    auto pngContext   = load_png("assets/texture_atlas_0.png");
-    auto pngNormalMap = load_png("assets/texture_atlas_0_normalmap.png");
-
+    auto            pngContext   = load_png("assets/texture_atlas_0.png");
+    auto            pngNormalMap = load_png("assets/texture_atlas_0_normalmap.png");
     ResourceBuilder dynamicBuilder{};
     ResourceBuilder staticBuilder{};
 
@@ -57,11 +60,12 @@ void VulkanEngine::init() {
 
     staticBuilder.add_image_array_with_view(VK_FORMAT_R8G8B8A8_SRGB, pngContext.pixelSize, 64, pngContext.texWidth, pngContext.texHeight, "texture_atlas", pngContext.pixels);
     staticBuilder.add_image_array_with_view(VK_FORMAT_R8G8B8A8_SRGB, pngNormalMap.pixelSize, 64, pngNormalMap.texWidth, pngNormalMap.texHeight, "texture_atlas_normal", pngNormalMap.pixels);
-    staticBuilder.add_buffer(sizeof(GPUTexture) * 5, BufferType::Storage, "materials");
+
+    staticBuilder.add_buffer(sizeof(GPUTexture) * 1, BufferType::Storage, "materials", MemoryType::GpuOnly);
 
     ResourceIndex textureAtlasIndex = ci_resourceContext.build_resource_blueprint(staticBuilder.get_blueprint());
 
-    VkDescriptorSetLayout layout = nullptr;
+    ci_dynamicLayout = nullptr;
 
     std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> ratios;
     ratios.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1});
@@ -74,7 +78,7 @@ void VulkanEngine::init() {
     textureLayoutBuilder.add_image(ci_resourceContext.get_resource_by_name("texture_atlas_normal"));
     textureLayoutBuilder.add_buffer(ci_resourceContext.get_resource_by_name("materials"), VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    VkDescriptorSetLayout textureLayout = ci_resourceContext.build_descriptor_layout_blueprint(textureLayoutBuilder.get_blueprint(), ci_globalDescriptorAllocator);
+    ci_textureLayout = ci_resourceContext.build_descriptor_layout_blueprint(textureLayoutBuilder.get_blueprint(), ci_globalDescriptorAllocator);
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         FrameData frame;
@@ -99,7 +103,7 @@ void VulkanEngine::init() {
             c = static_cast<char>(i - 1);
         }
 
-        frame.bufferIndex = ci_resourceContext.build_resource_blueprint(dynamicBuilder.get_blueprint());
+        frame.dynamicIndex = ci_resourceContext.build_resource_blueprint(dynamicBuilder.get_blueprint());
 
         auto cameraIndex  = ci_resourceContext.get_resource_by_name("camera" + c);
         auto objectsIndex = ci_resourceContext.get_resource_by_name("objects" + c);
@@ -109,9 +113,37 @@ void VulkanEngine::init() {
         layoutBuilder.add_buffer(cameraIndex, VK_SHADER_STAGE_VERTEX_BIT);
         layoutBuilder.add_buffer(objectsIndex, VK_SHADER_STAGE_VERTEX_BIT);
 
-        layout = ci_resourceContext.build_descriptor_layout_blueprint(layoutBuilder.get_blueprint(), frame.descriptorAllocator, layout);
+        ci_dynamicLayout = ci_resourceContext.build_descriptor_layout_blueprint(layoutBuilder.get_blueprint(), frame.descriptorAllocator, ci_dynamicLayout);
 
         ci_frames.push_back(frame);
+
+        /*Upload Data*/
+        std::vector<GPUObject> objectsUpload;
+
+        GPUObject object{};
+        glm::vec3 position = glm::vec3();
+
+        for (int x = 0; x < 16; x++) {
+            position.x = x;
+
+            for (int z = 0; z < 16; z++) {
+                position.z = z;
+
+                for (int y = 0; y < 1; y++) {
+                    position.y = y;
+
+                    object.transformMatrix = glm::translate(glm::mat4(1.0f), position);
+                    objectsUpload.push_back(object);
+                }
+            }
+        }
+        objectsToRender = 16 * 16 * 1;
+        for (int i = 0; i < objectsToRender; i++) {
+            position.x += 1;
+            object.transformMatrix = glm::translate(glm::mat4(1.0f), position);
+            objectsUpload.push_back(object);
+        }
+        ci_resourceContext.copy_to_buffer_visible(frame.dynamicIndex, objectsUpload.size() * sizeof(GPUObject), objectsUpload.data());
     };
 
     /*Pipeline Stuff*/
@@ -121,70 +153,26 @@ void VulkanEngine::init() {
     PipelineBuilder pipelineBuilder = PipelineBuilder::default_pipeline_builder(ci_vulkanGlobal, "colored_triangle.vert.spv", "colored_triangle.frag.spv");
 
     pipelineBuilder.add_attachments_formats({ci_vulkanGlobal.swapchainImageFormat}, ci_vulkanGlobal.depthImage.format);
-    pipelineBuilder.add_depth(true, false, VK_COMPARE_OP_LESS_OR_EQUAL);
+    pipelineBuilder.add_depth(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.add_cull_mode(VK_CULL_MODE_BACK_BIT);
+    pipelineBuilder.add_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     pipelineBuilder.add_vertex_attribute(VertexBlock::vertex_input_description());
-    pipelineBuilder.add_layout_sets({textureLayout, layout});
+    pipelineBuilder.add_layout_sets({ci_textureLayout, ci_dynamicLayout});
 
     pipeline.build_pipeline(pipelineBuilder, "main_pipeline");
-    _isInitialized = true;
+    ci_mainPipeline = pipeline.get_pipeline_layout("main_pipeline");
+    _isInitialized  = true;
 }
 
 void VulkanEngine::cleanup() {}
 
-void VulkanEngine::draw_test() {
-    // /*Camera*/
-    // auto view = _cam.get_view();
-    // //  camera projection
-
-    // glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
-    // projection[1][1] *= -1;
-
-    // GPUCamera camData;
-    // camData.camPos   = _cam.get_camera_position();
-    // camData.viewproj = projection * view;
-
-    // void *data;
-    // this->global.write_descriptor_set("camera", 0, this->_allocator, &camData, sizeof(GPUCamera));
-
-    // glm::vec3              position = glm::vec3(0, 0, 0);
-    // std::vector<GPUObject> objects;
-    // for (int i = 0; i < MAX_OBJECTS; i++) {
-    //     position.x += 1;
-    //     glm::mat4 positionMatrix = glm::translate(glm::mat4(1.0f), position);
-    //     GPUObject object;
-    //     object.transformMatrix = positionMatrix;
-
-    //     objects.push_back(object);
-    // }
-    // //     std::memcpy(dstData, srcData, srcSize);
-    // //     vmaUnmapMemory(allocator, set.bindingsPointers[bindingIndex].value()._allocation);
-    // DescriptorWriter writer;
-    // // writer.write_buffer(0, objects, size_t size, size_t offset, VkDescriptorType type)
-    // this->global.write_descriptor_set("object", 0, this->_allocator, objects.data(), sizeof(GPUObject) * MAX_OBJECTS);
-
-    // DescriptorSet cameraSet = global.get_descriptor_set("camera");
-    // DescriptorSet objectSet = global.get_descriptor_set("object");
-    // DescriptorSet cubemap   = global.get_descriptor_set("cubemap");
-
-    // vkCmdBindPipeline(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipeline);
-
-    // vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 0, 1, &cameraSet.descriptorSet, 0, nullptr);
-
-    // vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 1, 1, &objectSet.descriptorSet, 0, nullptr);
-    // vkCmdBindDescriptorSets(this->cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipelineLayout, 2, 1, &cubemap.descriptorSet, 0, nullptr);
-    // VkDeviceSize offset         = 0;
-    // auto         verticesBuffer = Cube::get_vertices_buffer()._buffer;
-    // vkCmdBindVertexBuffers(this->cmd, 0, 1, &verticesBuffer, &offset);
-
-    // for (int i = 0; i < MAX_OBJECTS; i++) {
-    //     vkCmdDraw(this->cmd, Cube::get_vertices_size(), 1, 0, i);
-    // }
-}
-
 void VulkanEngine::draw() {
+    ZoneScoped;
     // // // check if window is minimized and skip drawing
-    FrameData frame = ci_frames[ci_currentFrame % ci_frames.size()];
+
+    uint32_t frameIndex = ci_currentFrame % ci_frames.size();
+
+    FrameData frame = ci_frames[frameIndex];
 
     if (SDL_GetWindowFlags(ci_vulkanGlobal.window) & SDL_WINDOW_MINIMIZED)
         return;
@@ -210,8 +198,30 @@ void VulkanEngine::draw() {
 
     cmdBeginRenderingKHR(frame.cmd, &dynamicInfo);
 
-    // draw_test();
+    GPUCamera cameraUpload;
 
+    glm::mat4x4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+    projection[1][1] *= -1;
+
+    cameraUpload.camPos   = _cam.get_camera_position();
+    cameraUpload.viewproj = projection * _cam.get_view();
+
+    ci_resourceContext.copy_to_buffer_visible(ci_resourceContext.cal_index(frame.dynamicIndex, 1), sizeof(GPUCamera), &cameraUpload);
+
+    MeshContext mesh = ci_meshes.get_mesh(MeshType::CubeBlock);
+
+    vkCmdBindPipeline(frame.cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ci_mainPipeline.pipeline);
+
+    LayoutContext dynamicLayout = ci_resourceContext.get_descriptor_sets_by_layout(ci_dynamicLayout);
+    LayoutContext textureLayout = ci_resourceContext.get_descriptor_sets_by_layout(ci_textureLayout);
+
+    vkCmdBindDescriptorSets(frame.cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ci_mainPipeline.layout, 0, 1, &textureLayout.sets[0], 0, nullptr);
+    vkCmdBindDescriptorSets(frame.cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ci_mainPipeline.layout, 1, 1, &dynamicLayout.sets[frameIndex], 0, nullptr);
+
+    VkDeviceSize offset{};
+    vkCmdBindVertexBuffers(frame.cmd, 0, 1, &mesh.verticeBuffer._buffer, &offset);
+
+    vkCmdDraw(frame.cmd, mesh.verticeSize, objectsToRender, 0, 0);
     cmdEndRenderingKHR(frame.cmd);
 
     vkutil::transition_image_present(frame.cmd, ci_vulkanGlobal.swapchainImages[imageIndex]);
@@ -220,8 +230,9 @@ void VulkanEngine::draw() {
 
     ci_currentFrame++;
 }
-
-void VulkanEngine::run() {
+float counter = 0;
+void  VulkanEngine::run() {
+    ZoneScoped;
     SDL_Event e;
     bool      bQuit = false;
 
@@ -256,5 +267,8 @@ void VulkanEngine::run() {
             }
         }
         draw();
+        FrameMark;
     }
+
+    printf("Frame Average: %ld\n", ci_currentFrame / ((Uint64)((float)SDL_GetTicks64() / 1000)));
 }

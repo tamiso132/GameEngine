@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #!/bin/bash
 
 function print_help(){
@@ -35,23 +36,31 @@ function build_shaders(){
 }
 
 function build_engine(){
+    buildType=$1
+    tracy=$2
+  
     build_shaders
+    echo $buildType
     mkdir -p build && cd build
-    cmake -G Ninja -DCMAKE_BUILD_TYPE=$1 -DCMAKE_CXX_COMPILER=/usr/bin/clang++ ..
+    cmake -G Ninja -DPROFILE=$tracy -DCMAKE_BUILD_TYPE=$buildType -DCMAKE_CXX_COMPILER=/usr/bin/clang++ ..
     ninja
+  
 }
 
 function build_editor(){
+    buildType=$1
+
     build_shaders
     cd tools/MaterialEditor
     mkdir -p build && cd build
-    cmake -G Ninja -DCMAKE_BUILD_TYPE=$1 -DCMAKE_CXX_COMPILER=/usr/bin/clang++ ..
+    cmake -G Ninja -DCMAKE_BUILD_TYPE=$buildType -DCMAKE_CXX_COMPILER=/usr/bin/clang++ ..
     ninja
 }
 
 function build_atlas(){
+    buildType=$1
     cd ../tools/AtlasGenerator/build
-    cmake -G Ninja -DCMAKE_BUILD_TYPE=$1 -DCMAKE_CXX_COMPILER=/usr/bin/clang++ ..
+    cmake -G Ninja -DCMAKE_BUILD_TYPE=$buildType -DCMAKE_CXX_COMPILER=/usr/bin/clang++ ..
     ninja
 }
 
@@ -60,7 +69,7 @@ function run_editor(){
 }
 
 function run_engine(){
-    ./VulkanGuide
+   ./VulkanGuide
 }
 
 function run_atlas(){
@@ -81,15 +90,20 @@ function run_atlas(){
     ./AtlasGenerator $imageDirectory $textureAtlasLength
 }
 
+function run_profiler(){
+
+   ./../thirdparty/tracy/profiler/build/unix/Tracy-release&
+}
 #Start of Script!
 
 buildType='Debug'
 run=true
-applicationType=$1;
+applicationType=$1
+tracyProfile=false
 
 
 shift
-while getopts "hrb" arg
+while getopts "hrbp" arg
 do
     case "${arg}" in
         r) buildType='Release';;
@@ -100,17 +114,24 @@ do
             print_help
             exit
             ;;
+        p) 
+            tracyProfile=true
+            ;;
     esac
 done
 
 case "${applicationType}" in
     0)  
-        build_engine $buildType
-        if ($run); then
-        echo 'hey'
-            run_engine
+    echo $buildType
+        build_engine $buildType $tracyProfile
+        if ($tracyProfile); then
+        run_profiler
+        run_engine
+        else
+            if ($run); then
+                run_engine
+            fi
         fi
-         echo "$run"
         ;;
         
     1) 

@@ -2,6 +2,7 @@
 #include "../common/std_common.h"
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <span>
 
@@ -154,6 +155,10 @@ struct ResourceContext {
     void write_to_image_from_cpu(ResourceIndex imageDstHandle, void *src, size_t sizeOfData, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer cmd = nullptr);
 
     void write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, TImage &context);
+
+    uint64_t cal_index(ResourceIndex blueprint, uint64_t bindingNumber){
+        return blueprint | bindingNumber << 56;
+    }
 
     LayoutContext get_descriptor_sets_by_layout(VkDescriptorSetLayout layout) {
         assert(ci_layouts.contains(layout));

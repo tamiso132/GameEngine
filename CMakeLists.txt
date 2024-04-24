@@ -10,6 +10,7 @@ set (CMAKE_CXX_STANDARD 20)
 project(VulkanGuide)
 add_compile_definitions(PROJECT_ROOT_PATH="${CMAKE_SOURCE_DIR}")
 
+
 find_package(Vulkan REQUIRED)
 
 find_package(SDL2 REQUIRED)
@@ -28,6 +29,29 @@ set(INCLUDE_DIRECTORIES_ENGINE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
 
+# Check if build type is Debug
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+   add_compile_definitions(-DT_DEBUG)
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+    message(STATUS "Build type is Release")
+else()
+    message(STATUS "Unknown build type: ${CMAKE_BUILD_TYPE}")
+endif()
+
+
+if(PROFILE)
+    set(PROFILE_I thirdparty/tracy)
+    set(PROFILE_D thirdparty/tracy)
+    set(PROFILE_L Tracy::TracyClient)
+    add_compile_definitions(-DTRACY_ENABLE)
+
+    add_subdirectory(${PROFILE_I})
+else()
+    set(PROFILE_I)
+    set(PROFILE_D)
+    set(PROFILE_L)
+endif()
+
 
 add_subdirectory(thirdparty/imgui)
 add_subdirectory(thirdparty/simdjson)
@@ -35,7 +59,13 @@ add_subdirectory(thirdparty/fastgltf)
 add_subdirectory(thirdparty/vk-bootstrap)
 add_subdirectory(thirdparty/stb_image)
 add_subdirectory(thirdparty/vma)
+
+
 add_subdirectory(src)
+
+
+
+
 
 add_compile_options(-w)
 
@@ -43,9 +73,8 @@ add_compile_options(-w)
 add_executable(VulkanGuide ${SOURCES_FILES_GAME_ENGINE})
 
 
-target_include_directories(VulkanGuide PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS})
+target_include_directories(VulkanGuide PRIVATE ${Vulkan_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS} ${PROFILE_I})
 
-target_link_libraries(VulkanGuide PRIVATE imgui fastgltf ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES} ${CMAKE_DL_LIBS} vk-bootstrap fmt::fmt stb_image vma)
-
+target_link_libraries(VulkanGuide PRIVATE imgui fastgltf ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES} ${CMAKE_DL_LIBS} vk-bootstrap fmt::fmt stb_image vma ${PROFILE_L})
 target_include_directories(VulkanGuide PRIVATE ${INCLUDE_DIRECTORIES_ENGINE})
 target_include_directories(VulkanGuide PRIVATE thirdparty/stb_image thirdparty/fastgltf/include thirdparty/imgui)

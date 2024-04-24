@@ -91,6 +91,54 @@ namespace vkutil {
         vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     }
 
+    void transition_image_layout_transfer(VkCommandBuffer cmd, TImage &imageContext) {
+        VkImageSubresourceRange range;
+        range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        range.baseMipLevel   = 0;
+        range.levelCount     = 1;
+        range.baseArrayLayer = 0;
+        range.layerCount     = imageContext.layerCount;
+
+        VkImageMemoryBarrier imageBarrier_toTransfer = {};
+        imageBarrier_toTransfer.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+
+        imageBarrier_toTransfer.oldLayout        = imageContext.layout;
+        imageBarrier_toTransfer.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imageBarrier_toTransfer.image            = imageContext.alloc._image;
+        imageBarrier_toTransfer.subresourceRange = range;
+
+        imageBarrier_toTransfer.srcAccessMask = 0;
+        imageBarrier_toTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        // barrier the image into the transfer-receive layout
+
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toTransfer);
+        imageContext.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    };
+
+    void transition_image_layout_shader_only(VkCommandBuffer cmd, TImage &imageContext) {
+        VkImageSubresourceRange range;
+        range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        range.baseMipLevel   = 0;
+        range.levelCount     = 1;
+        range.baseArrayLayer = 0;
+        range.layerCount     = imageContext.layerCount;
+
+        VkImageMemoryBarrier imageBarrier_toShader = {};
+        imageBarrier_toShader.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+
+        imageBarrier_toShader.oldLayout        = imageContext.layout;
+        imageBarrier_toShader.newLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageBarrier_toShader.image            = imageContext.alloc._image;
+        imageBarrier_toShader.subresourceRange = range;
+
+        imageBarrier_toShader.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imageBarrier_toShader.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        // barrier the image into the transfer-receive layout
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toShader);
+    }
+
     void transition_image_layout(VkCommandBuffer cmd, VkImageLayout newLayout, TImage &imageContext) {
 
         VkImageMemoryBarrier barrier = VkImageMemoryBarrier{.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -250,7 +298,7 @@ namespace vkutil {
         return info;
     }
 
-#if defined(NDebug)
+#if defined(T_DEBUG)
     void debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, VkDevice device) {
         VkDebugUtilsObjectNameInfoEXT debugNameInfo = {};
         debugNameInfo.sType                         = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;

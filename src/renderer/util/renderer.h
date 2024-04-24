@@ -6,6 +6,13 @@
 #include <memory>
 #include <vector>
 
+#if !defined(TRACY_ENABLE)
+#define ZoneScoped
+#define FrameMark
+#else
+#include "Tracy.hpp"
+#endif
+
 namespace Render {
 
     // BASIC RENDER

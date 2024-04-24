@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesh.h"
+#include <vulkan/vulkan_core.h>
 
 class PipelineBuilder;
 
@@ -17,8 +18,8 @@ struct PipelineContext {
 
 class Pipeline {
   public:
-    void init_pipeline(VkDevice device);
-    void build_pipeline(PipelineBuilder builder, std::string name);
+    void            init_pipeline(VkDevice device);
+    PipelineContext build_pipeline(PipelineBuilder builder, std::string name);
 
     PipelineContext get_pipeline_layout(std::string name) { return pipelines[name]; }
 
@@ -45,6 +46,7 @@ class PipelineBuilder {
     std::vector<VkDescriptorSetLayout>           ci_layoutSets;
     VkPipelineRenderingCreateInfoKHR             ci_renderInfo;
     VkFormat                                     ci_swapchainFormat;
+    std::vector<VkPushConstantRange>             ci_pushConstants{};
 
     std::string ci_vertexShader;
     std::string ci_fragmentShader;
@@ -59,6 +61,7 @@ class PipelineBuilder {
     PipelineBuilder &add_cull_mode(VkCullModeFlags cullMode);
     PipelineBuilder &add_attachments_formats(VkFormat colorFormats, VkFormat depthFormat);
     PipelineBuilder &add_input_assembly(VkPrimitiveTopology topology);
+    PipelineBuilder &add_push_constants(VkShaderStageFlags shaderFlag, uint32_t size);
 
     static PipelineBuilder default_pipeline_builder(VulkanContextGlobal vulkanContext, std::string vertexShader, std::string fragmentShader);
 };

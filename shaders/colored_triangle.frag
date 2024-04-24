@@ -40,37 +40,37 @@ void main() {
 
     vec4 color = texture(textureArray, vec3(inTexCoord, materialBuffer.materials[0].faceIndices[inFaceIndex]));
 
-    vec3 lightColor = vec3(1.0f, 1.0f, 1.0f);
-    vec3 lightPos = vec3(1, 1, 0);
+   // vec3 lightColor = vec3(1.0f, 1.0f, 1.0f);
+  //  vec3 lightPos = vec3(1, 1, 0);
 
-    vec3 normal = texture(normalTextureArray, vec3(inTexCoord, materialBuffer.materials[0].faceIndices[inFaceIndex])).rgb;
+   // vec3 normal = texture(normalTextureArray, vec3(inTexCoord, materialBuffer.materials[0].faceIndices[inFaceIndex])).rgb;
 
     // transform normal vector to range [-1,1]
-    normal = normalize(normal * 2.0 - 1.0);
+  //  normal = normalize(normal * 2.0 - 1.0);
 
-    vec3 ambient = lightColor * materialBuffer.materials[0].ambient* color.rgb;
+  //  vec3 ambient = lightColor * materialBuffer.materials[0].ambient* color.rgb;
 
     // diff
-    vec3 lightDir = normalize(lightPos - inFragPos);
-    float diff = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor * color.rgb * materialBuffer.materials[0].diffuse;
+  //  vec3 lightDir = normalize(lightPos - inFragPos);
+   // float diff = max(dot(normal, lightDir), 0.0);
+  //  vec3 diffuse = diff * lightColor * color.rgb * materialBuffer.materials[0].diffuse;
 
     // specular
-    vec3 viewDir = normalize(camPos - inFragPos);
-    vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), materialBuffer.materials[0].shininess);
-    vec3 specular = lightColor * (spec * materialBuffer.materials[0].specular);
+   // vec3 viewDir = normalize(camPos - inFragPos);
+ //   vec3 halfwayDir = normalize(lightDir + viewDir);
+ //   float spec = pow(max(dot(normal, halfwayDir), 0.0), materialBuffer.materials[0].shininess);
+ //   vec3 specular = lightColor * (spec * materialBuffer.materials[0].specular);
 
-    float distance = length(lightPos - inFragPos);
-    float attenuation = 5.0 / (distance * distance);
+  //  float distance = length(lightPos - inFragPos);
+ //   float attenuation = 5.0 / (distance * distance);
 
-    diffuse *= attenuation;
-    specular *= attenuation;
+ //   diffuse *= attenuation;
+ //   specular *= attenuation;
 
     // Gamma correction
-    float gamma = 2.2;
+ //   float gamma = 2.2;
 
-    vec3 finalColor = pow(diffuse + ambient + specular, vec3(1.0 / gamma));
+ //   vec3 finalColor = pow(diffuse + ambient + specular, vec3(1.0 / gamma));
 
-    outFragColor = vec4(finalColor, 0.0f);
+    outFragColor = vec4(color.xyz, 1.0f);
 }

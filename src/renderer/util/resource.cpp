@@ -80,116 +80,6 @@ static ResourceBuilder::BufferObjectCreateInfo buffer_staging_info(size_t allocS
     return info;
 }
 
-namespace util {
-
-    static PFN_vkSetDebugUtilsObjectNameEXT setDebugName;
-
-    void debug_object_set_name(uint64_t objectHandle, VkObjectType type, const char *name, VkDevice device) {
-        VkDebugUtilsObjectNameInfoEXT debugNameInfo = {};
-        debugNameInfo.sType                         = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-        debugNameInfo.objectType                    = type;
-        debugNameInfo.objectHandle                  = objectHandle;
-        debugNameInfo.pObjectName                   = name;
-
-        VK_CHECK(setDebugName(device, &debugNameInfo));
-    };
-    void transition_image_present(VkCommandBuffer cmd, VkImage image) {
-
-        VkAccessFlags srcAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        VkAccessFlags dstAccess = VK_ACCESS_MEMORY_READ_BIT;
-
-        VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-
-        VkImageMemoryBarrier barrier = vkinit::image_barrier_info(image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, srcAccess, dstAccess);
-        vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-    };
-
-    void transition_image_color_attachment(VkCommandBuffer cmd, VkImage image) {
-
-        VkAccessFlags srcAccess = VK_ACCESS_NONE_KHR;
-        VkAccessFlags dstAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-        VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-        VkImageMemoryBarrier barrier = vkinit::image_barrier_info(image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, srcAccess, dstAccess);
-        vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-    }
-
-    void transition_image_layout(VkCommandBuffer cmd, VkImageLayout newLayout, TImage &imageContext) {
-
-        VkImageMemoryBarrier barrier = VkImageMemoryBarrier{.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                                                            .srcAccessMask    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                                                            .oldLayout        = imageContext.layout,
-                                                            .newLayout        = newLayout,
-                                                            .image            = imageContext.alloc._image,
-                                                            .subresourceRange = {
-                                                                .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                .baseMipLevel   = 0,
-                                                                .levelCount     = 1,
-                                                                .baseArrayLayer = 0,
-                                                                .layerCount     = imageContext.layerCount,
-                                                            }};
-
-        VkPipelineStageFlags srcStage;
-        VkPipelineStageFlags dstStage;
-
-        if (VK_IMAGE_LAYOUT_UNDEFINED == imageContext.layout && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-            // earliest stage of the pipeline
-            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-            // Transfer stage
-            dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        }
-
-        else if (VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL == imageContext.layout && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-            // From a copying stage to...
-            srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-            // The fragment stage.
-            dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-
-        } else if (VK_IMAGE_LAYOUT_PRESENT_SRC_KHR == newLayout) {
-
-            // From color attachment to Present
-            barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-
-            // Write to swapchain stage
-            srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            // done with everything
-            dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        }
-
-        else if (imageContext.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-
-            // From Present back to Color attachment
-            barrier.srcAccessMask = VK_ACCESS_NONE_KHR;
-            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-            dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        }
-
-        vkCmdPipelineBarrier(cmd,
-                             srcStage, // srcStageMask
-                             dstStage, // dstStageMask
-                             0, 0, nullptr, 0, nullptr,
-                             1,       // imageMemoryBarrierCount
-                             &barrier // pImageMemoryBarriers
-        );
-        imageContext.layout = newLayout;
-    }
-} // namespace util
-
 /*DescriptorAllocator*/
 void DescriptorAllocatorGrowable::init(VkDevice device, uint32_t maxSets, std::span<PoolSizeRatio> poolRatios) {
     ratios.clear();
@@ -485,8 +375,6 @@ void ResourceContext::init(VulkanContextGlobal vulkanContext, PFN_vkSetDebugUtil
     ci_graphicQueue  = vulkanContext.graphicQueue;
     ci_cmdGraphic    = vulkanContext.cmd;
 
-    util::setDebugName = vkSetDebugUtil;
-
     VkCommandPoolCreateInfo commandPoolInfo = vkinit::command_pool_create_info(ci_transferQueue.queueIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     VK_CHECK(vkCreateCommandPool(ci_device, &commandPoolInfo, nullptr, &ci_pool));
 
@@ -607,12 +495,12 @@ void ResourceContext::write_to_image_from_cpu(ResourceIndex imageDstHandle, void
 
     TImage imageDst = ci_images[imageDstHandle];
 
-    util::transition_image_layout(cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageDst);
+    vkutil::transition_image_layout(cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageDst);
     auto copyRegion = vkinit::buffer_image_copy_info(ci_extents[ci_images[imageDstHandle].extentIndex]);
 
     vkCmdCopyBufferToImage(cmd, ci_buffers[stagingIndex].alloc._buffer, imageDst.alloc._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-    util::transition_image_layout(cmd, newLayout, imageDst);
+    vkutil::transition_image_layout(cmd, newLayout, imageDst);
 
     if (isImmediate) {
         // send it
@@ -673,14 +561,12 @@ void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateI
     VmaAllocationCreateInfo dimg_allocinfo = {};
     dimg_allocinfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    util::transition_image_layout(ci_cmdGraphic, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, context);
-    VkBufferImageCopy copyRegion = vkinit::buffer_image_copy_info(atlasImageInfo.imageInfo.extent);
-
-    // copy the buffer into the image
+    vkutil::transition_image_layout(ci_cmdGraphic, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, context);
+    VkBufferImageCopy copyRegion = vkinit::buffer_image_copy_info(atlasImageInfo.imageInfo.extent, atlasImageInfo.imageInfo.arrayLayers);
 
     vkCmdCopyBufferToImage(ci_cmdGraphic, stagingBuffer._buffer, context.alloc._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-    util::transition_image_layout(ci_cmdGraphic, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, context);
+    vkutil::transition_image_layout(ci_cmdGraphic, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, context);
 
     vkEndCommandBuffer(ci_cmdGraphic);
 
@@ -732,14 +618,20 @@ VkDescriptorSetLayout ResourceContext::build_descriptor_layout_blueprint(Descrip
 
         if (builderContext.imageIndices.contains(i)) {
             auto                  imageContext = ci_images[builderContext.imageIndices[i]];
-            VkDescriptorImageInfo info         = imageInfos.emplace_back(VkDescriptorImageInfo{.sampler = imageContext.sampler, .imageView = imageContext.view, .imageLayout = imageContext.layout});
-            VkWriteDescriptorSet  write        = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+            VkDescriptorImageInfo info;
+            info.sampler     = imageContext.sampler;
+            info.imageView   = imageContext.view;
+            info.imageLayout = imageContext.layout;
+
+            imageInfos.push_back(info);
+
+            VkWriteDescriptorSet write = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 
             write.dstBinding      = i;
             write.dstSet          = set; // left empty for now until we need to write it
             write.descriptorCount = 1;
             write.descriptorType  = imageContext.type;
-            write.pImageInfo      = &info;
+            write.pImageInfo      = &imageInfos[imageInfos.size() - 1];
 
             writes.push_back(write);
         } else {
@@ -785,7 +677,7 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
 
         VK_CHECK(vmaCreateBuffer(ci_allocator, &bufferInfo.bufferInfo, &bufferInfo.allocInfo, &context.alloc._buffer, &context.alloc._allocation, nullptr));
 
-        util::debug_object_set_name((uint64_t)context.alloc._buffer, VK_OBJECT_TYPE_BUFFER, name.c_str(), ci_device);
+        vkutil::debug_object_set_name((uint64_t)context.alloc._buffer, VK_OBJECT_TYPE_BUFFER, name.c_str(), ci_device);
         uint64_t      binding       = uint64_t(bufferInfo.bindingNumber) << 56;
         ResourceIndex resourceIndex = binding | ci_resourceCounter;
 
@@ -809,9 +701,11 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
 
         TImage      context = {};
         std::string name    = imageInfo.name + counterTXT;
+        context.name        = name;
         context.type        = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         context.layout      = VK_IMAGE_LAYOUT_UNDEFINED;
         context.layerCount  = imageInfo.imageInfo.arrayLayers;
+        context.format      = imageInfo.imageInfo.format;
 
         VK_CHECK(vmaCreateImage(ci_allocator, &imageInfo.imageInfo, &imageInfo.allocInfo, &context.alloc._image, &context.alloc._allocation, nullptr));
         imageInfo.imageViewInfo.image = context.alloc._image;
@@ -830,7 +724,7 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
         ci_images[resourceIndex] = context;
         uint64_t objectHandle    = (uint64_t)context.alloc._image;
 
-        util::debug_object_set_name(objectHandle, VK_OBJECT_TYPE_IMAGE, name.c_str(), ci_device);
+        vkutil::debug_object_set_name(objectHandle, VK_OBJECT_TYPE_IMAGE, name.c_str(), ci_device);
 
         if (imageInfo.data != nullptr) {
             if (!imageInfo.textureAtlas.has_value()) {

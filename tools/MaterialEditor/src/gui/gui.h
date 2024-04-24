@@ -10,6 +10,8 @@
 #include <glm/fwd.hpp>
 #include <vulkan/vulkan_core.h>
 
+#include <fstream>
+
 #include "stb_image_write.h" /* http://nothings.org/stb/stb_image_write.h */
 
 #include "stb_truetype.h" /* http://nothings.org/stb/stb_truetype.h */
@@ -57,36 +59,51 @@ struct TGui {
 
     void load_thing() {
         /* load font file */
-        long           size;
-        unsigned char *fontBuffer;
-        std::string    path     = std::string(PROJECT_ROOT_PATH) + "/assets/CW_BITMP.ttf";
-        FILE          *fontFile = fopen(path.c_str(), "rb");
-        fseek(fontFile, 0, SEEK_END);
-        size = ftell(fontFile);       /* how long is the file ? */
-        fseek(fontFile, 0, SEEK_SET); /* reset */
+        long        size;
+        std::string path = std::string(PROJECT_ROOT_PATH) + "/assets/CW_BITMP.ttf";
 
-        fontBuffer = new unsigned char(size);
+        // open the file. With cursor at the end
+        std::ifstream file(path, std::ios::ate | std::ios::binary);
 
-        fread(fontBuffer, size, 1, fontFile);
-        fclose(fontFile);
+        if (!file.is_open()) {
+            printf("ERROR, READING FILE\n");
+        }
+
+        size_t fileSize = (size_t)file.tellg();
+
+        std::vector<unsigned char> buffer(fileSize);
+
+        // put file cursor at beggining
+        file.seekg(0);
+
+        // load the entire file into the buffer
+        file.read((char *)buffer.data(), fileSize);
+
+        // now that the file is loaded into the buffer, we can close it
+        file.close();
 
         /* prepare font */
         stbtt_fontinfo info;
-        if (!stbtt_InitFont(&info, fontBuffer, 0)) {
+        if (!stbtt_InitFont(&info, buffer.data(), 0)) {
             printf("failed\n");
         }
 
-        int b_w = 512; /* bitmap width */
-        int b_h = 128; /* bitmap height */
-        int l_h = 64;  /* line height */
+        uint32_t gridSize = 40;
+        char    *word     = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        int l_h = 64;                 /* line height */
+        int b_w = strlen(word) * l_h; /* bitmap width */
+        int b_h = l_h;                /* bitmap height */
 
         /* create a bitmap for the phrase */
-        unsigned char *bitmap = new unsigned char(b_w * b_h);
+        unsigned char bitmap[b_w * b_h];
+
+        for (int i = 0; i < b_w * b_h; i++) {
+            bitmap[i] = 0;
+        }
 
         /* calculate font scaling */
         float scale = stbtt_ScaleForPixelHeight(&info, l_h);
-
-        char *word = "the quick brown fox";
 
         int x = 0;
 
@@ -133,9 +150,6 @@ struct TGui {
          MakeCodepointBitmap to a temporary buffer and then alpha blend that onto the target image.
          See the stb_truetype.h header for more info.
         */
-
-        delete fontBuffer;
-        delete bitmap;
     }
 
     void init(VulkanContextGlobal &vulkanContext, ResourceContext &resource, Pipeline &pipeline, Mesh &mesh) {

@@ -33,11 +33,11 @@ layout(std140, set = 1, binding = 1) readonly buffer ObjectBuffer {
 objectBuffer;
 
 void main() {
-    gl_Position = cameraData.viewproj * objectBuffer.objects[gl_BaseInstance].model * vec4(vPosition, 1.0);
+    gl_Position = cameraData.viewproj * objectBuffer.objects[gl_InstanceIndex].model * vec4(vPosition, 1.0);
     outNormal = vNormal;
     texCoord = vTexCoord;
     outFaceIndex = vFaceIndex;
     camPos = cameraData.camPos;
 
-    outFrag = (objectBuffer.objects[gl_BaseInstance].model * vec4(vPosition, 1.0)).rgb;
+    outFrag = (objectBuffer.objects[gl_InstanceIndex].model * vec4(vPosition, 1.0)).rgb;
 }

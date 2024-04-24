@@ -2,8 +2,11 @@
 #include "vk_initializers.h"
 #include "vkutil.h"
 
+#include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <vulkan/vulkan_core.h>
 
 void ShaderContext::init_all_shaders(VkDevice device) {
     auto relativeShaderPath = std::string("/shaders/spiv");
@@ -36,11 +39,15 @@ void Pipeline::init_pipeline(VkDevice device) {
     this->device = device;
 }
 
-void Pipeline::build_pipeline(PipelineBuilder builder, std::string name) {
+PipelineContext Pipeline::build_pipeline(PipelineBuilder builder, std::string name) {
     VkPipelineLayoutCreateInfo layoutInfo = vkinit::pipeline_layout_create_info();
 
+    // TODO, make assert check for everything(only in debug)
     layoutInfo.pSetLayouts    = builder.ci_layoutSets.data();
     layoutInfo.setLayoutCount = builder.ci_layoutSets.size();
+    // layoutInfo.pushConstantRangeCount = builder.ci_pushConstants.size();
+    // layoutInfo.pPushConstantRanges    = builder.ci_pushConstants.data();
+
     VK_CHECK(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &builder._pipelineLayout));
 
     VkPipelineViewportStateCreateInfo viewportState = vkinit::viewport_state_info(&builder._viewport, &builder._scissor);
@@ -92,8 +99,10 @@ void Pipeline::build_pipeline(PipelineBuilder builder, std::string name) {
     VkPipeline newPipeline;
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS) {
         std::cout << "failed to create pipline\n";
+        exit(-1);
     } else {
         pipelines[name] = PipelineContext{builder._pipelineLayout, newPipeline};
+        return pipelines[name];
     }
 }
 
@@ -108,6 +117,25 @@ PipelineBuilder &PipelineBuilder::add_viewport(VkExtent2D windowExtent) {
     _viewport.maxDepth = 1.0f;
     _scissor.offset    = {0, 0};
     _scissor.extent    = {windowExtent.width, windowExtent.height};
+
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::add_push_constants(VkShaderStageFlags shaderFlag, uint32_t size) {
+    VkPushConstantRange constant;
+
+    // TODO, ALLIGMENT MUST BE FIXED
+    uint32_t offset = 0;
+    if (ci_pushConstants.size() > 0) {
+        auto c = ci_pushConstants[ci_pushConstants.size() - 1];
+        offset = c.offset + c.size;
+    }
+
+    constant.stageFlags = shaderFlag;
+    constant.size       = size;
+    constant.offset     = 0;
+
+    ci_pushConstants.push_back(constant);
 
     return *this;
 }
@@ -148,8 +176,6 @@ PipelineBuilder &PipelineBuilder::add_input_assembly(VkPrimitiveTopology topolog
 
 PipelineBuilder PipelineBuilder::default_pipeline_builder(VulkanContextGlobal vulkanContext, std::string vertexShader, std::string fragmentShader) {
     PipelineBuilder pipelineBuilder;
-
-
 
     pipelineBuilder = pipelineBuilder.add_viewport(vulkanContext.windowExtent).add_vertex_attribute(VertexBlock::vertex_input_description());
 

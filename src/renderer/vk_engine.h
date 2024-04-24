@@ -7,6 +7,11 @@
 #include "../camera/camera.h"
 #include "VkBootstrapDispatch.h"
 #include "util/pipeline.h"
+#include "util/vk_types.h"
+#include <cstdint>
+#include <vulkan/vulkan_core.h>
+
+#include "object.h"
 
 struct FrameData {
     VkFence     queueDoneFence;
@@ -16,7 +21,8 @@ struct FrameData {
     VkCommandPool   pool;
     VkCommandBuffer cmd;
 
-    ResourceIndex bufferIndex;
+    // First is Object, Second is Camera
+    ResourceIndex dynamicIndex;
 
     DescriptorAllocatorGrowable descriptorAllocator;
 };
@@ -42,7 +48,11 @@ class VulkanEngine {
 
     Mesh ci_meshes;
 
-    Pipeline pipeline;
+    Pipeline        pipeline;
+    PipelineContext ci_mainPipeline;
+
+    VkDescriptorSetLayout ci_textureLayout;
+    VkDescriptorSetLayout ci_dynamicLayout;
 
     uint64_t ci_currentFrame = 0;
     void     init();

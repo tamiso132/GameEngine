@@ -16,6 +16,7 @@ layout(std140, set = 0, binding = 0) readonly buffer ObjectBuffer {
 }
 objectBuffer;
 
+
 void main() {
     // Pass the vertex position to the fragment shader
     fragTexCoord = vec2(0.2f,0.2f);
