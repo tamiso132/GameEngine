@@ -39,12 +39,13 @@ namespace Render {
 
         SDL_Init(SDL_INIT_VIDEO);
 
-        SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_FULLSCREEN_DESKTOP);
-
-        SDL_DisplayMode mode;
-        SDL_GetDesktopDisplayMode(0, &mode);
+        SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_FULLSCREEN);
 
         vulkanContext.window = SDL_CreateWindow("Vulkan Engine", 0, 0, vulkanContext.windowExtent.width, vulkanContext.windowExtent.height, window_flags);
+        SDL_DisplayMode mode;
+        SDL_GetDesktopDisplayMode(0, &mode);
+        SDL_SetWindowFullscreen(vulkanContext.window, SDL_WINDOW_FULLSCREEN);
+        SDL_SetWindowDisplayMode(vulkanContext.window, nullptr);
 
         vkb::InstanceBuilder builder;
         // make the vulkan instance, with basic debug features
@@ -122,10 +123,8 @@ namespace Render {
 
         vkb::SwapchainBuilder swapchainBuilder{vulkanContext.chosenGPU, vulkanContext.device, vulkanContext.surface};
 
-        vkb::Swapchain vkbSwapchain = swapchainBuilder
-                                          .set_desired_format({VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
-                                          // use vsync present mode
-                                          .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+        vkb::Swapchain vkbSwapchain = swapchainBuilder.set_desired_format({VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
+                                          .set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
                                           .set_desired_extent(vulkanContext.windowExtent.width, vulkanContext.windowExtent.height)
                                           .build()
                                           .value();
