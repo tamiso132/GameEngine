@@ -190,14 +190,7 @@ VkPipelineColorBlendAttachmentState vkinit::color_blend_attachment_state() {
 VkPipelineLayoutCreateInfo vkinit::pipeline_layout_create_info() {
     VkPipelineLayoutCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    info.pNext = nullptr;
 
-    // empty defaults
-    info.flags                  = 0;
-    info.setLayoutCount         = 0;
-    info.pSetLayouts            = nullptr;
-    info.pushConstantRangeCount = 0;
-    info.pPushConstantRanges    = nullptr;
     return info;
 }
 

@@ -13,6 +13,13 @@
 
 #include "object.h"
 
+struct SkyPushConstant {
+    glm::vec4 data1;
+    glm::vec4 data2;
+    glm::vec4 data3;
+    glm::vec4 data4;
+};
+
 struct FrameData {
     VkFence     queueDoneFence;
     VkSemaphore presentReady;
@@ -23,6 +30,7 @@ struct FrameData {
 
     // First is Object, Second is Camera
     ResourceIndex dynamicIndex;
+    ResourceIndex computeIndex;
 
     DescriptorAllocatorGrowable descriptorAllocator;
 };
@@ -48,14 +56,20 @@ class VulkanEngine {
 
     Mesh ci_meshes;
 
-    Pipeline        pipeline;
-    PipelineContext ci_mainPipeline;
+    Pipeline pipeline;
 
-    VkDescriptorSetLayout ci_textureLayout;
-    VkDescriptorSetLayout ci_dynamicLayout;
+    PipelineContext ci_mainPipeline;
+    PipelineContext ci_skyboxPipeline_compute;
+
+    VkDescriptorSetLayout ci_textureLayout = nullptr;
+    VkDescriptorSetLayout ci_dynamicLayout = nullptr;
+    VkDescriptorSetLayout ci_skyboxLayout  = nullptr;
 
     uint64_t ci_currentFrame = 0;
-    void     init();
+
+    ResourceIndex ci_swapChainBaseIndex;
+
+    void init();
 
     // shuts down the engine
     void cleanup();

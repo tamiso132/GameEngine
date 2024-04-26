@@ -2,6 +2,7 @@
 #include "vk_initializers.h"
 #include "vkutil.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -106,6 +107,22 @@ PipelineContext Pipeline::build_pipeline(PipelineBuilder builder, std::string na
     }
 }
 
+PipelineContext Pipeline::build_compute_pipeline(ComputePipelineBuilder builder, std::string name) {
+    VkPipelineLayoutCreateInfo layoutInfo = vkinit::pipeline_layout_create_info();
+
+    PipelineContext pipelineContext;
+    layoutInfo.pSetLayouts            = builder.ci_layoutSets.data();
+    layoutInfo.setLayoutCount         = builder.ci_layoutSets.size();
+    layoutInfo.pushConstantRangeCount = builder.ci_constantRange.size();
+    layoutInfo.pPushConstantRanges    = builder.ci_constantRange.data();
+
+    VK_CHECK(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineContext.layout));
+    builder.ci_pipelineInfo.layout       = pipelineContext.layout;
+    builder.ci_pipelineInfo.stage.module = ci_shaders.ci_shaders[builder.ci_shaderName];
+
+    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &builder.ci_pipelineInfo, nullptr, &pipelineContext.pipeline));
+};
+
 PipelineBuilder &PipelineBuilder::add_viewport(VkExtent2D windowExtent) {
     // /*VIEWPORT*/
     // // build viewport and scissor from the swapchain extents
@@ -174,7 +191,7 @@ PipelineBuilder &PipelineBuilder::add_input_assembly(VkPrimitiveTopology topolog
     return *this;
 };
 
-PipelineBuilder PipelineBuilder::default_pipeline_builder(VulkanContextGlobal vulkanContext, std::string vertexShader, std::string fragmentShader) {
+PipelineBuilder PipelineBuilder::default_builder(VulkanContextGlobal vulkanContext, std::string vertexShader, std::string fragmentShader) {
     PipelineBuilder pipelineBuilder;
 
     pipelineBuilder = pipelineBuilder.add_viewport(vulkanContext.windowExtent).add_vertex_attribute(VertexBlock::vertex_input_description());
@@ -188,4 +205,51 @@ PipelineBuilder PipelineBuilder::default_pipeline_builder(VulkanContextGlobal vu
     pipelineBuilder._rasterizer.cullMode  = VK_CULL_MODE_NONE;
 
     return pipelineBuilder;
+}
+
+ComputePipelineBuilder ComputePipelineBuilder::default_builder(std::string shaderName) {
+
+    ComputePipelineBuilder builder{};
+    builder.ci_shaderName = shaderName;
+
+    VkPipelineShaderStageCreateInfo stageinfo{};
+    stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageinfo.pNext = nullptr;
+    stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    stageinfo.pName = "main";
+
+    VkComputePipelineCreateInfo computePipelineCreateInfo{};
+    computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    computePipelineCreateInfo.pNext = nullptr;
+    computePipelineCreateInfo.stage = stageinfo;
+
+    builder.ci_pipelineInfo = computePipelineCreateInfo;
+    return builder;
+}
+
+ComputePipelineBuilder &ComputePipelineBuilder::add_push_constant(size_t size) {
+    VkPushConstantRange range;
+    range.size       = size;
+    range.offset     = 0;
+    range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    if (ci_constantRange.size() > 0) {
+        VkPushConstantRange last = ci_constantRange.back();
+
+        range.offset = last.offset + last.size;
+    }
+
+    ci_constantRange.push_back(range);
+
+    return *this;
+}
+
+ComputePipelineBuilder &ComputePipelineBuilder::add_layout_sets(std::vector<VkDescriptorSetLayout> layoutSets) {
+    ci_layoutSets.insert(ci_layoutSets.end(), layoutSets.begin(), layoutSets.end());
+    return *this;
+}
+
+void init() {
+
+    //< comp_pipeline_multi
 }
