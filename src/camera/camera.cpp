@@ -2,6 +2,7 @@
 #include "glm/ext/matrix_transform.hpp"
 #include <cstdint>
 #include <glm/fwd.hpp>
+#include <glm/geometric.hpp>
 
 glm::mat4x4 Camera::get_projection() { return ci_projection; }
 
@@ -13,6 +14,37 @@ glm::mat4x4 Camera::get_view() {
 }
 
 glm::vec3 Camera::get_camera_position() { return _camPos; }
+
+void Camera::create_frustum() {
+    Frustum frustum;
+
+    float aspect = ((float)ci_extent.width) / ((float)ci_extent.height);
+
+    const float     farHalfHeight = ci_far * tanf(ci_fovy * 0.5f);
+    const float     farHalfWidth  = farHalfHeight * aspect;
+    const glm::vec3 frontMultFar  = ci_far * _camFront;
+    glm::vec3       camRight      = glm::cross(_camFront, _camUp);
+
+    glm::vec3 camPosNorm = glm::normalize(_camPos);
+
+    ci_frustum.nearFace.normal   = glm::normalize(_camPos + ci_near * _camFront);
+    ci_frustum.nearFace.distance = glm::dot(ci_frustum.nearFace.normal, _camFront);
+
+    ci_frustum.farFace.normal   = glm::normalize(_camPos + frontMultFar);
+    ci_frustum.farFace.distance = glm::dot(ci_frustum.farFace.normal, -_camFront);
+
+    ci_frustum.rightFace.normal   = camPosNorm;
+    ci_frustum.rightFace.distance = glm::dot(camPosNorm, glm::cross(frontMultFar - camRight * farHalfWidth, _camFront));
+
+    ci_frustum.leftFace.normal   = camPosNorm;
+    ci_frustum.leftFace.distance = glm::dot(camPosNorm, glm::cross(_camUp, frontMultFar + camRight * farHalfHeight));
+
+    ci_frustum.topFace.normal   = camPosNorm;
+    ci_frustum.topFace.distance = glm::dot(camPosNorm, glm::cross(camRight, frontMultFar - _camUp * farHalfHeight));
+
+    ci_frustum.bottomFace.normal   = camPosNorm;
+    ci_frustum.bottomFace.distance = glm::dot(camPosNorm, glm::cross(frontMultFar + _camUp * farHalfHeight, camRight));
+}
 
 void Camera::process_input(SDL_Event *event, float deltaTime, int mouse_delta_x, int mouse_delta_y, const uint8_t *keystate, uint8_t focusWindow) {
 

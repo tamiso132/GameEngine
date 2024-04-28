@@ -161,6 +161,7 @@ void VulkanEngine::init() {
 
     pipeline.build_pipeline(pipelineBuilder, "main_pipeline");
     ci_mainPipeline = pipeline.get_pipeline_layout("main_pipeline");
+    _cam            = Camera(ci_vulkanGlobal.windowExtent);
     _isInitialized  = true;
 }
 
