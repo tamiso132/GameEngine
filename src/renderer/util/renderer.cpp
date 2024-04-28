@@ -75,6 +75,7 @@ namespace Render {
 
         VkPhysicalDeviceVulkan13Features features_13{};
         features_13.dynamicRendering = true;
+        features_13.synchronization2 = true;
 
         VkPhysicalDeviceVulkan12Features features_12{};
         features_12.bufferDeviceAddress = true;
@@ -163,6 +164,23 @@ namespace Render {
 
         resourceContext.init(vulkanContext, table.fp_vkSetDebugUtilsObjectNameEXT);
         meshes.init_mesh(resourceContext);
+
+        std::vector<TImage> swapchainImagesT;
+        std::string         name = "swapchain_image";
+
+        for (int i = 0; i < vulkanContext.swapchainImages.size(); i++) {
+
+            TImage tImage{};
+
+            tImage.layerCount   = 1;
+            tImage.format       = vulkanContext.swapchainImageFormat;
+            tImage.alloc._image = vulkanContext.swapchainImages[i];
+            tImage.view         = vulkanContext.swapchainImageViews[i];
+            tImage.type         = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+
+            swapchainImagesT.push_back(tImage);
+        }
+        resourceContext.add_existing_resources(swapchainImagesT, "swapchain");
     }
 
     void add_tracy(VulkanContextGlobal &vulkanContext){};

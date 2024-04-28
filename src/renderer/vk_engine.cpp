@@ -1,4 +1,5 @@
 ﻿#include "vk_engine.h"
+#include "util/pipeline.h"
 #include <cstdint>
 #include <cstdio>
 #include <glm/ext/matrix_transform.hpp>
@@ -47,13 +48,21 @@ void VulkanEngine::init() {
 
     Render::init(ci_vulkanGlobal, _allocator, table, ci_resourceContext, ci_meshes);
 
+    ci_swapChainBaseIndex = ci_resourceContext.get_resource_by_name("swapchain0");
+
     cmdBeginRenderingKHR = table.fp_vkCmdBeginRenderingKHR;
     cmdEndRenderingKHR   = table.fp_vkCmdEndRenderingKHR;
 
-    auto            pngContext   = load_png("assets/texture_atlas_0.png");
-    auto            pngNormalMap = load_png("assets/texture_atlas_0_normalmap.png");
+    auto pngContext   = load_png("assets/texture_atlas_0.png");
+    auto pngNormalMap = load_png("assets/texture_atlas_0_normalmap.png");
+
     ResourceBuilder dynamicBuilder{};
     ResourceBuilder staticBuilder{};
+    ResourceBuilder computeImageBuilder{};
+
+    computeImageBuilder.add_image_with_view(VK_FORMAT_R16G16B16A16_SFLOAT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                                            VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                            VkExtent3D{ci_vulkanGlobal.windowExtent.width, ci_vulkanGlobal.windowExtent.height, 1}, "computeImage", VK_IMAGE_ASPECT_COLOR_BIT);
 
     dynamicBuilder.add_buffer(sizeof(GPUObject) * MAX_OBJECTS, BufferType::Storage, "objects", MemoryType::HostVisible);
     dynamicBuilder.add_buffer(sizeof(GPUCamera), BufferType::Uniform, "camera", MemoryType::HostVisible);
@@ -80,7 +89,7 @@ void VulkanEngine::init() {
 
     ci_textureLayout = ci_resourceContext.build_descriptor_layout_blueprint(textureLayoutBuilder.get_blueprint(), ci_globalDescriptorAllocator);
 
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    for (uint64_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         FrameData frame;
 
         frame.imageAquired   = vkutil::create_semaphore(ci_vulkanGlobal);
@@ -96,18 +105,14 @@ void VulkanEngine::init() {
         ratios.push_back({VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1});
         frame.descriptorAllocator.init(ci_vulkanGlobal.device, 5, ratios);
 
-        char c;
-        if (i == 0) {
-            c = '\0';
-        } else {
-            c = static_cast<char>(i - 1);
-        }
-
         frame.dynamicIndex = ci_resourceContext.build_resource_blueprint(dynamicBuilder.get_blueprint());
 
-        auto cameraIndex  = ci_resourceContext.get_resource_by_name("camera" + c);
-        auto objectsIndex = ci_resourceContext.get_resource_by_name("objects" + c);
-
+        auto cameraIndex  = ci_resourceContext.get_resource_by_name("camera" + i);
+        auto objectsIndex = ci_resourceContext.get_resource_by_name("objects" + i);
+        if (i == 0) {
+            cameraIndex  = ci_resourceContext.get_resource_by_name("camera");
+            objectsIndex = ci_resourceContext.get_resource_by_name("objects");
+        }
         DescriptorLayoutBuilder layoutBuilder;
 
         layoutBuilder.add_buffer(cameraIndex, VK_SHADER_STAGE_VERTEX_BIT);
@@ -116,6 +121,14 @@ void VulkanEngine::init() {
         ci_dynamicLayout = ci_resourceContext.build_descriptor_layout_blueprint(layoutBuilder.get_blueprint(), frame.descriptorAllocator, ci_dynamicLayout);
 
         ci_frames.push_back(frame);
+
+        /*Compute*/
+        frame.computeIndex = ci_resourceContext.build_resource_blueprint(computeImageBuilder.get_blueprint());
+
+        DescriptorLayoutBuilder skyBoxLayoutBuilder;
+        skyBoxLayoutBuilder.add_image(frame.computeIndex);
+
+        ci_skyboxLayout = ci_resourceContext.build_descriptor_layout_blueprint(skyBoxLayoutBuilder.get_blueprint(), frame.descriptorAllocator, ci_skyboxLayout);
 
         /*Upload Data*/
         std::vector<GPUObject> objectsUpload;
@@ -150,7 +163,7 @@ void VulkanEngine::init() {
 
     pipeline.init_pipeline(ci_vulkanGlobal.device);
 
-    PipelineBuilder pipelineBuilder = PipelineBuilder::default_pipeline_builder(ci_vulkanGlobal, "colored_triangle.vert.spv", "colored_triangle.frag.spv");
+    PipelineBuilder pipelineBuilder = PipelineBuilder::default_builder(ci_vulkanGlobal, "colored_triangle.vert.spv", "colored_triangle.frag.spv");
 
     pipelineBuilder.add_attachments_formats({ci_vulkanGlobal.swapchainImageFormat}, ci_vulkanGlobal.depthImage.format);
     pipelineBuilder.add_depth(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
@@ -163,6 +176,13 @@ void VulkanEngine::init() {
     ci_mainPipeline = pipeline.get_pipeline_layout("main_pipeline");
     _cam            = Camera(ci_vulkanGlobal.windowExtent);
     _isInitialized  = true;
+
+    ComputePipelineBuilder computeBuilder = ComputePipelineBuilder::default_builder("skybox.comp.spv");
+    computeBuilder.add_layout_sets({ci_skyboxLayout});
+    computeBuilder.add_push_constant(sizeof(SkyPushConstant));
+
+    ci_skyboxPipeline_compute = pipeline.build_compute_pipeline(computeBuilder, "skybox_pipeline");
+    _isInitialized            = true;
 }
 
 void VulkanEngine::cleanup() {}
@@ -181,6 +201,20 @@ void VulkanEngine::draw() {
     uint32_t imageIndex;
 
     Render::prepare_frame(ci_vulkanGlobal, frame.cmd, frame.queueDoneFence, frame.imageAquired, imageIndex);
+
+    /*Compute*/
+    LayoutContext skyboxSet = ci_resourceContext.get_descriptor_sets_by_layout(ci_skyboxLayout);
+
+    vkCmdBindPipeline(frame.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, ci_skyboxPipeline_compute.pipeline);
+    vkCmdBindDescriptorSets(frame.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, ci_skyboxPipeline_compute.layout, 0, 1, &skyboxSet.sets[frameIndex], 0, nullptr);
+
+    SkyPushConstant sky{};
+    sky.data1 = glm::vec4(1, 0, 0, 1);
+    sky.data2 = glm::vec4(0, 0, 1, 1);
+
+    vkCmdPushConstants(frame.cmd, ci_skyboxPipeline_compute.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(SkyPushConstant), &sky);
+    // execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
+    vkCmdDispatch(frame.cmd, std::ceil(ci_vulkanGlobal.windowExtent.width / 16.0), std::ceil(ci_vulkanGlobal.windowExtent.height / 16.0), 1);
 
     VkClearValue clearValue;
     clearValue.color = {1.0f, 1.0f, 1.0f, 1.0f};

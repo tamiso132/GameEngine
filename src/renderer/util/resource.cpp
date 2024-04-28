@@ -296,8 +296,8 @@ void ResourceBuilder::add_buffer(size_t allocSize, BufferType type, const char *
     ci_bindingCounter++;
 };
 
-void ResourceBuilder::add_image_with_view(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent, const char *objectName, VkImageAspectFlags aspectFlag, VkSampler _Nullable sampler,
-                                          void *data, size_t dataSize, size_t pixelSize) {
+void ResourceBuilder::add_image_with_view(VkFormat format, VkDescriptorType type, VkImageUsageFlags usageFlags, VkExtent3D extent, const char *objectName, VkImageAspectFlags aspectFlag,
+                                          VkSampler _Nullable sampler, void *data, size_t dataSize, size_t pixelSize) {
 
     auto imageInfo = vkinit::image_create_info(format, usageFlags, extent);
 
@@ -308,6 +308,7 @@ void ResourceBuilder::add_image_with_view(VkFormat format, VkImageUsageFlags usa
 
     ImageObjectCreateInfo info;
 
+    info.type          = type;
     info.imageInfo     = imageInfo;
     info.allocInfo     = allocInfo;
     info.imageViewInfo = imageView;
@@ -350,6 +351,7 @@ void ResourceBuilder::add_image_array_with_view(VkFormat format, size_t pixelSiz
     viewInfo.subresourceRange.layerCount = (maxHeight / gridLength) * (maxWidth / gridLength);
 
     ImageObjectCreateInfo imageInfo;
+    imageInfo.type          = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     imageInfo.allocInfo     = {allocInfo};
     imageInfo.imageInfo     = {vkImageInfo};
     imageInfo.bindingNumber = ci_bindingCounter;
@@ -392,25 +394,22 @@ void ResourceContext::init(VulkanContextGlobal vulkanContext, PFN_vkSetDebugUtil
 
     std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> poolRatios;
 
-    poolRatio.ratio = 10;
-    poolRatio.type  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-
+    poolRatio.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolRatios.push_back(poolRatio);
 
-    poolRatio.ratio = 10;
-    poolRatio.type  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolRatio.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolRatios.push_back(poolRatio);
 
-    poolRatio.ratio = 10;
-    poolRatio.type  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-
+    poolRatio.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     poolRatios.push_back(poolRatio);
-    poolRatio.ratio = 10;
-    poolRatio.type  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
 
+    poolRatio.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
     poolRatios.push_back(poolRatio);
-    poolRatio.ratio = 10;
-    poolRatio.type  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+    poolRatio.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolRatios.push_back(poolRatio);
+
+    poolRatio.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     poolRatios.push_back(poolRatio);
 
     VK_CHECK(vmaCreateAllocator(&allocatorInfo, &ci_allocator));
@@ -495,12 +494,12 @@ void ResourceContext::write_to_image_from_cpu(ResourceIndex imageDstHandle, void
 
     TImage imageDst = ci_images[imageDstHandle];
 
-    vkutil::transition_image_layout(cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageDst);
+    vkutil::transition_image_layout(cmd, imageDst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     auto copyRegion = vkinit::buffer_image_copy_info(ci_extents[ci_images[imageDstHandle].extentIndex]);
 
     vkCmdCopyBufferToImage(cmd, ci_buffers[stagingIndex].alloc._buffer, imageDst.alloc._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-    vkutil::transition_image_layout(cmd, newLayout, imageDst);
+    vkutil::transition_image_layout(cmd, imageDst, newLayout);
 
     if (isImmediate) {
         // send it
@@ -561,12 +560,12 @@ void ResourceContext::write_to_texture_array(ResourceBuilder::ImageObjectCreateI
     VmaAllocationCreateInfo dimg_allocinfo = {};
     dimg_allocinfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    vkutil::transition_image_layout(ci_cmdGraphic, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, context);
+    vkutil::transition_image_layout(ci_cmdGraphic, context, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     VkBufferImageCopy copyRegion = vkinit::buffer_image_copy_info(atlasImageInfo.imageInfo.extent, atlasImageInfo.imageInfo.arrayLayers);
 
     vkCmdCopyBufferToImage(ci_cmdGraphic, stagingBuffer._buffer, context.alloc._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-    vkutil::transition_image_layout(ci_cmdGraphic, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, context);
+    vkutil::transition_image_layout(ci_cmdGraphic, context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     vkEndCommandBuffer(ci_cmdGraphic);
 
@@ -702,10 +701,16 @@ ResourceIndex ResourceContext::build_resource_blueprint(ResourceBuilder::Bluepri
         TImage      context = {};
         std::string name    = imageInfo.name + counterTXT;
         context.name        = name;
-        context.type        = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        context.type        = imageInfo.type;
         context.layout      = VK_IMAGE_LAYOUT_UNDEFINED;
         context.layerCount  = imageInfo.imageInfo.arrayLayers;
         context.format      = imageInfo.imageInfo.format;
+
+        // if storage type, only general and present layout is allowed
+        if (context.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
+            // imageInfo.imageInfo.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
+            // context.layout                    = VK_IMAGE_LAYOUT_GENERAL;
+        }
 
         VK_CHECK(vmaCreateImage(ci_allocator, &imageInfo.imageInfo, &imageInfo.allocInfo, &context.alloc._image, &context.alloc._allocation, nullptr));
         imageInfo.imageViewInfo.image = context.alloc._image;

@@ -5,8 +5,12 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
+#include <vector>
+#include <vulkan/vulkan_core.h>
 
 #include "vk_types.h"
+#include "vkutil.h"
 
 // 56 bits for blueprint number
 // 8 bits for bindings
@@ -110,6 +114,7 @@ struct ResourceBuilder {
 
     struct ImageObjectCreateInfo {
         uint8_t                                bindingNumber;
+        VkDescriptorType                       type;
         VmaAllocationCreateInfo                allocInfo;
         VkImageCreateInfo                      imageInfo;
         VkImageViewCreateInfo                  imageViewInfo;
@@ -128,7 +133,7 @@ struct ResourceBuilder {
 
     void add_buffer(size_t allocSize, BufferType type, const char *objectName, MemoryType memory = MemoryType::BestFit, const void *data = nullptr, size_t dataSize = 0, bool copy_data = false);
 
-    void add_image_with_view(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent, const char *objectName, VkImageAspectFlags aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT,
+    void add_image_with_view(VkFormat format, VkDescriptorType type, VkImageUsageFlags usageFlags, VkExtent3D extent, const char *objectName, VkImageAspectFlags aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT,
                              VkSampler _Nullable sampler = nullptr, void *data = nullptr, size_t dataSize = 0, size_t pixelSize = 4);
 
     void      add_image_array_with_view(VkFormat format, size_t pixelSize, size_t gridLength, int maxWidth, int maxHeight, std::string name, uint8_t *pixels, bool copy_data = false,
@@ -143,7 +148,22 @@ struct ResourceBuilder {
 struct ResourceContext {
 
     void init(VulkanContextGlobal vulkanContext, PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtil);
+    void add_existing_resources(std::vector<TImage> images, std::string baseName) {
 
+        for (uint64_t i = 0; i < images.size(); i++) {
+            std::string name          = std::string(baseName) + std::to_string(i);
+            uint64_t    resourceIndex = ci_resourceCounter | (i << 56);
+
+            images[i].name = name;
+
+            vkutil::debug_object_set_name((uint64_t)images[i].alloc._image, VK_OBJECT_TYPE_IMAGE, name.c_str(), ci_device);
+
+            ci_images[resourceIndex] = images[i];
+            ci_resourceIndex[name]   = resourceIndex;
+        }
+
+        ci_resourceCounter++;
+    }
     void copy_to_buffer_visible(ResourceIndex dst, size_t size, const void *src);
 
     void copy_to_buffer_non_visible(ResourceIndex dst, size_t size, const void *src);
@@ -156,9 +176,7 @@ struct ResourceContext {
 
     void write_to_texture_array(ResourceBuilder::ImageObjectCreateInfo atlasImageInfo, TImage &context);
 
-    uint64_t cal_index(ResourceIndex blueprint, uint64_t bindingNumber){
-        return blueprint | bindingNumber << 56;
-    }
+    uint64_t cal_index(ResourceIndex blueprint, uint64_t bindingNumber) { return blueprint | bindingNumber << 56; }
 
     LayoutContext get_descriptor_sets_by_layout(VkDescriptorSetLayout layout) {
         assert(ci_layouts.contains(layout));

@@ -1,9 +1,12 @@
 #pragma once
 
 #include "mesh.h"
+#include <cstddef>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 class PipelineBuilder;
+class ComputePipelineBuilder;
 
 class ShaderContext {
   public:
@@ -20,6 +23,7 @@ class Pipeline {
   public:
     void            init_pipeline(VkDevice device);
     PipelineContext build_pipeline(PipelineBuilder builder, std::string name);
+    PipelineContext build_compute_pipeline(ComputePipelineBuilder builder, std::string name);
 
     PipelineContext get_pipeline_layout(std::string name) { return pipelines[name]; }
 
@@ -63,5 +67,19 @@ class PipelineBuilder {
     PipelineBuilder &add_input_assembly(VkPrimitiveTopology topology);
     PipelineBuilder &add_push_constants(VkShaderStageFlags shaderFlag, uint32_t size);
 
-    static PipelineBuilder default_pipeline_builder(VulkanContextGlobal vulkanContext, std::string vertexShader, std::string fragmentShader);
+    static PipelineBuilder default_builder(VulkanContextGlobal vulkanContext, std::string vertexShader, std::string fragmentShader);
+};
+
+class ComputePipelineBuilder {
+
+  public:
+    ComputePipelineBuilder &add_layout_sets(std::vector<VkDescriptorSetLayout> layoutSets);
+    ComputePipelineBuilder &add_push_constant(size_t size);
+
+    static ComputePipelineBuilder default_builder(std::string computeShaderName);
+
+    std::string                        ci_shaderName;
+    VkComputePipelineCreateInfo        ci_pipelineInfo;
+    std::vector<VkDescriptorSetLayout> ci_layoutSets;
+    std::vector<VkPushConstantRange>   ci_constantRange;
 };
