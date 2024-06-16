@@ -1,4 +1,14 @@
 #include "renderer.h"
+
+#include <SDL.h>
+#include <SDL_video.h>
+#include <SDL_vulkan.h>
+#include <vulkan/vulkan_core.h>
+
+#include <any>
+#include <cstdio>
+#include <memory>
+
 #include "VkBootstrap.h"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -6,14 +16,6 @@
 #include "vk_initializers.h"
 #include "vk_types.h"
 #include "vkutil.h"
-
-#include <SDL.h>
-#include <SDL_video.h>
-#include <SDL_vulkan.h>
-#include <any>
-#include <cstdio>
-#include <memory>
-#include <vulkan/vulkan_core.h>
 
 PFN_vkSetDebugUtilsObjectNameEXT vkutil::cmdSetDebugUtilsObjectNameEXT;
 
@@ -33,7 +35,6 @@ namespace Render {
     };
 
     void init(VulkanContextGlobal &vulkanContext, VmaAllocator &allocator, vkb::DispatchTable &table, ResourceContext &resourceContext, Mesh &meshes, void *newFeatures) {
-
         printf("Validation Layer: %B\n", validationLayer);
         vulkanContext = {};
 
@@ -61,14 +62,14 @@ namespace Render {
         vkb::Instance vkb_inst = inst_ret.value();
 
         // grab the instance
-        vulkanContext.instance        = vkb_inst.instance;
+        vulkanContext.instance = vkb_inst.instance;
         vulkanContext.debug_messenger = vkb_inst.debug_messenger;
 
         SDL_Vulkan_CreateSurface(vulkanContext.window, vulkanContext.instance, &vulkanContext.surface);
 
         VkPhysicalDeviceFeatures features;
 
-        features.imageCubeArray    = true;
+        features.imageCubeArray = true;
         features.samplerAnisotropy = true;
         VkPhysicalDeviceVulkan11Features features_11{};
         features_11.shaderDrawParameters = true;
@@ -81,7 +82,7 @@ namespace Render {
         features_12.bufferDeviceAddress = true;
 
         vkb::PhysicalDeviceSelector selector{vkb_inst};
-        vkb::PhysicalDevice         physicalDevice = selector.set_minimum_version(1, 3)
+        vkb::PhysicalDevice physicalDevice = selector.set_minimum_version(1, 3)
                                                  .set_required_features(features)
                                                  .set_required_features_11(features_11)
                                                  .set_required_features_12(features_12)
@@ -93,7 +94,7 @@ namespace Render {
         // create the final vulkan device
 
         vkb::DeviceBuilder deviceBuilder{physicalDevice};
-        vkb::Device        vkbDevice;
+        vkb::Device vkbDevice;
         if (newFeatures != nullptr) {
             vkbDevice = deviceBuilder.add_pNext(newFeatures).build().value();
         } else {
@@ -105,21 +106,21 @@ namespace Render {
         vkutil::cmdSetDebugUtilsObjectNameEXT = table.fp_vkSetDebugUtilsObjectNameEXT;
 
         // Get the VkDevice handle used in the rest of a vulkan application
-        vulkanContext.device    = vkbDevice.device;
+        vulkanContext.device = vkbDevice.device;
         vulkanContext.chosenGPU = physicalDevice.physical_device;
 
         // use vkbootstrap to get a Graphics queue
-        vulkanContext.graphicQueue.queue  = vkbDevice.get_queue(vkb::QueueType::graphics).value();
+        vulkanContext.graphicQueue.queue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
         vulkanContext.transferQueue.queue = vkbDevice.get_queue(vkb::QueueType::transfer).value();
 
-        vulkanContext.graphicQueue.queueIndex  = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+        vulkanContext.graphicQueue.queueIndex = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
         vulkanContext.transferQueue.queueIndex = vkbDevice.get_queue_index(vkb::QueueType::transfer).value();
 
         // initialize the memory allocator
         VmaAllocatorCreateInfo allocatorInfo = {};
-        allocatorInfo.physicalDevice         = vulkanContext.chosenGPU;
-        allocatorInfo.device                 = vulkanContext.device;
-        allocatorInfo.instance               = vulkanContext.instance;
+        allocatorInfo.physicalDevice = vulkanContext.chosenGPU;
+        allocatorInfo.device = vulkanContext.device;
+        allocatorInfo.instance = vulkanContext.instance;
         vmaCreateAllocator(&allocatorInfo, &allocator);
 
         vkb::SwapchainBuilder swapchainBuilder{vulkanContext.chosenGPU, vulkanContext.device, vulkanContext.surface};
@@ -131,8 +132,8 @@ namespace Render {
                                           .value();
 
         // store swapchain and its related images
-        vulkanContext.swapchain           = vkbSwapchain.swapchain;
-        vulkanContext.swapchainImages     = vkbSwapchain.get_images().value();
+        vulkanContext.swapchain = vkbSwapchain.swapchain;
+        vulkanContext.swapchainImages = vkbSwapchain.get_images().value();
         vulkanContext.swapchainImageViews = vkbSwapchain.get_image_views().value();
 
         vulkanContext.swapchainImageFormat = vkbSwapchain.image_format;
@@ -149,9 +150,8 @@ namespace Render {
 
         // for the depth image, we want to allocate it from gpu local memory
         VmaAllocationCreateInfo dimg_allocinfo = {};
-        dimg_allocinfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
-        dimg_allocinfo.requiredFlags           = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
+        dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        dimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         // allocate and create the image
         vmaCreateImage(allocator, &dimg_info, &dimg_allocinfo, &vulkanContext.depthImage.alloc._image, &vulkanContext.depthImage.alloc._allocation, nullptr);
 
@@ -160,33 +160,31 @@ namespace Render {
 
         VK_CHECK(vkCreateImageView(vulkanContext.device, &dview_info, nullptr, &vulkanContext.depthImage.view));
         vulkanContext.pool = vkutil::create_pool(vulkanContext, vulkanContext.graphicQueue.queueIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-        vulkanContext.cmd  = vkutil::create_cmd(vulkanContext, vulkanContext.graphicQueue.queueIndex, vulkanContext.pool);
+        vulkanContext.cmd = vkutil::create_cmd(vulkanContext, vulkanContext.graphicQueue.queueIndex, vulkanContext.pool);
 
         resourceContext.init(vulkanContext, table.fp_vkSetDebugUtilsObjectNameEXT);
         meshes.init_mesh(resourceContext);
 
         std::vector<TImage> swapchainImagesT;
-        std::string         name = "swapchain_image";
+        std::string name = "swapchain_image";
 
         for (int i = 0; i < vulkanContext.swapchainImages.size(); i++) {
-
             TImage tImage{};
 
-            tImage.layerCount   = 1;
-            tImage.format       = vulkanContext.swapchainImageFormat;
+            tImage.layerCount = 1;
+            tImage.format = vulkanContext.swapchainImageFormat;
             tImage.alloc._image = vulkanContext.swapchainImages[i];
-            tImage.view         = vulkanContext.swapchainImageViews[i];
-            tImage.type         = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            tImage.view = vulkanContext.swapchainImageViews[i];
+            tImage.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 
             swapchainImagesT.push_back(tImage);
         }
         resourceContext.add_existing_resources(swapchainImagesT, "swapchain");
     }
 
-    void add_tracy(VulkanContextGlobal &vulkanContext){};
+    void add_tracy(VulkanContextGlobal &vulkanContext) {};
 
     void add_imgui(VulkanContextGlobal &vulkanContext, VkDescriptorPool &imguiDescriptorPool) {
-
         VkDescriptorPoolSize pool_sizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
                                              {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
                                              {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
@@ -200,11 +198,11 @@ namespace Render {
                                              {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
 
         VkDescriptorPoolCreateInfo pool_info = {};
-        pool_info.sType                      = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        pool_info.flags                      = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-        pool_info.maxSets                    = 1000;
-        pool_info.poolSizeCount              = (uint32_t)std::size(pool_sizes);
-        pool_info.pPoolSizes                 = pool_sizes;
+        pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+        pool_info.maxSets = 1000;
+        pool_info.poolSizeCount = (uint32_t)std::size(pool_sizes);
+        pool_info.pPoolSizes = pool_sizes;
 
         VK_CHECK(vkCreateDescriptorPool(vulkanContext.device, &pool_info, nullptr, &imguiDescriptorPool));
 
@@ -218,15 +216,15 @@ namespace Render {
 
         // this initializes imgui for Vulkan
         ImGui_ImplVulkan_InitInfo init_info = {};
-        init_info.Instance                  = vulkanContext.instance;
-        init_info.PhysicalDevice            = vulkanContext.chosenGPU;
-        init_info.Device                    = vulkanContext.device;
-        init_info.Queue                     = vulkanContext.graphicQueue.queue;
-        init_info.DescriptorPool            = imguiDescriptorPool;
-        init_info.MinImageCount             = 3;
-        init_info.ImageCount                = 3;
-        init_info.UseDynamicRendering       = true;
-        init_info.ColorAttachmentFormat     = vulkanContext.swapchainImageFormat;
+        init_info.Instance = vulkanContext.instance;
+        init_info.PhysicalDevice = vulkanContext.chosenGPU;
+        init_info.Device = vulkanContext.device;
+        init_info.Queue = vulkanContext.graphicQueue.queue;
+        init_info.DescriptorPool = imguiDescriptorPool;
+        init_info.MinImageCount = 3;
+        init_info.ImageCount = 3;
+        init_info.UseDynamicRendering = true;
+        init_info.ColorAttachmentFormat = vulkanContext.swapchainImageFormat;
 
         init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
@@ -276,25 +274,25 @@ namespace Render {
 
         VK_CHECK(vkEndCommandBuffer(cmd));
 
-        VkSubmitInfo         submit    = vkinit::submit_info(&cmd);
+        VkSubmitInfo submit = vkinit::submit_info(&cmd);
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
         submit.pWaitDstStageMask = &waitStage;
 
         submit.waitSemaphoreCount = 1;
-        submit.pWaitSemaphores    = &imageIsAquired;
+        submit.pWaitSemaphores = &imageIsAquired;
 
         submit.signalSemaphoreCount = 1;
-        submit.pSignalSemaphores    = &renderIsDone;
+        submit.pSignalSemaphores = &renderIsDone;
 
         VK_CHECK(vkQueueSubmit(vulkanContext.graphicQueue.queue, 1, &submit, queueIsDone));
 
         VkPresentInfoKHR presentInfo = vkinit::present_info();
 
-        presentInfo.pSwapchains    = &vulkanContext.swapchain;
+        presentInfo.pSwapchains = &vulkanContext.swapchain;
         presentInfo.swapchainCount = 1;
 
-        presentInfo.pWaitSemaphores    = &renderIsDone;
+        presentInfo.pWaitSemaphores = &renderIsDone;
         presentInfo.waitSemaphoreCount = 1;
 
         presentInfo.pImageIndices = &imageIndex;
@@ -302,4 +300,4 @@ namespace Render {
         VK_CHECK(vkQueuePresentKHR(vulkanContext.graphicQueue.queue, &presentInfo));
         FrameMark;
     }
-} // namespace Render
+}  // namespace Render

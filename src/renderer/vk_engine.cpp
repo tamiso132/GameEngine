@@ -47,7 +47,6 @@ void VulkanEngine::init() {
     vkb::DispatchTable table;
 
     Render::init(ci_vulkanGlobal, _allocator, table, ci_resourceContext, ci_meshes);
-
     ci_swapChainBaseIndex = ci_resourceContext.get_resource_by_name("swapchain0");
 
     cmdBeginRenderingKHR = table.fp_vkCmdBeginRenderingKHR;

@@ -71,7 +71,8 @@
         "thread": "cpp",
         "typeinfo": "cpp",
         "valarray": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "ios": "cpp"
     },
     "C_Cpp.clang_format_style": "{ BasedOnStyle: Google, ColumnLimit: 0, IndentWidth: 4, NamespaceIndentation: All }",
     "editor.tokenColorCustomizations": {
